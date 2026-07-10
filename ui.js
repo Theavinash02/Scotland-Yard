@@ -683,3 +683,22 @@ function boot(){
   document.addEventListener('keydown',function(e){if(e.key==='Escape'){var c=$('#chooser');if(c)c.hidden=true;}});
 }
 if(typeof document!=='undefined')boot();
+
+// Phase 3 — "Locate current turn": centre the camera on whoever is to move,
+// but never reveal Mr. X's hidden position (same visibility rule as the rest
+// of the UI). New function + one event listener; nothing existing is changed.
+function focusCurrentTurn(){
+  if(!G||G.winner)return;
+  if(G.turn===-1){
+    if(canSeeMrx()){
+      var p=POS[G.mrx.st];
+      MAP3D.focusStation(p.x,p.y);
+    }else{
+      toast('Mr. X\'s position is hidden this round');
+    }
+  }else{
+    var q=POS[G.dets[G.turn].st];
+    MAP3D.focusStation(q.x,q.y);
+  }
+}
+if(typeof document!=='undefined'){ var _locBtn=$('#locateBtn'); if(_locBtn)_locBtn.onclick=function(){sfx('click');focusCurrentTurn();}; }
