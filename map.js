@@ -343,14 +343,15 @@ var MAP3D={
         self.fps.frames=0; self.fps.last=now;
         window.__map3dFps=self.fps.value;
       }
-      // gentle pulse on legal-move rings
+      // gentle pulse on legal-move rings + current-piece glow
       if(self.hlGroup){
         var pulse=0.6+0.4*Math.abs(Math.sin(now*0.004));
         for(var i=0;i<self.hlGroup.children.length;i++){
           var ch=self.hlGroup.children[i];
-          if(ch.userData.pulse && ch.material)ch.material.opacity=pulse;
+          if(ch.userData.pulse && ch.material)ch.material.opacity=(ch.userData.pulseBase||1)*pulse;
         }
       }
+      self._tickPieces(now); // Phase 4 piece tween / bob / pop
       self.renderer.render(self.scene, self.camera);
     }
     this.raf=requestAnimationFrame(frame);
@@ -368,31 +369,146 @@ var MAP3D={
   },
 
   /* ============ public API used by ui.js ============ */
+  /* ---- Phase 4 piece models ---- */
+  _numberBadgeTexture:function(num, hex){
+    var c=document.createElement('canvas'); c.width=c.height=64;
+    var x=c.getContext('2d');
+    x.fillStyle='#'+('000000'+(hex>>>0).toString(16)).slice(-6);
+    x.fillRect(0,0,64,64);
+    x.strokeStyle='rgba(0,0,0,0.35)'; x.lineWidth=4; x.strokeRect(2,2,60,60);
+    x.font='700 44px Georgia, "Times New Roman", serif';
+    x.textAlign='center'; x.textBaseline='middle';
+    x.lineWidth=5; x.strokeStyle='rgba(0,0,0,0.75)'; x.strokeText(''+num,32,35);
+    x.fillStyle='#ffffff'; x.fillText(''+num,32,35);
+    return new THREE.CanvasTexture(c);
+  },
+  _makeTaxi:function(hex, num){
+    var col=new THREE.Color(hex);
+    var root=new THREE.Group();
+    var shadow=new THREE.Mesh(new THREE.CircleGeometry(11,20),
+      new THREE.MeshBasicMaterial({color:0x000000, transparent:true, opacity:0.34, depthWrite:false}));
+    shadow.rotation.x=-Math.PI/2; shadow.position.y=0.3; root.add(shadow);
+    var body=new THREE.Group(); root.add(body);
+    var paint=new THREE.MeshStandardMaterial({color:col, roughness:0.45, metalness:0.28});
+    var darkPaint=new THREE.MeshStandardMaterial({color:col.clone().multiplyScalar(0.68), roughness:0.5, metalness:0.22});
+    var lower=new THREE.Mesh(new THREE.BoxGeometry(16,6,9), paint); lower.position.y=5; body.add(lower);
+    var glass=new THREE.MeshStandardMaterial({color:0xBFE3F2, roughness:0.12, metalness:0.55, transparent:true, opacity:0.82});
+    var band=new THREE.Mesh(new THREE.BoxGeometry(11,3.4,8.6), glass); band.position.set(-1,8.5,0); body.add(band);
+    var roof=new THREE.Mesh(new THREE.BoxGeometry(10,3.6,8), darkPaint); roof.position.set(-1,10.7,0); body.add(roof);
+    var wg=new THREE.CylinderGeometry(2.3,2.3,1.8,12); wg.rotateX(Math.PI/2);
+    var wm=new THREE.MeshStandardMaterial({color:0x14161a, roughness:0.85});
+    [[-5,4.2],[5,4.2],[-5,-4.2],[5,-4.2]].forEach(function(p){ var wl=new THREE.Mesh(wg,wm); wl.position.set(p[0],2.2,p[1]); body.add(wl); });
+    // roof light carrying the detective number, tinted with the piece colour
+    var rl=new THREE.Mesh(new THREE.BoxGeometry(5,2.8,5),
+      new THREE.MeshStandardMaterial({map:this._numberBadgeTexture(num,hex), emissive:col, emissiveIntensity:0.55, roughness:0.5}));
+    rl.position.set(-1,13.3,0); body.add(rl);
+    root.userData={body:body, bob:Math.random()*6.283};
+    return root;
+  },
+  _makeCloak:function(ghost){
+    var op=ghost?0.5:1;
+    // ghost uses a pale-grey coat so the silhouette still reads as a faded
+    // afterimage against the dark ground (a near-black coat would vanish)
+    var dark=new THREE.MeshStandardMaterial({color:ghost?0x9aa4b4:0x0B0D10, roughness:0.7, metalness:0.1,
+      emissive:ghost?0x2a3140:0x201607, emissiveIntensity:ghost?0.5:0.28, transparent:ghost, opacity:op, depthWrite:!ghost});
+    var gold=new THREE.MeshStandardMaterial({color:0xF2C230, emissive:0xF2C230, emissiveIntensity:ghost?0.55:0.85,
+      roughness:0.4, transparent:ghost, opacity:op, depthWrite:!ghost});
+    var root=new THREE.Group();
+    if(!ghost){
+      var shadow=new THREE.Mesh(new THREE.CircleGeometry(9,18),
+        new THREE.MeshBasicMaterial({color:0x000000, transparent:true, opacity:0.3, depthWrite:false}));
+      shadow.rotation.x=-Math.PI/2; shadow.position.y=0.3; root.add(shadow);
+    }
+    var body=new THREE.Group(); root.add(body);
+    var coat=new THREE.Mesh(new THREE.CylinderGeometry(4.5,8,15,14), dark); coat.position.y=8.5; body.add(coat);
+    var sh=new THREE.Mesh(new THREE.CylinderGeometry(6,6,3,14), dark); sh.position.y=15; body.add(sh);
+    var collar=new THREE.Mesh(new THREE.TorusGeometry(4.6,0.5,8,18), gold); collar.rotation.x=Math.PI/2; collar.position.y=16.4; body.add(collar);
+    var head=new THREE.Mesh(new THREE.SphereGeometry(3,14,12), dark); head.position.y=19; body.add(head);
+    var brim=new THREE.Mesh(new THREE.CylinderGeometry(6,6,0.7,18), dark); brim.position.y=21; body.add(brim);
+    var crown=new THREE.Mesh(new THREE.CylinderGeometry(3.4,3.9,3.6,14), dark); crown.position.y=22.8; body.add(crown);
+    var hatband=new THREE.Mesh(new THREE.TorusGeometry(3.75,0.42,8,18), gold); hatband.rotation.x=Math.PI/2; hatband.position.y=21.7; body.add(hatband);
+    root.userData={body:body, bob:Math.random()*6.283};
+    return root;
+  },
+
+  /* Phase 4 — persistent piece models with legitimate-move tweening.
+     Identity keys: detectives by num ('det'+num), Mr. X by kind ('mrx' /
+     'mrx-ghost'). A piece only tweens between positions when its key
+     persists across two calls (a genuinely known move). Any appear /
+     disappear / kind-change pops in/out IN PLACE — never a flight — so
+     Mr. X's concealed route can't leak. Signature/inputs are unchanged. */
   setPieces:function(list){
     if(!this.built)return;
-    this._clearGroup(this.piecesGroup);
-    for(var i=0;i<list.length;i++){
-      var it=list[i], m;
+    if(!this.pieceObjs)this.pieceObjs={};
+    // reset when the game object itself changes (new game / net resync) so
+    // pieces pop fresh instead of sliding across from a previous game.
+    if(this._piecesG!==G){
+      for(var kk in this.pieceObjs){ this.piecesGroup.remove(this.pieceObjs[kk].root); }
+      this.pieceObjs={}; this._piecesG=G;
+    }
+    // fan-out for detectives sharing one station
+    var byStation={};
+    list.forEach(function(it){ if(it.kind==='det'){ var s=Math.round(it.x)+'_'+Math.round(it.y); (byStation[s]=byStation[s]||[]).push(it); } });
+    var targets={};
+    list.forEach(function(it){
+      var tx=it.x, tz=it.y, key;
       if(it.kind==='det'){
-        m=new THREE.Mesh(
-          new THREE.CylinderGeometry(8,8,12,24),
-          new THREE.MeshStandardMaterial({color:new THREE.Color(it.color), roughness:0.5, metalness:0.1})
-        );
-        m.position.set(it.x, 10, it.y);
-      }else if(it.kind==='mrx'){
-        m=new THREE.Mesh(
-          new THREE.CylinderGeometry(9,9,14,24),
-          new THREE.MeshStandardMaterial({color:0x0B0D10, emissive:0xF2C230, emissiveIntensity:0.28, roughness:0.4, metalness:0.2})
-        );
-        m.position.set(it.x, 11, it.y);
-      }else{ // mrx-ghost
-        m=new THREE.Mesh(
-          new THREE.CylinderGeometry(9,9,3,24),
-          new THREE.MeshStandardMaterial({color:0x0B0D10, transparent:true, opacity:0.5, roughness:0.6})
-        );
-        m.position.set(it.x, 6, it.y);
+        key='det'+it.num;
+        var grp=byStation[Math.round(it.x)+'_'+Math.round(it.y)];
+        if(grp.length>1){ var idx=grp.indexOf(it), ang=(idx/grp.length)*Math.PI*2; tx+=Math.cos(ang)*10; tz+=Math.sin(ang)*10; }
+      }else{ key=it.kind; }
+      targets[key]={kind:it.kind, num:it.num, color:it.color, tx:tx, tz:tz};
+    });
+    // create / move
+    for(var key in targets){
+      var t=targets[key], obj=this.pieceObjs[key];
+      if(obj){
+        // if this key was mid-pop-out and reappeared, cancel the removal and
+        // pop it back in place (do not tween — a reappearance is not a move)
+        if(obj.dead){ obj.pop={t0:performance.now(), dur:200, dir:1}; obj.dead=false; obj.tween=null; obj.curX=t.tx; obj.curZ=t.tz; }
+        else if(Math.abs(t.tx-obj.tgtX)>0.5 || Math.abs(t.tz-obj.tgtZ)>0.5){
+          obj.tween={fx:obj.curX, fz:obj.curZ, tx:t.tx, tz:t.tz, t0:performance.now(), dur:520};
+        }
+        obj.tgtX=t.tx; obj.tgtZ=t.tz;
+      }else{
+        var root=(t.kind==='det')?this._makeTaxi(t.color,t.num):this._makeCloak(t.kind==='mrx-ghost');
+        root.position.set(t.tx,0,t.tz); root.scale.setScalar(0.01);
+        this.piecesGroup.add(root);
+        this.pieceObjs[key]={root:root, kind:t.kind, curX:t.tx, curZ:t.tz, tgtX:t.tx, tgtZ:t.tz,
+          tween:null, pop:{t0:performance.now(), dur:260, dir:1}, bob:root.userData.bob, dead:false};
       }
-      this.piecesGroup.add(m);
+    }
+    // remove pieces no longer present — pop out in place (no flight)
+    for(var key2 in this.pieceObjs){
+      var o2=this.pieceObjs[key2];
+      if(!targets[key2] && !o2.dead){ o2.pop={t0:performance.now(), dur:220, dir:-1}; o2.dead=true; }
+    }
+  },
+  /* per-frame piece update (tween + idle bob + pop), called from the loop */
+  _tickPieces:function(now){
+    if(!this.pieceObjs)return;
+    for(var pk in this.pieceObjs){
+      var o=this.pieceObjs[pk];
+      if(o.tween){
+        var k=(now-o.tween.t0)/o.tween.dur; if(k>1)k=1;
+        var e=k<0.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+        o.curX=o.tween.fx+(o.tween.tx-o.tween.fx)*e;
+        o.curZ=o.tween.fz+(o.tween.tz-o.tween.fz)*e;
+        if(k>=1)o.tween=null;
+      }else{ o.curX=o.tgtX; o.curZ=o.tgtZ; }
+      o.root.position.x=o.curX; o.root.position.z=o.curZ;
+      var bg=o.root.userData.body;
+      if(bg)bg.position.y=Math.sin(now*0.003+o.bob)*0.8;
+      if(o.pop){
+        var pk2=(now-o.pop.t0)/o.pop.dur; if(pk2>1)pk2=1;
+        var ee=1-Math.pow(1-pk2,3);
+        var s=o.pop.dir>0?(0.01+0.99*ee):(1-ee);
+        o.root.scale.setScalar(Math.max(0.001,s));
+        if(pk2>=1){
+          if(o.pop.dir<0){ this.piecesGroup.remove(o.root); delete this.pieceObjs[pk]; }
+          else o.pop=null;
+        }
+      }
     }
   },
 
@@ -425,6 +541,16 @@ var MAP3D={
       this.hlGroup.add(ring);
     }
     if(currentRing){
+      // soft pulsing glow so the current piece reads clearly (enhances the
+      // existing currentRing marker; not a second highlight system)
+      var glow=new THREE.Mesh(
+        new THREE.CircleGeometry(21, 26),
+        new THREE.MeshBasicMaterial({color:0xF2C230, transparent:true, opacity:0.16, side:THREE.DoubleSide, depthWrite:false})
+      );
+      glow.rotation.x=-Math.PI/2;
+      glow.position.set(currentRing.x, 2.5, currentRing.y);
+      glow.userData.pulse=true; glow.userData.pulseBase=0.18;
+      this.hlGroup.add(glow);
       ring=new THREE.Mesh(
         new THREE.RingGeometry(15, 17, 30),
         new THREE.MeshBasicMaterial({color:0xE9EEF4, transparent:true, opacity:0.8, side:THREE.DoubleSide, depthWrite:false})
