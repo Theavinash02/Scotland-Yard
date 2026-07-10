@@ -10,9 +10,9 @@ Core game loop, rules engine, bot AI, hot-seat and online multiplayer, animated 
 
 ## Running it
 
-It's one HTML file with no build step and no dependencies.
+Plain HTML/CSS/JS, no build step and no dependencies.
 
-- **Quickest:** open `scotland_yard.html` directly in a browser.
+- **Quickest:** open `index.html` directly in a browser.
 - **Recommended:** serve it over `http(s)://` (e.g. `npx serve .` or any static file server) rather than `file://`, since some browsers restrict Web Audio / clipboard APIs on `file://`.
 
 Online rooms (see below) only work when the page is running inside an environment that exposes a `window.storage` key-value API (currently: the Claude.ai artifact viewer). Outside that environment the app detects this automatically and disables the "Create room" / "Join room" tabs, with a message explaining why — local hot-seat play and bots are unaffected.
@@ -48,7 +48,18 @@ Station positions and the 467 taxi/bus/underground/ferry connections come from a
 - Plain HTML/CSS/JS, no framework, no build step, no external JS dependencies. Google Fonts (Jost, IBM Plex Mono, Marcellus) are the only external requests besides the online-room storage calls.
 - Map and pieces are rendered as SVG; pan/zoom is done by mutating `viewBox`, with pointer events used for both drag-panning and tap-to-select (so panning and tapping a station don't conflict).
 - Sound effects are synthesized at runtime with the Web Audio API — no audio files.
-- Rules engine (`newGame`, `applyMrx`, `applyDet`, `possibleSet`, bot pickers) is written as pure functions over a plain game-state object, independent of the DOM/rendering code, which is what made it possible to headlessly simulate hundreds of full games for testing.
+- Rules engine (`newGame`, `applyMrx`, `applyDet`, `possibleSet`) is written as pure functions over a plain game-state object, independent of the DOM/rendering code, which is what made it possible to headlessly simulate hundreds of full games for testing.
+
+## Code layout
+
+The app is split into plain `<script>`-tag modules (no bundler, loaded in this order):
+
+- `index.html` — page layout/markup only.
+- `styles.css` — all styling.
+- `engine.js` — the station graph (positions/connections), distances, and the pure-function rules engine (`newGame`, `applyMrx`, `applyDet`, `possibleSet`, move generation). No DOM access.
+- `bots.js` — the easy/hard bot pickers for Mr. X and the detectives, built on top of `engine.js`. No DOM access.
+- `map.js` — SVG map construction, pan/zoom, and vehicle movement animation.
+- `ui.js` — game/UI state, sound effects, rendering, the lobby/hot-seat/online-room flow, and boot.
 
 ## Known limitations
 
