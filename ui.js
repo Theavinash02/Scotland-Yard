@@ -113,33 +113,27 @@ function render(){
   renderPieces();renderBanner();renderPlayers();renderLog();renderCtrls();renderHighlights();
 }
 function renderPieces(){
-  var h='';
+  var pieces=[];
   G.dets.forEach(function(d,i){
     var p=POS[d.st],c=DCOL[i%5];
-    h+='<g transform="translate('+p.x+','+p.y+')">'+
-       '<circle r="8" fill="'+c+'" stroke="#fff" stroke-width="2"/>'+
-       '<text y="3.4" text-anchor="middle" font-size="9" font-weight="700" fill="#fff" class="st-num">'+(i+1)+'</text></g>';
+    pieces.push({kind:'det', x:p.x, y:p.y, color:c, num:i+1});
   });
   if(canSeeMrx()){
     var p=POS[G.mrx.st];
-    h+='<g transform="translate('+p.x+','+p.y+')">'+
-       '<circle r="9" fill="#0B0D10" stroke="#F2C230" stroke-width="2"/>'+
-       '<text y="3.8" text-anchor="middle" font-size="10" font-weight="700" fill="#F2C230" class="st-num">X</text></g>';
+    pieces.push({kind:'mrx', x:p.x, y:p.y});
   }else if(G.rev){
     var q=POS[G.rev];
-    h+='<g transform="translate('+q.x+','+q.y+')" opacity="0.85">'+
-       '<circle r="10" fill="rgba(11,13,16,0.12)" stroke="#0B0D10" stroke-width="1.6" stroke-dasharray="4 3"/>'+
-       '<text y="3.6" text-anchor="middle" font-size="9" font-weight="700" fill="#0B0D10" class="st-num">X?</text></g>';
+    pieces.push({kind:'mrx-ghost', x:q.x, y:q.y});
   }
-  LAYER.pieces.innerHTML=h;
-  // possible set halos
-  var ph='';
+  MAP3D.setPieces(pieces);
+
+  var spots=[];
   if(UI.showPs&&!G.winner){
     possibleSet(G).forEach(function(s){
-      ph+='<circle class="psring" cx="'+POS[s].x+'" cy="'+POS[s].y+'" r="12"/>';
+      spots.push({x:POS[s].x, y:POS[s].y});
     });
   }
-  LAYER.ps.innerHTML=ph;
+  MAP3D.setPossibleSpots(spots);
 }
 function renderBanner(){
   var b=$('#banner');
@@ -209,20 +203,19 @@ function renderCtrls(){
   ps.textContent=UI.showPs?'Hide possible Mr. X spots ('+(n===null?'':n)+')':'Show possible Mr. X spots';
 }
 function renderHighlights(){
-  var h='';
+  var rings=[], currentRing=null;
   if(G&&!G.winner&&iControlCurrent()&&!UI.busy&&(!UI.privacy||G.turn!==-1||UI.mrxViewing)){
     var moves=G.turn===-1?mrxMoves(G):detMoves(G,G.turn);
     var seen={};
     moves.forEach(function(m){
       if(seen[m.to])return;seen[m.to]=1;
-      h+='<circle class="hlring" cx="'+POS[m.to].x+'" cy="'+POS[m.to].y+'" r="14.5"/>';
+      rings.push({x:POS[m.to].x, y:POS[m.to].y});
     });
-    // ring current piece
     var st=G.turn===-1?G.mrx.st:G.dets[G.turn].st;
     if(G.turn!==-1||canSeeMrx())
-      h+='<circle cx="'+POS[st].x+'" cy="'+POS[st].y+'" r="16" fill="none" stroke="#E9EEF4" stroke-width="1.4" stroke-dasharray="3 3" pointer-events="none"/>';
+      currentRing={x:POS[st].x, y:POS[st].y};
   }
-  LAYER.hl.innerHTML=h;
+  MAP3D.setHighlights(rings, currentRing);
 }
 /* ---------------- toast / modal ---------------- */
 var toastT=null;
