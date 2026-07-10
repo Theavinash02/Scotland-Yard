@@ -249,14 +249,15 @@ function openChooser(moves,ev){
   chooserOpenedAt=Date.now();
   var ch=$('#chooser'),wrap=$('#mapwrap').getBoundingClientRect();
   var names={t:'Taxi',b:'Bus',u:'Underground',x:'Black ticket'};
-  var h='';
+  var icons={t:'🚕',b:'🚌',u:'🚇',x:'⚫'};
+  var h='<div class="chooserhead">Travel by</div>';
   moves.forEach(function(m,i){
     var extra=m.tk==='x'?'<small>'+G.mrx.black+' left</small>':'';
-    h+='<button class="tkbtn '+m.tk+'" data-i="'+i+'">'+names[m.tk]+' → '+m.to+extra+'</button>';
+    h+='<button class="tkbtn '+m.tk+'" data-i="'+i+'"><span class="tkico">'+icons[m.tk]+'</span>'+names[m.tk]+' → '+m.to+extra+'</button>';
   });
   ch.innerHTML=h;ch.hidden=false;
   var x=Math.min(wrap.width-190,Math.max(8,ev.clientX-wrap.left+10));
-  var y=Math.min(wrap.height-46*moves.length-16,Math.max(8,ev.clientY-wrap.top+10));
+  var y=Math.min(wrap.height-46*moves.length-40,Math.max(8,ev.clientY-wrap.top+10));
   ch.style.left=x+'px';ch.style.top=y+'px';
   Array.prototype.forEach.call(ch.querySelectorAll('button'),function(b){
     b.onclick=function(e){e.stopPropagation();ch.hidden=true;commitMove(moves[+b.dataset.i]);};
@@ -311,12 +312,12 @@ function afterAnyMove(){
   maybeBot();
 }
 function askPassToMrx(){
-  showModal('<h2>Pass the device to Mr. X</h2><p>Detectives, look away — Mr. X\'s position appears next.</p>'+
+  showModal('<div class="handoff"><div class="handoff-icon">🕵️</div><h2>Pass the device to Mr. X</h2><p>Detectives, look away — Mr. X\'s position appears next.</p></div>'+
     '<button class="btn" id="mOK">I\'m Mr. X — show the board</button>');
   $('#mOK').onclick=function(){hideModal();UI.mrxViewing=true;sfx('click');render();};
 }
 function askPassToDets(){
-  showModal('<h2>Hand the device back</h2><p>Mr. X\'s position is hidden again. Detectives, you\'re up.</p>'+
+  showModal('<div class="handoff"><div class="handoff-icon">🔎</div><h2>Hand the device back</h2><p>Mr. X\'s position is hidden again. Detectives, you\'re up.</p></div>'+
     '<button class="btn" id="mOK">Continue</button>');
   $('#mOK').onclick=function(){hideModal();sfx('click');render();maybeBot();};
 }
