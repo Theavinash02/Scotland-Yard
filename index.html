@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Scotland Yard — Night Chase Across London</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;600;800&family=IBM+Plex+Mono:wght@500;700&family=Marcellus&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header id="hdr">
+  <div class="roundel"><span></span></div>
+  <div class="ttl"><h1>SCOTLAND YARD</h1><div class="sub">night chase across london</div></div>
+  <div class="hdr-right">
+    <span id="roomBadge" class="badge" hidden></span>
+    <button id="sndBtn" class="ghostbtn" title="Toggle sound">🔊 Sound</button>
+    <button id="helpBtn" class="ghostbtn">Rules</button>
+  </div>
+</header>
+
+<main id="screen-lobby">
+  <div class="lobbywrap">
+    <div class="card hero">
+      <h2>Set up a chase</h2>
+      <p class="muted">One fugitive. Up to five detectives. 24 rounds across 199 stations.</p>
+      <label>Your name <input id="nameIn" maxlength="14" placeholder="e.g. Avi"></label>
+      <div class="tabs">
+        <button class="tab on" data-tab="local">Local / vs bots</button>
+        <button class="tab" data-tab="host">Create room</button>
+        <button class="tab" data-tab="join">Join room</button>
+      </div>
+      <div id="tab-local" class="tabpane">
+        <div id="seatList"></div>
+        <button id="startLocal" class="btn big">Start game</button>
+        <p class="tiny muted" style="margin-top:8px">Multiple humans on this device play hot-seat — the app blanks Mr.&nbsp;X's position between turns.</p>
+      </div>
+      <div id="tab-host" class="tabpane" hidden>
+        <div id="netUnavail" class="warn" hidden>Online rooms need the shared-storage API of the Claude artifact viewer, which isn't available where this file is running. Local play and bots work fully.</div>
+        <div id="hostArea">
+          <p class="tiny muted" style="margin-bottom:6px">A room stores its state in shared storage — anyone running this artifact can join with the code. Turns sync every couple of seconds.</p>
+          <button id="createRoom" class="btn big" style="margin-top:4px">Create room</button>
+          <div id="hostLobby" hidden>
+            <div class="roomcode">Room code <b id="codeOut"></b><button id="copyCode" class="ghostbtn">copy</button></div>
+            <div id="seatListNet"></div>
+            <button id="startNet" class="btn big">Start game</button>
+            <p class="tiny muted" style="margin-top:8px">Unclaimed “open” seats become hard bots at start. Empty seats are skipped.</p>
+          </div>
+        </div>
+      </div>
+      <div id="tab-join" class="tabpane" hidden>
+        <div id="netUnavail2" class="warn" hidden>Online rooms aren't available in this environment — try the local tab.</div>
+        <label>Room code <input id="codeIn" maxlength="5" placeholder="ABCDE" style="text-transform:uppercase;letter-spacing:4px;font-family:'IBM Plex Mono',monospace"></label>
+        <button id="joinRoom" class="btn big" style="margin-top:0">Join</button>
+        <div id="joinLobby" hidden>
+          <div style="height:12px"></div>
+          <div id="seatListJoin"></div>
+          <p class="tiny muted" style="margin-top:8px">Claim a seat, then wait for the host to start…</p>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="cardhead">The board</div>
+      <div class="legend">
+        <div class="legrow"><span class="legline leg-t"></span>Taxi — short hops, every station</div>
+        <div class="legrow"><span class="legline leg-b"></span>Bus — mid-range routes</div>
+        <div class="legrow"><span class="legline leg-u"></span>Underground — fast, few stations</div>
+        <div class="legrow"><span class="legline leg-f"></span>Thames ferry — Mr.&nbsp;X only, black ticket</div>
+      </div>
+      <div class="rulebox">
+        <b>Mr. X</b> moves in secret; only the ticket he plays is public. He must surface on rounds <b>3, 8, 13, 18 and 24</b>. He carries <b>black tickets</b> (any transport, type concealed) and two <b>double-move</b> cards.<br><br>
+        <b>Detectives</b> start with 10 taxi, 8 bus and 4 underground tickets each, always move in the open, and win the instant one of them lands on Mr.&nbsp;X. If the log fills to round 24, the fugitive vanishes into the night — Mr.&nbsp;X wins.
+      </div>
+    </div>
+  </div>
+</main>
+
+<main id="screen-game" hidden>
+  <div id="mapwrap">
+    <svg id="map" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="banner"></div>
+    <div id="dblHint" hidden></div>
+    <div id="zoomctl">
+      <button id="zin" title="Zoom in">+</button>
+      <button id="zout" title="Zoom out">−</button>
+      <button id="zfit" title="Fit map">⌂</button>
+    </div>
+    <div id="chooser" hidden></div>
+  </div>
+  <aside id="side">
+    <div id="turnCard" class="card"></div>
+    <div class="card"><div class="cardhead">Players</div><div id="playersCard"></div></div>
+    <div class="card"><div class="cardhead">Mr. X travel log <span class="tiny muted">— gold = reveal</span></div><div id="logGrid"></div></div>
+    <div class="card" id="ctrlCard">
+      <button id="dblBtn" class="btn">Double move (×<span id="dblN">2</span> left)</button>
+      <button id="psBtn" class="btn ghost">Show possible Mr. X spots</button>
+      <button id="leaveBtn" class="btn ghost">Leave game</button>
+    </div>
+  </aside>
+</main>
+
+<div id="modal" hidden><div id="modalBox"></div></div>
+<div id="toast"></div>
+<script src="engine.js"></script>
+<script src="bots.js"></script>
+<script src="map.js"></script>
+<script src="ui.js"></script>
+</body>
+</html>
