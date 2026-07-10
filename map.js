@@ -24,6 +24,25 @@ var VB={x:0,y:0,w:1000,h:MAP_H};
 /* ---- shared colours (same values as the old SVG board) ---- */
 var TK_HEX={t:0xDFAE1F, b:0x2F8A52, u:0xD23A3A, f:0x3E6E8E, x:0x14181D};
 
+/* ---- recovered hand-placed art data (from the pre-3D SVG buildMap) ----
+   Regions are already positioned relative to POS, so no re-derivation.
+   density/tall are per-district shaping factors for the procedural city. */
+var DISTRICTS=[
+  {cx:360, cy:455, rx:110, ry:58, name:'WESTMINSTER', tint:0x2f3947, density:0.95, tall:1.00},
+  {cx:630, cy:600, rx:104, ry:54, name:'SOUTHWARK',   tint:0x2f3a38, density:0.90, tall:0.78},
+  {cx:765, cy:352, rx:100, ry:52, name:'THE CITY',    tint:0x363348, density:1.30, tall:1.65},
+  {cx:810, cy:175, rx:92,  ry:50, name:'CAMDEN',      tint:0x3a332c, density:0.70, tall:0.55},
+  {cx:585, cy:44,  rx:88,  ry:40, name:'MARYLEBONE',  tint:0x323a40, density:0.72, tall:0.62},
+  {cx:450, cy:224, rx:70,  ry:40, name:'SOHO',        tint:0x3e352c, density:1.20, tall:1.15}
+];
+var PARKS=[
+  {cx:180, cy:405, rx:64, ry:40, name:'HYDE PARK'},
+  {cx:140, cy:56,  rx:78, ry:30, name:"REGENT'S PARK"},
+  {cx:900, cy:672, rx:60, ry:38, name:'GREENWICH PARK'}
+];
+var RIVER_STATIONS=[194,157,115,108]; // the ferry line = the Thames
+var RIVER_HALF_W=19;                  // half width of the water ribbon
+
 var MAP3D={
   built:false,
   scene:null, camera:null, renderer:null, raycaster:null,
@@ -31,6 +50,7 @@ var MAP3D={
   stationMeshes:[],
   edgeLines:[],
   piecesGroup:null, spotsGroup:null, hlGroup:null, fxGroup:null,
+  artGroup:null, labelSprites:[], riverPts:[], waterTex:null, _waterRaf:null,
   // camera rig: fixed downward pitch, only target + distance change
   pitch:52*Math.PI/180,           // angle from vertical (~game-board tilt)
   cam:{tx:500, tz:MAP_H/2, dist:1200},
@@ -67,22 +87,25 @@ var MAP3D={
     this.raycaster=new THREE.Raycaster();
     this.groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0), 0);
 
-    // lights (functional only; mood is Phase 2)
-    scene.add(new THREE.AmbientLight(0xffffff, 0.85));
-    var dir=new THREE.DirectionalLight(0xffffff, 0.55);
-    dir.position.set(400, 900, 200);
-    scene.add(dir);
+    // --- lighting & mood (dark noir): warm low key + cool fill + navy fog ---
+    scene.add(new THREE.HemisphereLight(0x8296b4, 0x0d1018, 0.60)); // cool sky / dark ground
+    scene.add(new THREE.AmbientLight(0x3d4a63, 0.32));
+    var key=new THREE.DirectionalLight(0xffd6a0, 0.9);             // warm, low-angle key
+    key.position.set(-320, 470, -200);
+    scene.add(key);
+    scene.fog=new THREE.FogExp2(0x111826, 0.00034);               // navy depth haze
 
-    // ground plane spanning the station coordinate bounds
-    var groundGeo=new THREE.PlaneGeometry(1000, MAP_H);
-    var groundMat=new THREE.MeshStandardMaterial({color:0xE7DEC4, roughness:1, metalness:0});
-    var ground=new THREE.Mesh(groundGeo, groundMat);
-    ground.rotation.x=-Math.PI/2;
-    ground.position.set(500, 0, MAP_H/2);
-    scene.add(ground);
+    // --- terrain & city art (Phase 2, all additive to the Phase 1 skeleton) ---
+    this._buildGround();
+    this._buildDistrictDecals();
+    this._buildRiver();     // before buildings: they must stop at the water's edge
+    this._buildBuildings();
+    this._buildParks();
+    this._buildLandmarks();
 
     this._buildEdges();
     this._buildStations();
+    this._buildLabels();    // camera-facing text sprites, on top of the art
 
     this.piecesGroup=new THREE.Group(); scene.add(this.piecesGroup);
     this.spotsGroup =new THREE.Group(); scene.add(this.spotsGroup);
@@ -94,6 +117,7 @@ var MAP3D={
     this._bindControls(canvas);
     this._observeResize(canvas);
     this._startLoop();
+    this._startWaterAnim();
   },
 
   /* -------- transport edges (one line object per colour) -------- */
@@ -450,6 +474,361 @@ var MAP3D={
       else{ self.fxGroup.remove(ring); geo.dispose(); mat.dispose(); }
     }
     requestAnimationFrame(step);
+  },
+
+  /* =====================================================================
+     PHASE 2 — terrain & city art. Purely additive scene content; does not
+     touch camera controls, pan/zoom, the click raycaster, or the MAP3D API.
+     NOTE: none of these meshes are pushed to this.stationMeshes, and the
+     tap picker (groundPoint + nearestStation over POS) never raycasts scene
+     meshes at all, so buildings/trees/landmarks can never intercept a click.
+     ===================================================================== */
+
+  /* deterministic per-seed RNG (mulberry32), stable across reloads */
+  _hash:function(a,b){ var h=(a*73856093)^(b*19349663); return (h^(h>>>13))>>>0; },
+  _rng:function(seed){
+    seed=seed>>>0;
+    return function(){
+      seed=(seed+0x6D2B79F5)>>>0;
+      var t=seed;
+      t=Math.imul(t^(t>>>15), 1|t);
+      t=(t+Math.imul(t^(t>>>7), 61|t))^t;
+      return ((t^(t>>>14))>>>0)/4294967296;
+    };
+  },
+
+  _softCircleTexture:function(){
+    if(this._softTex)return this._softTex;
+    var c=document.createElement('canvas'); c.width=c.height=128;
+    var ctx=c.getContext('2d');
+    var g=ctx.createRadialGradient(64,64,4, 64,64,64);
+    g.addColorStop(0,'rgba(255,255,255,1)');
+    g.addColorStop(0.6,'rgba(255,255,255,0.55)');
+    g.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=g; ctx.fillRect(0,0,128,128);
+    this._softTex=new THREE.CanvasTexture(c);
+    return this._softTex;
+  },
+  _noiseTexture:function(){
+    var c=document.createElement('canvas'); c.width=c.height=256;
+    var ctx=c.getContext('2d');
+    ctx.fillStyle='#2a313b'; ctx.fillRect(0,0,256,256);
+    var img=ctx.getImageData(0,0,256,256), d=img.data;
+    for(var i=0;i<d.length;i+=4){
+      var n=(Math.random()*30-15)|0;
+      d[i]=Math.max(0,Math.min(255,d[i]+n));
+      d[i+1]=Math.max(0,Math.min(255,d[i+1]+n));
+      d[i+2]=Math.max(0,Math.min(255,d[i+2]+n));
+    }
+    ctx.putImageData(img,0,0);
+    // faint street-ish streaks for texture
+    ctx.globalAlpha=0.05; ctx.strokeStyle='#0c0f14';
+    for(var s=0;s<40;s++){ ctx.beginPath(); ctx.moveTo(Math.random()*256,Math.random()*256); ctx.lineTo(Math.random()*256,Math.random()*256); ctx.stroke(); }
+    var tex=new THREE.CanvasTexture(c);
+    tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
+    return tex;
+  },
+
+  /* 1. shaded ground */
+  _buildGround:function(){
+    var tex=this._noiseTexture();
+    tex.repeat.set(1300/170, 1040/170);
+    var geo=new THREE.PlaneGeometry(1300, 1040);
+    var mat=new THREE.MeshStandardMaterial({color:0x28303a, map:tex, roughness:1, metalness:0});
+    var g=new THREE.Mesh(geo, mat);
+    g.rotation.x=-Math.PI/2;
+    g.position.set(500, 0, MAP_H/2);
+    this.scene.add(g);
+  },
+
+  /* 1b. subtle per-district & per-park colour variation via soft ground decals */
+  _buildDistrictDecals:function(){
+    var tex=this._softCircleTexture(), self=this;
+    function decal(cx,cy,rx,ry,hex,op,y){
+      var m=new THREE.Mesh(
+        new THREE.PlaneGeometry(rx*2.4, ry*2.4),
+        new THREE.MeshBasicMaterial({map:tex, color:hex, transparent:true, opacity:op, depthWrite:false})
+      );
+      m.rotation.x=-Math.PI/2; m.position.set(cx, y, cy); m.renderOrder=-2;
+      self.scene.add(m);
+    }
+    DISTRICTS.forEach(function(d){ decal(d.cx,d.cy,d.rx,d.ry,d.tint,0.55,0.3); });
+    PARKS.forEach(function(p){ decal(p.cx,p.cy,p.rx,p.ry,0x223a24,0.6,0.35); });
+  },
+
+  /* 3. River Thames — a shimmering ribbon along the recovered curve */
+  _riverCurve:function(){
+    var P=RIVER_STATIONS.map(function(s){return new THREE.Vector3(POS[s].x, 0.6, POS[s].y);});
+    var pre =new THREE.Vector3(P[0].x+(P[0].x-P[1].x)*0.9, 0.6, P[0].z+(P[0].z-P[1].z)*0.9);
+    var post=new THREE.Vector3(P[3].x+(P[3].x-P[2].x)*0.75,0.6, P[3].z+(P[3].z-P[2].z)*0.75);
+    return new THREE.CatmullRomCurve3([pre,P[0],P[1],P[2],P[3],post]);
+  },
+  _buildRiver:function(){
+    var curve=this._riverCurve();
+    var N=80, pts=curve.getPoints(N);
+    var pos=[], uv=[], idx=[];
+    this.riverPts=[];
+    for(var i=0;i<=N;i++){
+      var p=pts[i];
+      this.riverPts.push({x:p.x, y:p.z});
+      var t=curve.getTangent(i/N);
+      // perpendicular in XZ plane
+      var px=-t.z, pz=t.x, l=Math.hypot(px,pz)||1; px/=l; pz/=l;
+      pos.push(p.x+px*RIVER_HALF_W, 0.6, p.z+pz*RIVER_HALF_W);
+      pos.push(p.x-px*RIVER_HALF_W, 0.6, p.z-pz*RIVER_HALF_W);
+      var v=i/N*6;
+      uv.push(0, v); uv.push(1, v);
+      if(i<N){ var a=i*2; idx.push(a,a+1,a+2, a+1,a+3,a+2); }
+    }
+    var geo=new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv,2));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    this.waterTex=this._waterTexture();
+    var mat=new THREE.MeshStandardMaterial({color:0x2b6076, map:this.waterTex, roughness:0.32, metalness:0.35,
+      transparent:true, opacity:0.92, emissive:0x0a2230, emissiveIntensity:0.4});
+    var mesh=new THREE.Mesh(geo, mat);
+    mesh.renderOrder=-1;
+    this.scene.add(mesh);
+  },
+  _waterTexture:function(){
+    var c=document.createElement('canvas'); c.width=c.height=128;
+    var ctx=c.getContext('2d');
+    ctx.fillStyle='#204a5e'; ctx.fillRect(0,0,128,128);
+    ctx.strokeStyle='rgba(180,220,235,0.35)'; ctx.lineWidth=1.4;
+    for(var i=0;i<26;i++){
+      var y=Math.random()*128;
+      ctx.beginPath(); ctx.moveTo(0,y);
+      ctx.bezierCurveTo(32,y+6, 64,y-6, 128,y+3); ctx.stroke();
+    }
+    var tex=new THREE.CanvasTexture(c);
+    tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
+    tex.repeat.set(1.5, 3);
+    return tex;
+  },
+  _distToRiver:function(x,y){
+    var pts=this.riverPts, best=1e9;
+    for(var i=0;i<pts.length-1;i++){
+      var ax=pts[i].x, ay=pts[i].y, bx=pts[i+1].x, by=pts[i+1].y;
+      var dx=bx-ax, dy=by-ay, l2=dx*dx+dy*dy||1;
+      var t=((x-ax)*dx+(y-ay)*dy)/l2; t=t<0?0:t>1?1:t;
+      var cx=ax+dx*t, cy=ay+dy*t, d=Math.hypot(x-cx, y-cy);
+      if(d<best)best=d;
+    }
+    return best;
+  },
+  _inAnyPark:function(x,y){
+    for(var i=0;i<PARKS.length;i++){
+      var p=PARKS[i], nx=(x-p.cx)/(p.rx+8), ny=(y-p.cy)/(p.ry+8);
+      if(nx*nx+ny*ny<=1)return true;
+    }
+    return false;
+  },
+  _nearStation:function(x,y,r){
+    for(var i=1;i<=199;i++){ if(POS[i] && Math.hypot(POS[i].x-x,POS[i].y-y)<r)return true; }
+    return false;
+  },
+  _landmarkSpots:function(){ return [{x:360,y:455,r:48},{x:765,y:352,r:44}]; },
+
+  /* 2. Buildings — instanced boxes clustered per district */
+  _buildBuildings:function(){
+    var self=this;
+    var lms=this._landmarkSpots();
+    var items=[]; // {x,y,w,d,h,rot,shade}
+    DISTRICTS.forEach(function(d, di){
+      var rng=self._rng(self._hash(di+7, 1337));
+      var step=10;
+      for(var gx=d.cx-d.rx; gx<=d.cx+d.rx; gx+=step){
+        for(var gy=d.cy-d.ry; gy<=d.cy+d.ry; gy+=step){
+          var nx=(gx-d.cx)/d.rx, ny=(gy-d.cy)/d.ry;
+          if(nx*nx+ny*ny>1)continue;                 // inside district ellipse
+          if(rng()>d.density*0.7)continue;           // density gaps -> implied streets
+          var x=gx+(rng()-0.5)*step*0.7, y=gy+(rng()-0.5)*step*0.7;
+          if(self._nearStation(x,y,14))continue;     // keep junctions clear/legible
+          if(self._distToRiver(x,y)<RIVER_HALF_W+9)continue; // stop at the water
+          if(self._inAnyPark(x,y))continue;          // no buildings in parks
+          var skip=false;
+          for(var k=0;k<lms.length;k++){ if(Math.hypot(x-lms[k].x,y-lms[k].y)<lms[k].r){skip=true;break;} }
+          if(skip)continue;
+          var w=6+rng()*9, dd=6+rng()*9;
+          var h=(10+rng()*rng()*40)*d.tall + 4;
+          var rot=(rng()-0.5)*0.5;
+          var base=0x33+((rng()*20)|0);
+          items.push({x:x,y:y,w:w,d:dd,h:h,rot:rot,shade:base});
+        }
+      }
+    });
+    if(!items.length)return;
+    var geo=new THREE.BoxGeometry(1,1,1); geo.translate(0,0.5,0); // base sits on y=0
+    var mat=new THREE.MeshStandardMaterial({roughness:0.9, metalness:0.05});
+    var inst=new THREE.InstancedMesh(geo, mat, items.length);
+    var dummy=new THREE.Object3D(), col=new THREE.Color();
+    for(var i=0;i<items.length;i++){
+      var it=items[i];
+      dummy.position.set(it.x, 0, it.y);
+      dummy.rotation.set(0, it.rot, 0);
+      dummy.scale.set(it.w, it.h, it.d);
+      dummy.updateMatrix();
+      inst.setMatrixAt(i, dummy.matrix);
+      // cool grey stone with occasional warm-lit facade
+      var lit=(i%9===0);
+      col.setRGB((it.shade/255)*(lit?1.15:0.9), (it.shade/255)*(lit?1.0:0.94), (it.shade/255)*(lit?0.82:1.05));
+      inst.setColorAt(i, col);
+    }
+    inst.instanceMatrix.needsUpdate=true;
+    if(inst.instanceColor)inst.instanceColor.needsUpdate=true;
+    inst.frustumCulled=false;
+    this.scene.add(inst);
+    this.buildingCount=items.length;
+    this.buildingMesh=inst;
+  },
+
+  /* 4. Parks — instanced trees (trunk + foliage) */
+  _buildParks:function(){
+    var self=this, trunks=[], foliage=[];
+    PARKS.forEach(function(p, pi){
+      var rng=self._rng(self._hash(pi+3, 9001));
+      var step=11;
+      for(var gx=p.cx-p.rx; gx<=p.cx+p.rx; gx+=step){
+        for(var gy=p.cy-p.ry; gy<=p.cy+p.ry; gy+=step){
+          var nx=(gx-p.cx)/p.rx, ny=(gy-p.cy)/p.ry;
+          if(nx*nx+ny*ny>0.92)continue;
+          if(rng()>0.78)continue;
+          var x=gx+(rng()-0.5)*step, y=gy+(rng()-0.5)*step;
+          if(self._nearStation(x,y,11))continue;
+          var s=0.8+rng()*0.9;
+          var th=6+rng()*4, fh=11+rng()*7, fr=5+rng()*4;
+          trunks.push({x:x,y:y,r:1.1*s,h:th});
+          foliage.push({x:x,y:y,r:fr*s,h:fh*s,base:th*s,shade:0.7+rng()*0.5});
+        }
+      }
+    });
+    if(!foliage.length)return;
+    var dummy=new THREE.Object3D();
+    // trunks
+    var tg=new THREE.CylinderGeometry(1,1,1,6); tg.translate(0,0.5,0);
+    var tm=new THREE.MeshStandardMaterial({color:0x3a2c20, roughness:1});
+    var tinst=new THREE.InstancedMesh(tg, tm, trunks.length);
+    for(var i=0;i<trunks.length;i++){ var t=trunks[i];
+      dummy.position.set(t.x,0,t.y); dummy.rotation.set(0,0,0); dummy.scale.set(t.r,t.h,t.r); dummy.updateMatrix();
+      tinst.setMatrixAt(i, dummy.matrix);
+    }
+    tinst.instanceMatrix.needsUpdate=true; tinst.frustumCulled=false; this.scene.add(tinst);
+    // foliage
+    var fg=new THREE.ConeGeometry(1,1,7); fg.translate(0,0.5,0);
+    var fm=new THREE.MeshStandardMaterial({roughness:0.95});
+    var finst=new THREE.InstancedMesh(fg, fm, foliage.length);
+    var col=new THREE.Color();
+    for(var j=0;j<foliage.length;j++){ var f=foliage[j];
+      dummy.position.set(f.x, f.base, f.y); dummy.rotation.set(0,0,0); dummy.scale.set(f.r, f.h, f.r); dummy.updateMatrix();
+      finst.setMatrixAt(j, dummy.matrix);
+      col.setRGB(0.16*f.shade, 0.34*f.shade, 0.19*f.shade);
+      finst.setColorAt(j, col);
+    }
+    finst.instanceMatrix.needsUpdate=true; if(finst.instanceColor)finst.instanceColor.needsUpdate=true;
+    finst.frustumCulled=false; this.scene.add(finst);
+    this.treeCount=foliage.length;
+  },
+
+  /* 5. Landmarks — stylised low-poly silhouettes */
+  _buildLandmarks:function(){
+    var grp=new THREE.Group(); this.scene.add(grp);
+    var stone=new THREE.MeshStandardMaterial({color:0x545862, roughness:0.85});
+    var stoneWarm=new THREE.MeshStandardMaterial({color:0x6a6152, roughness:0.85});
+    var glow=new THREE.MeshStandardMaterial({color:0xF2C230, emissive:0xF2C230, emissiveIntensity:0.7, roughness:0.5});
+    function box(w,h,d,x,y,z,mat){ var m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat); m.position.set(x,y,z); grp.add(m); return m; }
+
+    // --- Clock tower near Westminster ---
+    (function(){
+      var cx=360, cz=455;
+      box(15,78,15, cx, 39, cz, stoneWarm);          // shaft
+      box(18,10,18, cx, 80, cz, stone);              // belfry
+      box(5.5,5.5,0.6, cx, 70, cz+7.7, glow);        // clock face (south)
+      box(0.6,5.5,5.5, cx+7.7, 70, cz, glow);        // clock face (east)
+      var spire=new THREE.Mesh(new THREE.ConeGeometry(11,20,4), stone);
+      spire.position.set(cx,95,cz); spire.rotation.y=Math.PI/4; grp.add(spire);
+    })();
+
+    // --- Domed building near The City ---
+    (function(){
+      var cx=765, cz=352;
+      var base=new THREE.Mesh(new THREE.CylinderGeometry(24,26,28,20), stone);
+      base.position.set(cx,14,cz); grp.add(base);
+      var drum=new THREE.Mesh(new THREE.CylinderGeometry(17,19,10,20), stoneWarm);
+      drum.position.set(cx,32,cz); grp.add(drum);
+      var dome=new THREE.Mesh(new THREE.SphereGeometry(17,20,12,0,Math.PI*2,0,Math.PI/2), stone);
+      dome.position.set(cx,37,cz); grp.add(dome);
+      box(2.2,9,2.2, cx,49,cz, glow);                // lantern
+    })();
+
+    // --- Bridge with twin towers across the river ---
+    (function(self){
+      var curve=self._riverCurve();
+      var c=curve.getPoint(0.52), tan=curve.getTangent(0.52);
+      var px=-tan.z, pz=tan.x, l=Math.hypot(px,pz)||1; px/=l; pz/=l; // across-river axis
+      var ang=Math.atan2(tan.x, tan.z); // orient group along flow
+      var g2=new THREE.Group(); g2.position.set(c.x, 0, c.z); g2.rotation.y=ang; grp.add(g2);
+      function b2(w,h,d,x,y,z,mat){ var m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat); m.position.set(x,y,z); g2.add(m); return m; }
+      var span=RIVER_HALF_W+10;
+      b2(2*span+8, 2.4, 8, 0, 6, 0, stoneWarm);      // deck
+      [-1,1].forEach(function(s){
+        b2(7,34,10, s*span, 17, 0, stone);           // tower
+        b2(9,4,12, s*span, 30, 0, stone);            // tower cap
+      });
+      // suspension cables (thin angled boxes)
+      [-1,1].forEach(function(s){
+        var cbl=new THREE.Mesh(new THREE.BoxGeometry(span,1.1,1.1), stoneWarm);
+        cbl.position.set(s*span/2, 22, s*3); cbl.rotation.z=s*0.5; g2.add(cbl);
+      });
+    })(this);
+  },
+
+  /* 6. District & park labels — camera-facing canvas-texture sprites */
+  _makeLabelSprite:function(text, fontPx, tint){
+    var pad=14, font='700 '+fontPx+'px Georgia, "Times New Roman", serif';
+    var mc=document.createElement('canvas'), mx=mc.getContext('2d');
+    mx.font=font; var tw=Math.ceil(mx.measureText(text).width);
+    var cw=tw+pad*2, ch=fontPx+pad*2;
+    var c=document.createElement('canvas'); c.width=cw; c.height=ch;
+    var ctx=c.getContext('2d');
+    // soft dark backing for legibility over varied art
+    ctx.fillStyle='rgba(12,16,24,0.42)';
+    var r=10; ctx.beginPath();
+    ctx.moveTo(r,0); ctx.arcTo(cw,0,cw,ch,r); ctx.arcTo(cw,ch,0,ch,r); ctx.arcTo(0,ch,0,0,r); ctx.arcTo(0,0,cw,0,r); ctx.fill();
+    ctx.font=font; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.lineWidth=3; ctx.strokeStyle='rgba(6,9,14,0.85)'; ctx.strokeText(text, cw/2, ch/2+1);
+    ctx.fillStyle=tint; ctx.fillText(text, cw/2, ch/2+1);
+    var tex=new THREE.CanvasTexture(c);
+    var mat=new THREE.SpriteMaterial({map:tex, transparent:true, depthWrite:false, depthTest:true, fog:false});
+    var sp=new THREE.Sprite(mat);
+    sp.userData.aspect=cw/ch;
+    return sp;
+  },
+  _buildLabels:function(){
+    var self=this;
+    function place(text, cx, cy, worldH, tint, yLift){
+      var sp=self._makeLabelSprite(text, 30, tint);
+      sp.scale.set(worldH*sp.userData.aspect, worldH, 1);
+      sp.position.set(cx, yLift, cy);
+      self.scene.add(sp);
+      self.labelSprites.push(sp);
+    }
+    DISTRICTS.forEach(function(d){ place(d.name, d.cx, d.cy, 26, '#e7ddc4', 52); });
+    PARKS.forEach(function(p){ place(p.name, p.cx, p.cy, 20, '#bfe0b6', 34); });
+  },
+
+  /* water shimmer — independent rAF; the main render loop paints it */
+  _startWaterAnim:function(){
+    var self=this;
+    function tick(){
+      self._waterRaf=requestAnimationFrame(tick);
+      if(self.waterTex){
+        self.waterTex.offset.y=(self.waterTex.offset.y+0.0010)%1;
+        self.waterTex.offset.x=(self.waterTex.offset.x+0.0004)%1;
+      }
+    }
+    tick();
   }
 };
 
