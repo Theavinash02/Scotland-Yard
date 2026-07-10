@@ -96,7 +96,14 @@ var MAP3D={
     var key=new THREE.DirectionalLight(0xffd6a0, 0.95);            // warm, low-angle key
     key.position.set(-320, 470, -200);
     scene.add(key);
-    scene.fog=new THREE.FogExp2(0x2a2436, 0.00030);               // tinted to the sky's horizon
+    // Exponential fog fades the vast extended ground smoothly into the sky.
+    // Colour matches the deep-indigo band of the sky gradient so the far
+    // ground and the sky read as one continuous night horizon (with the
+    // fixed downward pitch, the true horizon sits high/off-screen, so the
+    // fogged far ground IS what meets the sky — no seam, no black void).
+    // Density is low enough that the whole board stays clear at play zoom
+    // and only lightly hazed at full zoom-out.
+    scene.fog=new THREE.FogExp2(0x171d33, 0.00019);
 
     // --- terrain & city art (Phase 2, all additive to the Phase 1 skeleton) ---
     this._buildGround();
@@ -537,9 +544,13 @@ var MAP3D={
 
   /* 1. shaded ground */
   _buildGround:function(){
+    // Extend the ground far past the gameplay bounds so the plane edge is
+    // never reachable within normal pan/zoom; the fog (set in build) fades
+    // the far ground into the sky's horizon long before that edge.
+    var SIZE=40000;
     var tex=this._noiseTexture();
-    tex.repeat.set(1300/170, 1040/170);
-    var geo=new THREE.PlaneGeometry(1300, 1040);
+    tex.repeat.set(SIZE/170, SIZE/170);
+    var geo=new THREE.PlaneGeometry(SIZE, SIZE);
     var mat=new THREE.MeshStandardMaterial({color:0x28303a, map:tex, roughness:1, metalness:0});
     var g=new THREE.Mesh(geo, mat);
     g.rotation.x=-Math.PI/2;
