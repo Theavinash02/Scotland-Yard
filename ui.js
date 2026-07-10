@@ -178,17 +178,19 @@ function renderPlayers(){
   });
   $('#playersCard').innerHTML=h;
 }
+var LOG_TK_LABEL={t:'T',b:'B',u:'U',x:'●'};
 function renderLog(){
   var h='';
   for(var i=0;i<MAX_ROUND;i++){
-    var e=G.log[i],cls='lcell',val='',isRev=REVEALS.indexOf(i+1)>=0;
+    var e=G.log[i],cls='lcell',val='',tkl='',isRev=REVEALS.indexOf(i+1)>=0;
     if(isRev)cls+=' rv';
     if(e){
       cls+=' f-'+e.tk;
       val=(e.rv||G.winner)?e.st:(e.tk==='x'?'●':'?');
+      tkl=e.tk==='x'?'':LOG_TK_LABEL[e.tk];
     }
     if(!G.winner&&G.turn===-1&&i===G.log.length)cls+=' now';
-    h+='<div class="'+cls+'" data-i="'+i+'"><span class="idx">'+(i+1)+'</span><span class="val">'+val+'</span></div>';
+    h+='<div class="'+cls+'" data-i="'+i+'"><span class="idx">'+(i+1)+'</span>'+(tkl?'<span class="tkl">'+tkl+'</span>':'')+'<span class="val">'+val+'</span></div>';
   }
   $('#logGrid').innerHTML=h;
 }
