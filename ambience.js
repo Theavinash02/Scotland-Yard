@@ -19,7 +19,7 @@
   function makeBird(){
     var el=document.createElement('div');
     el.className='amb-bird';
-    var dur=rand(38,64);
+    var dur=rand(24,42);
     el.style.setProperty('--dur',dur.toFixed(1)+'s');
     el.style.setProperty('--delay',(-rand(0,dur)).toFixed(1)+'s');
     el.style.setProperty('--y0',rand(8,30).toFixed(1)+'vh');
@@ -43,10 +43,10 @@
     amb.setAttribute('aria-hidden','true');
     wrap.insertBefore(amb,banner);
 
-    var cloudCount=3+Math.floor(Math.random()*3); // 3-5
+    var cloudCount=6+Math.floor(Math.random()*4); // 6-9
     for(var i=0;i<cloudCount;i++)amb.appendChild(makeCloud());
 
-    var birdCount=1+Math.floor(Math.random()*2); // 1-2
+    var birdCount=3+Math.floor(Math.random()*3); // 3-5
     for(var j=0;j<birdCount;j++)amb.appendChild(makeBird());
   }
 
