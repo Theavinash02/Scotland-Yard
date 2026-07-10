@@ -112,30 +112,24 @@ function render(){
   if(!G)return;
   renderPieces();renderBanner();renderPlayers();renderLog();renderCtrls();renderHighlights();
 }
-function pieceStackOffset(st,idx,count){
-  if(count<=1)return{x:0,y:0};
-  var h=hash2(st,idx*7+13);
-  var ang=(h%360)*Math.PI/180+idx*(2*Math.PI/count);
-  var rad=5.2;
-  return{x:Math.cos(ang)*rad,y:Math.sin(ang)*rad};
-}
 function renderPieces(){
   var h='';
-  var groups={};
-  G.dets.forEach(function(d,i){(groups[d.st]=groups[d.st]||[]).push(i);});
   G.dets.forEach(function(d,i){
     var p=POS[d.st],c=DCOL[i%5];
-    var grp=groups[d.st],gi=grp.indexOf(i),gc=grp.length;
-    var off=pieceStackOffset(d.st,gi,gc);
-    var delay=((hash2(d.st,i)%2600)/1000);
-    h+=taxiPieceMarkup(p.x+off.x,p.y+off.y,c,i+1,'det'+i,delay);
+    h+='<g transform="translate('+p.x+','+p.y+')">'+
+       '<circle r="8" fill="'+c+'" stroke="#fff" stroke-width="2"/>'+
+       '<text y="3.4" text-anchor="middle" font-size="9" font-weight="700" fill="#fff" class="st-num">'+(i+1)+'</text></g>';
   });
   if(canSeeMrx()){
     var p=POS[G.mrx.st];
-    h+=mrxPieceMarkup(p.x,p.y,'visible','mrx');
+    h+='<g transform="translate('+p.x+','+p.y+')">'+
+       '<circle r="9" fill="#0B0D10" stroke="#F2C230" stroke-width="2"/>'+
+       '<text y="3.8" text-anchor="middle" font-size="10" font-weight="700" fill="#F2C230" class="st-num">X</text></g>';
   }else if(G.rev){
     var q=POS[G.rev];
-    h+=mrxPieceMarkup(q.x,q.y,'ghost','mrxrev');
+    h+='<g transform="translate('+q.x+','+q.y+')" opacity="0.85">'+
+       '<circle r="10" fill="rgba(11,13,16,0.12)" stroke="#0B0D10" stroke-width="1.6" stroke-dasharray="4 3"/>'+
+       '<text y="3.6" text-anchor="middle" font-size="9" font-weight="700" fill="#0B0D10" class="st-num">X?</text></g>';
   }
   LAYER.pieces.innerHTML=h;
   // possible set halos
@@ -226,7 +220,7 @@ function renderHighlights(){
     // ring current piece
     var st=G.turn===-1?G.mrx.st:G.dets[G.turn].st;
     if(G.turn!==-1||canSeeMrx())
-      h+='<circle class="curring" cx="'+POS[st].x+'" cy="'+POS[st].y+'" r="15"/>';
+      h+='<circle cx="'+POS[st].x+'" cy="'+POS[st].y+'" r="16" fill="none" stroke="#E9EEF4" stroke-width="1.4" stroke-dasharray="3 3" pointer-events="none"/>';
   }
   LAYER.hl.innerHTML=h;
 }
@@ -284,7 +278,7 @@ async function doMrxMove(m){
   UI.busy=true;renderHighlights();
   var from=G.mrx.st;
   var visible=canSeeMrx();
-  if(visible)await animateVehicle(from,m.to,m.tk,{kind:'mrx'});
+  if(visible)await animateVehicle(from,m.to,m.tk);
   else await hiddenMoveFx(m.tk);
   var wasDbl=G.dblPending>0;
   applyMrx(G,m);
@@ -295,7 +289,7 @@ async function doMrxMove(m){
 async function doDetMove(i,m){
   UI.busy=true;renderHighlights();
   var from=G.dets[i].st;
-  await animateVehicle(from,m.to,m.tk,{kind:'det',color:DCOL[i%5],num:i+1});
+  await animateVehicle(from,m.to,m.tk);
   applyDet(G,i,m);
   UI.busy=false;
   afterAnyMove(false);
@@ -556,8 +550,7 @@ function adoptGame(g){
     var lm=g.lastMove;
     UI.busy=true;render();
     var vis=lm.who!=='mrx'||canSeeMrx();
-    var pmeta=lm.who==='mrx'?{kind:'mrx'}:{kind:'det',color:DCOL[lm.who%5],num:lm.who+1};
-    var p=vis?animateVehicle(lm.from,lm.to,lm.tk,pmeta):hiddenMoveFx(lm.tk);
+    var p=vis?animateVehicle(lm.from,lm.to,lm.tk):hiddenMoveFx(lm.tk);
     p.then(function(){
       UI.busy=false;
       stampAndReveal();render();
