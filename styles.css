@@ -172,7 +172,63 @@ label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mute
   .card.hero h2{font-size:22px}
   #banner{max-width:58%;font-size:12px}
 }
+/* ambient sky overlay */
+#ambience{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+#ambience .amb-cloud{
+  position:absolute;
+  left:0;
+  top:var(--top);
+  width:var(--w);
+  height:var(--h);
+  background:
+    radial-gradient(ellipse 42% 60% at 28% 65%, rgba(255,255,255,var(--op)) 0%, rgba(255,255,255,0) 70%),
+    radial-gradient(ellipse 38% 58% at 52% 38%, rgba(255,255,255,var(--op)) 0%, rgba(255,255,255,0) 70%),
+    radial-gradient(ellipse 40% 55% at 76% 58%, rgba(255,255,255,var(--op)) 0%, rgba(255,255,255,0) 70%),
+    radial-gradient(ellipse 60% 75% at 50% 60%, rgba(112,132,158,var(--op2)) 0%, rgba(112,132,158,0) 80%);
+  filter:blur(5px);
+  transform:translateX(-40vw);
+  animation:ambCloudDrift var(--dur) linear infinite;
+  animation-delay:var(--delay);
+  will-change:transform;
+}
+@keyframes ambCloudDrift{
+  from{transform:translateX(-40vw)}
+  to{transform:translateX(140vw)}
+}
+#ambience .amb-bird{
+  position:absolute;
+  left:0;
+  top:0;
+  transform:translate(-10vw,var(--y0)) scale(var(--scale));
+  opacity:0;
+  animation:ambBirdFly var(--dur) ease-in-out infinite;
+  animation-delay:var(--delay);
+  will-change:transform,opacity;
+}
+#ambience .amb-bird svg{display:block}
+#ambience .amb-wing{
+  fill:none;
+  stroke:rgba(40,48,58,.55);
+  stroke-width:2;
+  stroke-linecap:round;
+  transform-box:fill-box;
+  transform-origin:center;
+  animation:ambWingFlap .42s ease-in-out infinite;
+}
+@keyframes ambBirdFly{
+  0%{transform:translate(-10vw,var(--y0)) scale(var(--scale));opacity:0}
+  3%{opacity:.8}
+  14%{transform:translate(65vw,var(--y1)) scale(var(--scale));opacity:.8}
+  18%{opacity:0}
+  100%{opacity:0;transform:translate(65vw,var(--y1)) scale(var(--scale))}
+}
+@keyframes ambWingFlap{
+  0%,100%{transform:scaleY(1)}
+  50%{transform:scaleY(.4)}
+}
+
 @media (prefers-reduced-motion:reduce){
   .hlring,.revtag{animation:none}
   #modalBox{animation:none}
+  #ambience .amb-cloud,#ambience .amb-bird,#ambience .amb-wing{animation:none}
 }
