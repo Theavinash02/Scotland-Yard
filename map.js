@@ -153,7 +153,11 @@ function buildMap(){
       });
     }
     g.innerHTML=h;
-    g.addEventListener('click',(function(id){return function(ev){ev.stopPropagation();onStationClick(id,ev);};})(i));
+    // Taps/clicks are handled centrally by handleTap() in the pan/zoom layer,
+    // which does proper drag-vs-tap detection and nearest-station hit-testing.
+    // A per-station click listener here would be a second, independent path
+    // that can disagree with handleTap (double-firing, chooser-dismiss races),
+    // so we deliberately do not attach one.
     LAYER.stations.appendChild(g);
   }
   LAYER.stations.setAttribute('filter','url(#stShadow)');
@@ -163,6 +167,17 @@ function buildMap(){
 function initPanZoom(){
   var svg=$('#map'),ptrs={},panStart=null,pinch=null;
   function clientToMap(cx,cy){
+    // Use the SVG's own coordinate transform so we honour the viewBox's
+    // preserveAspectRatio letterboxing. A naive rect-based mapping assumes
+    // the viewBox stretches to fill the element, which is wrong whenever the
+    // map area's aspect ratio differs from the viewBox (e.g. portrait/mobile)
+    // and makes taps resolve to the wrong station.
+    var ctm=svg.getScreenCTM();
+    if(ctm){
+      var pt=svg.createSVGPoint();pt.x=cx;pt.y=cy;
+      var loc=pt.matrixTransform(ctm.inverse());
+      return {x:loc.x,y:loc.y};
+    }
     var r=svg.getBoundingClientRect();
     return {x:VB.x+(cx-r.left)/r.width*VB.w, y:VB.y+(cy-r.top)/r.height*VB.h};
   }
