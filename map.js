@@ -87,13 +87,16 @@ var MAP3D={
     this.raycaster=new THREE.Raycaster();
     this.groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0), 0);
 
-    // --- lighting & mood (dark noir): warm low key + cool fill + navy fog ---
-    scene.add(new THREE.HemisphereLight(0x8296b4, 0x0d1018, 0.60)); // cool sky / dark ground
-    scene.add(new THREE.AmbientLight(0x3d4a63, 0.32));
-    var key=new THREE.DirectionalLight(0xffd6a0, 0.9);             // warm, low-angle key
+    // --- dusk sky: vertical gradient background, ground fades into its horizon ---
+    scene.background=this._skyTexture();
+
+    // --- lighting & mood (dark noir): warm low key + cool fill, lifted a touch ---
+    scene.add(new THREE.HemisphereLight(0x93a6c2, 0x101622, 0.74)); // cool sky / dark ground
+    scene.add(new THREE.AmbientLight(0x46536e, 0.44));
+    var key=new THREE.DirectionalLight(0xffd6a0, 0.95);            // warm, low-angle key
     key.position.set(-320, 470, -200);
     scene.add(key);
-    scene.fog=new THREE.FogExp2(0x111826, 0.00034);               // navy depth haze
+    scene.fog=new THREE.FogExp2(0x2a2436, 0.00030);               // tinted to the sky's horizon
 
     // --- terrain & city art (Phase 2, all additive to the Phase 1 skeleton) ---
     this._buildGround();
@@ -105,6 +108,7 @@ var MAP3D={
 
     this._buildEdges();
     this._buildStations();
+    this._buildStationNumbers(); // Phase 3: numbered billboards (regression fix)
     this._buildLabels();    // camera-facing text sprites, on top of the art
 
     this.piecesGroup=new THREE.Group(); scene.add(this.piecesGroup);
@@ -163,11 +167,13 @@ var MAP3D={
       var nb=NBRS[id]||[];
       for(var k=0;k<nb.length;k++){ if(nb[k].t==='u')hasU=true; else if(nb[k].t==='b')hasB=true; }
       var r=hasU?9:hasB?7.4:6;
-      var geo=new THREE.CylinderGeometry(r, r, 5, 20);
-      var mat=new THREE.MeshStandardMaterial({color:0xFDFBF2, roughness:0.75, metalness:0,
-        emissive:(hasU?0x3a1414:hasB?0x143a1f:0x2a2418), emissiveIntensity:0.35});
+      // single-mesh marker (keeps draw calls low) with a two-tone tapered profile
+      // and a soft warm base glow — reads as a lit token, not a flat disc.
+      var geo=new THREE.CylinderGeometry(r, r+1.7, 4.6, 20);
+      var mat=new THREE.MeshStandardMaterial({color:0xFDFBF2, roughness:0.5, metalness:0.08,
+        emissive:(hasU?0x5a2418:hasB?0x1f4a2a:0x4a3a1a), emissiveIntensity:0.5});
       var m=new THREE.Mesh(geo, mat);
-      m.position.set(POS[id].x, 2.5, POS[id].y);
+      m.position.set(POS[id].x, 2.3, POS[id].y);
       m.userData.id=id;
       this.scene.add(m);
       this.stationMeshes.push(m);
@@ -654,16 +660,20 @@ var MAP3D={
           var w=6+rng()*9, dd=6+rng()*9;
           var h=(10+rng()*rng()*40)*d.tall + 4;
           var rot=(rng()-0.5)*0.5;
-          var base=0x33+((rng()*20)|0);
-          items.push({x:x,y:y,w:w,d:dd,h:h,rot:rot,shade:base});
+          var shadeF=0.26+rng()*0.15;              // dark stone, but lifted off black
+          var hue=(rng()*3)|0;                     // 3 base tints (cool / warm / slate)
+          var win=(rng()<0.28 && h>16);            // subset get a warm window light
+          items.push({x:x,y:y,w:w,d:dd,h:h,rot:rot,shade:shadeF,hue:hue,win:win});
         }
       }
     });
     if(!items.length)return;
+    var PAL=[[0.80,0.90,1.10],[1.12,0.96,0.78],[0.96,0.98,1.00]]; // cool, warm, slate
     var geo=new THREE.BoxGeometry(1,1,1); geo.translate(0,0.5,0); // base sits on y=0
     var mat=new THREE.MeshStandardMaterial({roughness:0.9, metalness:0.05});
     var inst=new THREE.InstancedMesh(geo, mat, items.length);
     var dummy=new THREE.Object3D(), col=new THREE.Color();
+    var wins=[];
     for(var i=0;i<items.length;i++){
       var it=items[i];
       dummy.position.set(it.x, 0, it.y);
@@ -671,10 +681,15 @@ var MAP3D={
       dummy.scale.set(it.w, it.h, it.d);
       dummy.updateMatrix();
       inst.setMatrixAt(i, dummy.matrix);
-      // cool grey stone with occasional warm-lit facade
-      var lit=(i%9===0);
-      col.setRGB((it.shade/255)*(lit?1.15:0.9), (it.shade/255)*(lit?1.0:0.94), (it.shade/255)*(lit?0.82:1.05));
+      var p=PAL[it.hue];
+      col.setRGB(it.shade*p[0], it.shade*p[1], it.shade*p[2]);
       inst.setColorAt(i, col);
+      if(it.win){
+        // warm light on the +Z facade (rotated with the building)
+        var ox=Math.sin(it.rot)*(it.d/2+0.4), oz=Math.cos(it.rot)*(it.d/2+0.4);
+        wins.push({x:it.x+ox, y:it.h*(0.45+ (i%3)*0.12), z:it.y+oz, rot:it.rot,
+                   w:Math.min(it.w*0.55,4.5), h:Math.min(it.h*0.35,9)});
+      }
     }
     inst.instanceMatrix.needsUpdate=true;
     if(inst.instanceColor)inst.instanceColor.needsUpdate=true;
@@ -682,6 +697,24 @@ var MAP3D={
     this.scene.add(inst);
     this.buildingCount=items.length;
     this.buildingMesh=inst;
+
+    // warm emissive "window lights" — one instanced mesh (1 draw call)
+    if(wins.length){
+      var wgeo=new THREE.BoxGeometry(1,1,0.5);
+      var wmat=new THREE.MeshStandardMaterial({color:0xF2C24A, emissive:0xF2B23A, emissiveIntensity:0.9, roughness:0.6});
+      var winst=new THREE.InstancedMesh(wgeo, wmat, wins.length);
+      for(var j=0;j<wins.length;j++){ var wn=wins[j];
+        dummy.position.set(wn.x, wn.y, wn.z);
+        dummy.rotation.set(0, wn.rot, 0);
+        dummy.scale.set(wn.w, wn.h, 1);
+        dummy.updateMatrix();
+        winst.setMatrixAt(j, dummy.matrix);
+      }
+      winst.instanceMatrix.needsUpdate=true;
+      winst.frustumCulled=false;
+      this.scene.add(winst);
+      this.windowCount=wins.length;
+    }
   },
 
   /* 4. Parks — instanced trees (trunk + foliage) */
@@ -816,6 +849,90 @@ var MAP3D={
     }
     DISTRICTS.forEach(function(d){ place(d.name, d.cx, d.cy, 26, '#e7ddc4', 52); });
     PARKS.forEach(function(p){ place(p.name, p.cx, p.cy, 20, '#bfe0b6', 34); });
+  },
+
+  /* Phase 3 — station number billboards (same sprite technique as the labels,
+     just smaller, one per station, sized to stay legible at full-board zoom) */
+  _makeNumberSprite:function(text){
+    var fontPx=30, font='700 '+fontPx+'px Georgia, "Times New Roman", serif';
+    var mc=document.createElement('canvas'), mx=mc.getContext('2d');
+    mx.font=font; var tw=Math.ceil(mx.measureText(text).width);
+    var pad=9, cw=Math.max(tw+pad*2, fontPx+pad*2), ch=fontPx+pad*2;
+    var c=document.createElement('canvas'); c.width=cw; c.height=ch;
+    var ctx=c.getContext('2d');
+    // round "token" backing so numbers read over any building/ground colour
+    ctx.fillStyle='rgba(10,13,20,0.66)';
+    var r=ch/2; ctx.beginPath();
+    ctx.moveTo(r,0); ctx.arcTo(cw,0,cw,ch,r); ctx.arcTo(cw,ch,0,ch,r); ctx.arcTo(0,ch,0,0,r); ctx.arcTo(0,0,cw,0,r); ctx.fill();
+    ctx.font=font; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.lineWidth=3.5; ctx.strokeStyle='rgba(5,8,12,0.9)'; ctx.strokeText(text, cw/2, ch/2+1);
+    ctx.fillStyle='#FBF3DC'; ctx.fillText(text, cw/2, ch/2+1);
+    var tex=new THREE.CanvasTexture(c);
+    var sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true, depthWrite:false, depthTest:true, fog:false}));
+    sp.userData.aspect=cw/ch;
+    return sp;
+  },
+  _buildStationNumbers:function(){
+    this.numberSprites=[];
+    var worldH=13; // legible at default full-board zoom; scales with the map
+    for(var id=1;id<=199;id++){
+      if(!POS[id])continue;
+      var sp=this._makeNumberSprite(''+id);
+      sp.scale.set(worldH*sp.userData.aspect, worldH, 1);
+      sp.position.set(POS[id].x, 9, POS[id].y); // floating just above the marker
+      this.scene.add(sp);
+      this.numberSprites.push(sp);
+    }
+  },
+
+  /* dusk sky gradient (+ a few static stars), used as scene.background */
+  _skyTexture:function(){
+    var c=document.createElement('canvas'); c.width=16; c.height=512;
+    var ctx=c.getContext('2d');
+    var g=ctx.createLinearGradient(0,0,0,512);
+    g.addColorStop(0.00,'#0b1030');   // deep indigo zenith
+    g.addColorStop(0.45,'#1a1c3a');
+    g.addColorStop(0.72,'#33283f');   // dusk violet
+    g.addColorStop(0.90,'#5a3b40');   // warm muted rose near horizon
+    g.addColorStop(1.00,'#6a4a42');   // amber horizon
+    ctx.fillStyle=g; ctx.fillRect(0,0,16,512);
+    // faint stars in the upper sky
+    ctx.fillStyle='rgba(255,255,255,0.8)';
+    for(var i=0;i<26;i++){
+      var sx=Math.random()*16, sy=Math.random()*180;
+      ctx.globalAlpha=0.3+Math.random()*0.5;
+      ctx.fillRect(sx, sy, Math.random()<0.3?1.4:0.9, Math.random()<0.3?1.4:0.9);
+    }
+    ctx.globalAlpha=1;
+    var tex=new THREE.CanvasTexture(c);
+    tex.magFilter=THREE.LinearFilter; tex.minFilter=THREE.LinearFilter;
+    return tex;
+  },
+
+  /* Phase 3 — smoothly centre the camera on a world position (Locate button).
+     Reuses the existing {tx,tz,dist} rig + applyCam(); does not alter the
+     pan/zoom/#zfit handlers. */
+  focusStation:function(x, y){
+    if(!this.built)return;
+    if(this._focusRaf)cancelAnimationFrame(this._focusRaf);
+    var self=this;
+    var tx0=this.cam.tx, tz0=this.cam.tz, d0=this.cam.dist;
+    var txT=x, tzT=y;
+    // ease in to a comfortable focus distance if currently zoomed far out,
+    // but never zoom back out if the player is already closer.
+    var dT=Math.min(d0, 760); if(dT<this.minDist)dT=this.minDist;
+    var dur=380, t0=performance.now();
+    function step(now){
+      var k=(now-t0)/dur; if(k>1)k=1;
+      var e=k<0.5?2*k*k:1-Math.pow(-2*k+2,2)/2; // easeInOutQuad
+      self.cam.tx=tx0+(txT-tx0)*e;
+      self.cam.tz=tz0+(tzT-tz0)*e;
+      self.cam.dist=d0+(dT-d0)*e;
+      self.applyCam();
+      if(k<1)self._focusRaf=requestAnimationFrame(step);
+      else self._focusRaf=null;
+    }
+    self._focusRaf=requestAnimationFrame(step);
   },
 
   /* water shimmer — independent rAF; the main render loop paints it */
