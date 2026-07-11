@@ -403,28 +403,81 @@ function onGameOver(){
   $('#mLobby').onclick=function(){hideModal();leaveToLobby();};
 }
 // ============ LOBBY / NET / BOOT ============
+// Online rooms use PeerJS (WebRTC) in a host-authoritative star topology:
+// the host owns the room object and broadcasts it; clients connect to the
+// host's peer id and route their actions (seat claims, moves) through it.
+// No backend/shared-storage — works on any static host (e.g. GitHub Pages).
 var MYID=Math.random().toString(36).slice(2,10);
-var NET={code:null,isHost:false,v:0,timer:null,busy:false,room:null};
-function hasNet(){try{return typeof window!=='undefined'&&window.storage&&typeof window.storage.get==='function';}catch(e){return false;}}
-function KEY(c){return 'syroom_'+c;}
+var NET={code:null,isHost:false,v:0,busy:false,room:null,peer:null,conns:[],hostConn:null,joinTimer:null};
+var PEER_PREFIX='syd-'; // namespace our ids on the public PeerJS broker
+function hasNet(){
+  try{ return typeof Peer!=='undefined' && typeof RTCPeerConnection!=='undefined'; }
+  catch(e){ return false; }
+}
 function myName(){return ($('#nameIn').value||'').trim()||'Player';}
-async function readRoom(code){
-  try{
-    var r=await window.storage.get(KEY(code),true);
-    return r&&r.value?JSON.parse(r.value):null;
-  }catch(e){return null;}
+
+/* ---- host: authoritative room broadcast ---- */
+function broadcastRoom(){
+  if(!NET.isHost||!NET.room)return;
+  NET.room.v=(NET.room.v||0)+1; NET.v=NET.room.v;
+  var msg={t:'room',room:NET.room};
+  NET.conns.forEach(function(c){ try{ if(c.open)c.send(msg); }catch(e){} });
 }
-async function writeRoom(room){
-  room.v=(room.v||0)+1;room.t=Date.now();
-  try{await window.storage.set(KEY(room.code),JSON.stringify(room),true);NET.v=room.v;return true;}
-  catch(e){toast('Couldn\'t reach shared storage — move not synced.');return false;}
+function sendHost(msg){ try{ if(NET.hostConn&&NET.hostConn.open)NET.hostConn.send(msg); }catch(e){} }
+
+/* ---- seat mutations, applied on the host's authoritative room ---- */
+function freeSeatsOf(room,pid){ room.seats.forEach(function(s){ if(s.pid===pid){s.kind='open';s.pid=null;s.name='';} }); }
+function applyClaim(room,i,pid,name){
+  if(i<0||i>=room.seats.length)return;
+  if(room.seats[i].kind==='open'){ freeSeatsOf(room,pid); room.seats[i]={kind:'human',pid:pid,name:name||'Player'}; }
 }
-async function rmw(code,fn){
-  var r=await readRoom(code);
-  if(!r){toast('Room not found.');return null;}
-  fn(r);
-  await writeRoom(r);
-  return r;
+function applyRelease(room,i,pid){
+  if(room.seats[i]&&room.seats[i].pid===pid)room.seats[i]={kind:'open',pid:null,name:''};
+}
+function refreshHostSeats(){ if(NET.room&&NET.room.phase==='lobby')renderNetSeats($('#seatListNet'),NET.room,true); }
+
+/* ---- host: handle a message from a connected client ---- */
+function hostHandleData(conn,msg){
+  if(!msg||!NET.isHost||!NET.room)return;
+  if(msg.t==='hello'){
+    conn._pid=msg.pid;
+    try{ conn.send({t:'room',room:NET.room}); }catch(e){}
+  }else if(msg.t==='claim'){
+    applyClaim(NET.room,msg.i,msg.pid,msg.name); refreshHostSeats(); broadcastRoom();
+  }else if(msg.t==='release'){
+    applyRelease(NET.room,msg.i,msg.pid); refreshHostSeats(); broadcastRoom();
+  }else if(msg.t==='leave'){
+    freeSeatsOf(NET.room,msg.pid); refreshHostSeats(); broadcastRoom();
+  }else if(msg.t==='move'){
+    // a client made a legal move — adopt its game state and rebroadcast
+    if(NET.room.phase==='playing'&&msg.game&&(!G||msg.game.mv>G.mv)){
+      NET.room.game=msg.game; adoptGame(msg.game); broadcastRoom();
+    }
+  }
+}
+/* ---- host: wire up a freshly accepted client connection ---- */
+function hostAddConn(conn){
+  NET.conns.push(conn);
+  conn.on('data',function(msg){ hostHandleData(conn,msg); });
+  conn.on('open',function(){ try{ conn.send({t:'room',room:NET.room}); }catch(e){} });
+  conn.on('close',function(){
+    NET.conns=NET.conns.filter(function(c){return c!==conn;});
+    if(conn._pid&&NET.room){ freeSeatsOf(NET.room,conn._pid); refreshHostSeats(); broadcastRoom(); }
+  });
+  conn.on('error',function(){});
+}
+/* ---- client: handle a message from the host ---- */
+function clientHandleData(msg){
+  if(!msg)return;
+  if(msg.t==='room'&&msg.room&&((msg.room.v||0)>(NET.v||0)||!NET.room)){
+    NET.v=msg.room.v||0; adoptRoom(msg.room);
+  }
+}
+function tearDownPeer(){
+  if(NET.joinTimer){clearTimeout(NET.joinTimer);NET.joinTimer=null;}
+  try{ if(NET.hostConn)NET.hostConn.close(); }catch(e){}
+  try{ if(NET.peer)NET.peer.destroy(); }catch(e){}
+  NET.peer=null;NET.conns=[];NET.hostConn=null;
 }
 /* ------- local lobby seats ------- */
 var localSeats=[
@@ -488,11 +541,9 @@ function enterGame(){
 }
 function leaveToLobby(){
   if(UI.botTimer){clearTimeout(UI.botTimer);UI.botTimer=null;}
-  if(NET.timer){clearInterval(NET.timer);NET.timer=null;}
-  if(NET.code&&NET.room&&NET.room.phase==='lobby'){
-    rmw(NET.code,function(r){r.seats.forEach(function(s){if(s.pid===MYID){s.kind='open';s.pid=null;s.name='';}});});
-  }
-  NET.code=null;NET.isHost=false;NET.v=0;NET.room=null;
+  if(NET.code&&!NET.isHost)sendHost({t:'leave',pid:MYID}); // free my seats on the host
+  tearDownPeer();
+  NET.code=null;NET.isHost=false;NET.v=0;NET.room=null;NET.busy=false;
   G=null;
   $('#roomBadge').hidden=true;
   $('#screen-game').hidden=true;
@@ -538,26 +589,21 @@ function renderNetSeats(el,room,amHost){
     if(b.dataset.act==='cfg')b.onchange=function(){netCfg(i,b.value);};
   });
 }
-async function netClaim(i){
+function netClaim(i){
   sfx('click');
-  var room=await rmw(NET.code,function(r){
-    r.seats.forEach(function(s){if(s.pid===MYID){s.kind='open';s.pid=null;s.name='';}});
-    if(r.seats[i].kind==='open'){r.seats[i]={kind:'human',pid:MYID,name:myName()};}
-  });
-  if(room)adoptRoom(room);
+  if(NET.isHost){ applyClaim(NET.room,i,MYID,myName()); refreshHostSeats(); broadcastRoom(); }
+  else{ sendHost({t:'claim',i:i,pid:MYID,name:myName()}); }
 }
-async function netRelease(i){
-  var room=await rmw(NET.code,function(r){
-    if(r.seats[i].pid===MYID)r.seats[i]={kind:'open',pid:null,name:''};
-  });
-  if(room)adoptRoom(room);
+function netRelease(i){
+  sfx('click');
+  if(NET.isHost){ applyRelease(NET.room,i,MYID); refreshHostSeats(); broadcastRoom(); }
+  else{ sendHost({t:'release',i:i,pid:MYID}); }
 }
-async function netCfg(i,val){
-  var room=await rmw(NET.code,function(r){
-    if(r.seats[i].kind==='human')return;
-    r.seats[i]=val==='open'?{kind:'open'}:val==='empty'?{kind:'empty'}:{kind:'bot',diff:val.split('-')[1]};
-  });
-  if(room)adoptRoom(room);
+function netCfg(i,val){ // host-only: clients don't render the cfg selects
+  if(!NET.isHost||!NET.room)return;
+  if(NET.room.seats[i].kind==='human')return;
+  NET.room.seats[i]=val==='open'?{kind:'open'}:val==='empty'?{kind:'empty'}:{kind:'bot',diff:val.split('-')[1]};
+  refreshHostSeats(); broadcastRoom();
 }
 function adoptRoom(room){
   NET.room=room;NET.v=room.v;
@@ -591,14 +637,10 @@ function adoptGame(g){
     hostDriveBots();
   }
 }
-async function netPush(){
+function netPush(){
   if(!NET.code)return;
-  var g=G;
-  await rmw(NET.code,function(r){
-    if(r.game&&r.game.mv>g.mv){G=r.game;render();return;}
-    r.game=g;r.phase='playing';
-  });
-  hostDriveBots();
+  if(NET.isHost){ NET.room.game=G; NET.room.phase='playing'; broadcastRoom(); hostDriveBots(); }
+  else{ sendHost({t:'move',game:G}); }
 }
 function hostDriveBots(){
   if(!NET.code||!NET.isHost||!G||G.winner||NET.busy||UI.busy)return;
@@ -607,66 +649,87 @@ function hostDriveBots(){
   setTimeout(async function(){
     try{
       if(!G||G.winner||currentSeat().kind!=='bot'){NET.busy=false;return;}
-      await botAct(); // animates locally, applies to G; afterAnyMove -> netPush already syncs
+      await botAct(); // animates locally, applies to G; afterAnyMove -> netPush broadcasts
     }finally{
       NET.busy=false;
       hostDriveBots();
     }
   },800);
 }
-function startPolling(){
-  if(NET.timer)clearInterval(NET.timer);
-  NET.timer=setInterval(async function(){
-    if(!NET.code)return;
-    var room=await readRoom(NET.code);
-    if(!room)return;
-    if(room.v>NET.v){adoptRoom(room);}
-    else hostDriveBots();
-  },2000);
-}
 function randCode(){
   var a='ABCDEFGHJKMNPQRSTUVWXYZ',s='';
   for(var i=0;i<5;i++)s+=a[Math.floor(Math.random()*a.length)];
   return s;
 }
-async function createRoomFlow(){
+function createRoomFlow(retries){
+  if(!hasNet()){toast('Online rooms need WebRTC support.');return;}
   sfx('click');
-  var code=randCode();
-  var room={code:code,v:0,hostId:MYID,phase:'lobby',seats:defaultNetSeats()};
-  room.seats[1]={kind:'human',pid:MYID,name:myName()}; // host defaults to Detective 1
-  var ok=await writeRoom(room);
-  if(!ok)return;
-  NET.code=code;NET.isHost=true;NET.room=room;
-  $('#hostLobby').hidden=false;
-  $('#createRoom').hidden=true;
-  $('#codeOut').textContent=code;
-  $('#roomBadge').textContent='ROOM '+code;$('#roomBadge').hidden=false;
-  renderNetSeats($('#seatListNet'),room,true);
-  startPolling();
+  retries=retries||0;
+  $('#createRoom').disabled=true;
+  var code=randCode(), peer;
+  try{ peer=new Peer(PEER_PREFIX+code); }
+  catch(e){ $('#createRoom').disabled=false; toast('Couldn\'t start a room.'); return; }
+  var settled=false;
+  peer.on('open',function(){
+    settled=true;
+    NET.peer=peer; NET.code=code; NET.isHost=true; NET.conns=[]; NET.v=0;
+    NET.room={code:code,v:0,hostId:MYID,phase:'lobby',seats:defaultNetSeats()};
+    NET.room.seats[1]={kind:'human',pid:MYID,name:myName()}; // host defaults to Detective 1
+    peer.on('connection',function(conn){ hostAddConn(conn); });
+    $('#createRoom').disabled=false; $('#createRoom').hidden=true;
+    $('#hostLobby').hidden=false;
+    $('#codeOut').textContent=code;
+    $('#roomBadge').textContent='ROOM '+code; $('#roomBadge').hidden=false;
+    renderNetSeats($('#seatListNet'),NET.room,true);
+  });
+  peer.on('error',function(err){
+    if(settled)return;
+    try{peer.destroy();}catch(e){}
+    if(err&&err.type==='unavailable-id'&&retries<5){ createRoomFlow(retries+1); return; }
+    $('#createRoom').disabled=false;
+    toast('Couldn\'t reach the connection service. Try again.');
+  });
 }
-async function joinRoomFlow(){
+function setJoinStatus(msg){ var s=$('#joinStatus'); if(s){ s.textContent=msg||''; s.hidden=!msg; } }
+function joinRoomFlow(){
+  if(!hasNet()){toast('Online rooms need WebRTC support.');return;}
   sfx('click');
   var code=($('#codeIn').value||'').trim().toUpperCase();
   if(code.length!==5){toast('Room codes are 5 letters.');return;}
-  var room=await readRoom(code);
-  if(!room){toast('No room with that code.');return;}
-  NET.code=code;NET.isHost=room.hostId===MYID;NET.room=room;
-  $('#roomBadge').textContent='ROOM '+code;$('#roomBadge').hidden=false;
-  $('#joinLobby').hidden=false;
-  adoptRoom(room);
-  startPolling();
+  $('#joinRoom').disabled=true; setJoinStatus('Connecting…');
+  var peer, done=false;
+  function fail(m){ if(done)return; done=true; if(NET.joinTimer){clearTimeout(NET.joinTimer);NET.joinTimer=null;} try{peer&&peer.destroy();}catch(e){} $('#joinRoom').disabled=false; setJoinStatus(m); toast(m); }
+  try{ peer=new Peer(); }catch(e){ fail('Couldn\'t start the connection.'); return; }
+  NET.joinTimer=setTimeout(function(){ fail('Couldn\'t connect — check the code or try again.'); }, 9000);
+  peer.on('open',function(){
+    var conn=peer.connect(PEER_PREFIX+code,{reliable:true});
+    conn.on('open',function(){
+      if(done)return; done=true;
+      if(NET.joinTimer){clearTimeout(NET.joinTimer);NET.joinTimer=null;}
+      NET.peer=peer; NET.code=code; NET.isHost=false; NET.hostConn=conn; NET.v=0;
+      conn.on('data',function(msg){ clientHandleData(msg); });
+      conn.on('close',function(){ toast('Disconnected from host.'); });
+      conn.send({t:'hello',pid:MYID,name:myName()});
+      $('#joinRoom').disabled=false; setJoinStatus('');
+      $('#joinLobby').hidden=false;
+      $('#roomBadge').textContent='ROOM '+code; $('#roomBadge').hidden=false;
+    });
+    conn.on('error',function(){ fail('Couldn\'t join that room.'); });
+  });
+  peer.on('error',function(err){
+    if(err&&err.type==='peer-unavailable')fail('No room found with that code.');
+    else fail('Connection failed — check your network and try again.');
+  });
 }
-async function startNetGame(){
+function startNetGame(){
   sfx('click');
-  var room=await readRoom(NET.code);
-  if(!room)return;
-  var cfg=room.seats.map(function(s){return s.kind==='open'?{kind:'bot',diff:'hard'}:s;});
+  if(!NET.isHost||!NET.room)return;
+  var cfg=NET.room.seats.map(function(s){return s.kind==='open'?{kind:'bot',diff:'hard'}:s;});
   var seats=buildGameSeats(cfg,'');
   if(seats.length<2){toast('You need at least one detective.');return;}
   var g=newGame(seats);
-  room.phase='playing';room.game=g;
-  await writeRoom(room);
-  NET.room=room;
+  NET.room.phase='playing'; NET.room.game=g;
+  broadcastRoom();
   adoptGame(g);
 }
 /* ------- rules modal ------- */
@@ -697,7 +760,7 @@ function boot(){
     };
   });
   $('#startLocal').onclick=function(){sfx('click');startLocalGame();};
-  $('#createRoom').onclick=createRoomFlow;
+  $('#createRoom').onclick=function(){createRoomFlow();};
   $('#joinRoom').onclick=joinRoomFlow;
   $('#startNet').onclick=startNetGame;
   $('#copyCode').onclick=function(){
