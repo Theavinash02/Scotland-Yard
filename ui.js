@@ -116,15 +116,11 @@ function renderPieces(){
   var h='';
   G.dets.forEach(function(d,i){
     var p=POS[d.st],c=DCOL[i%5];
-    h+='<g transform="translate('+p.x+','+p.y+')">'+
-       '<circle r="8" fill="'+c+'" stroke="#fff" stroke-width="2"/>'+
-       '<text y="3.4" text-anchor="middle" font-size="9" font-weight="700" fill="#fff" class="st-num">'+(i+1)+'</text></g>';
+    h+=pieceTokenSvg(p.x,p.y,c,'#fff',String(i+1),'pawn');
   });
   if(canSeeMrx()){
     var p=POS[G.mrx.st];
-    h+='<g transform="translate('+p.x+','+p.y+')">'+
-       '<circle r="9" fill="#0B0D10" stroke="#F2C230" stroke-width="2"/>'+
-       '<text y="3.8" text-anchor="middle" font-size="10" font-weight="700" fill="#F2C230" class="st-num">X</text></g>';
+    h+=pieceTokenSvg(p.x,p.y,'#101317','#F2C230','X','king');
   }else if(G.rev){
     var q=POS[G.rev];
     h+='<g transform="translate('+q.x+','+q.y+')" opacity="0.85">'+
@@ -140,6 +136,38 @@ function renderPieces(){
     });
   }
   LAYER.ps.innerHTML=ph;
+}
+
+function pieceTokenSvg(x,y,fill,accent,label,kind){
+  var isKing=kind==='king';
+  var bodyR=isKing?12.2:10.2;
+  var baseR=isKing?15.2:13.3;
+  var neckW=isKing?9.2:8.2;
+  var neckH=isKing?7.8:6.8;
+  var headR=isKing?7.1:6.1;
+  var glow=isKing?'rgba(255,223,120,.22)':'rgba(255,255,255,.18)';
+  var shadow=isKing?'rgba(1,2,3,.42)':'rgba(2,4,6,.34)';
+  var crown=isKing
+    ? '<path d="M -5.6 -15 L -2.3 -20 L 0 -16.6 L 2.3 -20 L 5.6 -15 L 3.9 -10.4 L -3.9 -10.4 Z" fill="'+accent+'" stroke="rgba(255,255,255,.30)" stroke-width="0.8"/>'+ 
+      '<path d="M -4.4 -14.2 L -2.2 -18.1 L 0 -15.2 L 2.2 -18.1 L 4.4 -14.2" fill="none" stroke="rgba(0,0,0,.25)" stroke-width="0.9" stroke-linecap="round"/>'
+    : '<path d="M -4.2 -14 L -1.8 -18.4 L 0 -15.7 L 1.8 -18.4 L 4.2 -14" fill="none" stroke="rgba(255,255,255,.30)" stroke-width="0.8" stroke-linecap="round"/>';
+  var topHighlight=isKing
+    ? '<ellipse cx="-2.8" cy="-10.2" rx="4.8" ry="2.5" fill="rgba(255,255,255,.20)"/>'
+    : '<ellipse cx="-2.4" cy="-8.8" rx="4.2" ry="2.2" fill="rgba(255,255,255,.24)"/>';
+  return '<g transform="translate('+x+','+y+')" filter="url(#pieceShadow)">'+
+    '<ellipse cx="0" cy="7.8" rx="'+(isKing?12.8:11.2)+'" ry="4.8" fill="'+shadow+'"/>'+ 
+    '<ellipse cx="0" cy="5.7" rx="'+baseR+'" ry="5.1" fill="rgba(0,0,0,.16)"/>'+ 
+    '<path d="M -'+(baseR-1)+' 5.5 C -'+(baseR-1)+' 2.0 -'+(baseR-0.2)+' -1.1 0 -2.1 C '+(baseR-0.2)+' -1.1 '+(baseR-1)+' 2.0 '+(baseR-1)+' 5.5 Z" fill="'+fill+'" stroke="rgba(12,16,22,.80)" stroke-width="1.6"/>'+ 
+    '<path d="M -'+(baseR-2.2)+' 3.8 C -'+(baseR-2)+' 0.8 -1.3 -1 0 -1.2 C -0.6 1.8 -0.5 3.4 -'+(baseR-2.2)+' 3.8 Z" fill="rgba(255,255,255,.10)"/>'+ 
+    '<path d="M '+(baseR-2.2)+' 4.1 C '+(baseR-1.5)+' 1.2 '+(baseR-1.2)+' -0.8 0 -1.2 C 0.8 1.7 0.7 3.5 '+(baseR-2.2)+' 4.1 Z" fill="rgba(0,0,0,.16)"/>'+ 
+    '<ellipse cx="0" cy="3.7" rx="'+(baseR-3)+'" ry="3.2" fill="'+glow+'"/>'+ 
+    '<rect x="-'+(neckW/2)+'" y="-6.1" width="'+neckW+'" height="'+neckH+'" rx="'+(neckW/2)+'" fill="'+fill+'" stroke="rgba(12,16,22,.80)" stroke-width="1.3"/>'+ 
+    '<ellipse cx="0" cy="-7.4" rx="'+headR+'" ry="'+(headR*0.9)+'" fill="'+fill+'" stroke="rgba(12,16,22,.80)" stroke-width="1.2"/>'+ 
+    '<ellipse cx="-2.2" cy="-8.8" rx="3.8" ry="1.9" fill="rgba(255,255,255,.26)"/>'+ 
+    crown+
+    '<ellipse cx="3.1" cy="2.9" rx="4.4" ry="2.2" fill="rgba(0,0,0,.20)"/>'+ 
+    topHighlight+
+    '<text y="4.1" text-anchor="middle" font-size="'+(isKing?10:9)+'" font-weight="800" fill="'+accent+'" class="st-num">'+label+'</text></g>';
 }
 function renderBanner(){
   var b=$('#banner');
