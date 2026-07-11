@@ -36,9 +36,9 @@
         <p class="tiny muted" style="margin-top:8px">Multiple humans on this device play hot-seat — the app blanks Mr.&nbsp;X's position between turns.</p>
       </div>
       <div id="tab-host" class="tabpane" hidden>
-        <div id="netUnavail" class="warn" hidden>Online rooms need the shared-storage API of the Claude artifact viewer, which isn't available where this file is running. Local play and bots work fully.</div>
+        <div id="netUnavail" class="warn" hidden>Online rooms need WebRTC, which this browser or environment doesn't support. Local play and bots work fully.</div>
         <div id="hostArea">
-          <p class="tiny muted" style="margin-bottom:6px">A room stores its state in shared storage — anyone running this artifact can join with the code. Turns sync every couple of seconds.</p>
+          <p class="tiny muted" style="margin-bottom:6px">Peer-to-peer room — share the code and friends connect directly, browser to browser, over WebRTC. No server needed.</p>
           <button id="createRoom" class="btn big" style="margin-top:4px">Create room</button>
           <div id="hostLobby" hidden>
             <div class="roomcode">Room code <b id="codeOut"></b><button id="copyCode" class="ghostbtn">copy</button></div>
@@ -49,9 +49,10 @@
         </div>
       </div>
       <div id="tab-join" class="tabpane" hidden>
-        <div id="netUnavail2" class="warn" hidden>Online rooms aren't available in this environment — try the local tab.</div>
+        <div id="netUnavail2" class="warn" hidden>Online rooms need WebRTC, which isn't available here — try the local tab.</div>
         <label>Room code <input id="codeIn" maxlength="5" placeholder="ABCDE" style="text-transform:uppercase;letter-spacing:4px;font-family:'IBM Plex Mono',monospace"></label>
         <button id="joinRoom" class="btn big" style="margin-top:0">Join</button>
+        <div id="joinStatus" class="tiny muted" style="margin-top:8px" hidden></div>
         <div id="joinLobby" hidden>
           <div style="height:12px"></div>
           <div id="seatListJoin"></div>
@@ -101,6 +102,7 @@
 
 <div id="modal" hidden><div id="modalBox"></div></div>
 <div id="toast"></div>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="engine.js"></script>
 <script src="bots.js"></script>
 <script src="map.js"></script>
