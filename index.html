@@ -127,6 +127,19 @@
   </aside>
 </main>
 
+<div id="chatPanel" class="chatpanel collapsed" hidden>
+  <div id="chatHeader" class="chatpanel-head">
+    <span>Room chat</span>
+    <button id="chatToggle" class="chatpanel-toggle" title="Collapse/expand chat" tabindex="-1">▾</button>
+  </div>
+  <div class="chatpanel-body">
+    <div id="chatLog" class="chatlog"></div>
+    <div class="chatrow">
+      <input id="chatIn" maxlength="240" placeholder="Message the room…">
+      <button id="chatSend" class="ghostbtn">Send</button>
+    </div>
+  </div>
+</div>
 <div id="modal" hidden><div id="modalBox"></div></div>
 <div id="toast"></div>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>

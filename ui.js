@@ -471,16 +471,72 @@ function onGameOver(){
 // Firestore-mirrored NET.room (unchanged shape), then calls
 // newGame()/broadcastRoom()/adoptGame() exactly as before — those calls
 // are the existing in-game mechanism and are left untouched.
+//
+// CHAT is layered on top of the PeerJS transport only, in its own
+// NET.chat log (NOT NET.room.chat): during the lobby, NET.room is
+// overwritten wholesale on every Firestore seat-list snapshot
+// (onRoomUpdate), which would silently wipe any chat history stored on
+// NET.room every time someone claims/releases a seat. NET.chat/
+// broadcastChat() are a small host-authoritative log delivered over the
+// same PeerJS connections, independent of both Firestore and NET.room.
 // -------------------------------------------------------------------------
 var MYID=(typeof ROOMS!=='undefined'&&typeof AUTH!=='undefined'&&AUTH.user)?AUTH.user.uid:(typeof ROOMS!=='undefined'?ROOMS.guestId():Math.random().toString(36).slice(2,10));
 if(typeof AUTH!=='undefined')AUTH.onChange(function(u){ if(u)MYID=u.uid; });
-var NET={code:null,isHost:false,v:0,busy:false,room:null,peer:null,conns:[],hostConn:null,joinTimer:null};
+var NET={code:null,isHost:false,v:0,busy:false,room:null,peer:null,conns:[],hostConn:null,joinTimer:null,chat:[],localChat:[]};
 var PEER_PREFIX='syd-'; // namespace our ids on the public PeerJS broker
 function hasNet(){
   try{ return typeof Peer!=='undefined' && typeof RTCPeerConnection!=='undefined' && typeof ROOMS!=='undefined' && ROOMS.ready(); }
   catch(e){ return false; }
 }
 function myName(){return ($('#nameIn').value||'').trim()||(typeof AUTH!=='undefined'&&AUTH.user?AUTH.user.username:'')||'Player';}
+
+/* ---- room chat: player messages + automated join/leave system notices ----
+   Chat lives in its own NET.chat log (see boundary note above for why it's
+   not on NET.room), delivered over the same PeerJS connections as
+   everything else, host-authoritative like seats/moves. */
+function escHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function broadcastChat(){
+  if(!NET.isHost)return;
+  var msg={t:'chatlog',chat:NET.chat};
+  NET.conns.forEach(function(c){ try{ if(c.open)c.send(msg); }catch(e){} });
+}
+function pushChatEntry(kind,text,name){ // host-only: mutates the authoritative chat log + syncs it out
+  if(!NET.isHost)return;
+  if(!NET.chat)NET.chat=[];
+  NET.chat.push({kind:kind,text:text,name:name||'',ts:Date.now()});
+  if(NET.chat.length>200)NET.chat=NET.chat.slice(-200); // keep the log bounded
+  renderChat();
+  broadcastChat();
+}
+function addSystemMsg(text){ pushChatEntry('sys',text); }
+function renderChat(){
+  var log=$('#chatLog'); if(!log)return;
+  var h='';
+  (NET.chat||[]).forEach(function(m){
+    h+=m.kind==='sys'
+      ? '<div class="chat-sys">'+escHtml(m.text)+'</div>'
+      : '<div class="chat-msg"><b>'+escHtml(m.name||'Player')+':</b> '+escHtml(m.text)+'</div>';
+  });
+  (NET.localChat||[]).forEach(function(m){ h+='<div class="chat-sys">'+escHtml(m.text)+'</div>'; });
+  log.innerHTML=h;
+  log.scrollTop=log.scrollHeight;
+}
+function updateChatVisibility(){
+  var p=$('#chatPanel'); if(!p)return;
+  p.hidden=!isNet();
+}
+function sendChatMessage(){
+  var inp=$('#chatIn'); if(!inp)return;
+  var val=(inp.value||'').trim();
+  if(!val||!NET.code)return;
+  inp.value='';
+  if(NET.isHost)pushChatEntry('msg',val,myName());
+  else sendHost({t:'chat',text:val,name:myName()});
+}
 
 /* ---- host: authoritative room broadcast (IN-GAME ONLY — see boundary
    note above; during the lobby, seat sync goes through ROOMS/Firestore
@@ -499,7 +555,10 @@ function freeSeatsOf(room,pid){ room.seats.forEach(function(s){ if(s.pid===pid){
 function hostHandleData(conn,msg){
   if(!msg||!NET.isHost||!NET.room)return;
   if(msg.t==='hello'){
-    conn._pid=msg.pid; // attributes this PeerJS conn to a player id, used below on disconnect
+    conn._pid=msg.pid; conn._name=msg.name||'Player'; // attributes this PeerJS conn to a player id, used below on disconnect and for chat
+    addSystemMsg(conn._name+' has joined the room');
+  }else if(msg.t==='chat'){
+    pushChatEntry('msg',msg.text,msg.name);
   }else if(msg.t==='move'){
     // a client made a legal move — adopt its game state and rebroadcast
     if(NET.room.phase==='playing'&&msg.game&&(!G||msg.game.mv>G.mv)){
@@ -516,6 +575,8 @@ function hostAddConn(conn){
   conn.on('close',function(){
     NET.conns=NET.conns.filter(function(c){return c!==conn;});
     if(!conn._pid||!NET.room)return;
+    var seat=NET.room.seats.filter(function(s){return s.pid===conn._pid;})[0];
+    var nm=(seat&&seat.name)||conn._name||'A player';
     if(NET.room.phase==='lobby'){
       // lobby-phase disconnect: free the seat via Firestore so every
       // client's (Firestore-driven) seat list reflects it
@@ -524,6 +585,7 @@ function hostAddConn(conn){
       // in-game disconnect: unchanged pre-existing behaviour
       freeSeatsOf(NET.room,conn._pid); broadcastRoom();
     }
+    addSystemMsg(nm+' has disconnected');
   });
   conn.on('error',function(){});
 }
@@ -532,6 +594,8 @@ function clientHandleData(msg){
   if(!msg)return;
   if(msg.t==='room'&&msg.room&&((msg.room.v||0)>(NET.v||0)||!NET.room)){
     NET.v=msg.room.v||0; adoptRoom(msg.room);
+  }else if(msg.t==='chatlog'&&msg.chat){
+    NET.chat=msg.chat; renderChat();
   }
 }
 function tearDownPeer(){
@@ -605,13 +669,15 @@ function leaveToLobby(){
   if(NET.code&&typeof ROOMS!=='undefined')ROOMS.releaseSeat(NET.code,MYID,function(){}); // free my seat in Firestore
   if(typeof ROOMS!=='undefined')ROOMS.unsubscribe();
   tearDownPeer();
-  NET.code=null;NET.isHost=false;NET.v=0;NET.room=null;NET.busy=false;
+  NET.code=null;NET.isHost=false;NET.v=0;NET.room=null;NET.busy=false;NET.localChat=[];
   G=null;
   $('#roomBadge').hidden=true;
   $('#screen-game').hidden=true;
   $('#screen-lobby').hidden=false;
   $('#hostLobby').hidden=true;
   $('#joinLobby').hidden=true;
+  updateChatVisibility();
+  renderChat();
 }
 /* ------- net lobby ------- */
 function defaultNetSeats(){
@@ -692,6 +758,7 @@ function onRoomUpdate(room){
 }
 function adoptRoom(room){
   NET.room=room;NET.v=room.v;
+  renderChat();
   if(room.phase==='lobby'){
     var el=NET.isHost?$('#seatListNet'):$('#seatListJoin');
     renderNetSeats(el,room,NET.isHost);
@@ -757,7 +824,7 @@ function createRoomFlow(retries){
   var settled=false;
   peer.on('open',function(){
     settled=true;
-    NET.peer=peer; NET.isHost=true; NET.conns=[]; NET.v=0;
+    NET.peer=peer; NET.isHost=true; NET.conns=[]; NET.v=0; NET.chat=[]; NET.localChat=[];
     var seats=defaultNetSeats();
     seats[1]={kind:'human',pid:MYID,uid:(typeof AUTH!=='undefined'&&AUTH.user)?AUTH.user.uid:null,name:myName()}; // host defaults to Detective 1
     ROOMS.create({code:code,hostId:MYID,seats:seats},function(err,roomCode){
@@ -772,6 +839,8 @@ function createRoomFlow(retries){
       $('#hostLobby').hidden=false;
       $('#codeOut').textContent=roomCode;
       $('#roomBadge').textContent='ROOM '+roomCode; $('#roomBadge').hidden=false;
+      updateChatVisibility();
+      addSystemMsg('Room created — share code '+roomCode+' to invite players.');
       ROOMS.subscribe(roomCode,onRoomUpdate);
     });
   });
@@ -799,13 +868,18 @@ function joinRoomFlow(){
     conn.on('open',function(){
       if(done)return; done=true;
       if(NET.joinTimer){clearTimeout(NET.joinTimer);NET.joinTimer=null;}
-      NET.peer=peer; NET.code=code; NET.isHost=false; NET.hostConn=conn; NET.v=0;
+      NET.peer=peer; NET.code=code; NET.isHost=false; NET.hostConn=conn; NET.v=0; NET.chat=[]; NET.localChat=[];
       conn.on('data',function(msg){ clientHandleData(msg); });
-      conn.on('close',function(){ toast('Disconnected from host.'); });
-      conn.send({t:'hello',pid:MYID,name:myName()}); // lets the host attribute this conn to my pid (used for disconnect cleanup)
+      conn.on('close',function(){
+        toast('Disconnected from host.');
+        NET.localChat.push({text:'You have been disconnected from the host.',ts:Date.now()});
+        renderChat();
+      });
+      conn.send({t:'hello',pid:MYID,name:myName()}); // lets the host attribute this conn to my pid (used for disconnect cleanup) and announce the join in chat
       $('#joinRoom').disabled=false; setJoinStatus('');
       $('#joinLobby').hidden=false;
       $('#roomBadge').textContent='ROOM '+code; $('#roomBadge').hidden=false;
+      updateChatVisibility();
       ROOMS.subscribe(code,onRoomUpdate);
     });
     conn.on('error',function(){ fail('Couldn\'t join that room.'); });
@@ -926,6 +1000,9 @@ function boot(){
   };
   $('#psBtn').onclick=function(){UI.showPs=!UI.showPs;sfx('click');render();};
   $('#leaveBtn').onclick=function(){sfx('click');leaveToLobby();};
+  $('#chatSend').onclick=sendChatMessage;
+  $('#chatIn').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); sendChatMessage(); } });
+  $('#chatHeader').onclick=function(){ $('#chatPanel').classList.toggle('collapsed'); };
   $('#locateBtn').onclick=function(){sfx('click');focusCurrentTurn();};
   $('#modal').addEventListener('click',function(e){if(e.target.id==='modal'&&G&&!G.winner&&!UI.privacy)hideModal();});
   document.addEventListener('keydown',function(e){if(e.key==='Escape'){var c=$('#chooser');if(c)c.hidden=true;}});
