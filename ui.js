@@ -839,6 +839,55 @@ function showRules(){
   '<button class="btn" id="mOK">Got it</button>');
   $('#mOK').onclick=hideModal;
 }
+/* ------- onboarding demo ------- */
+var DEMO_STEPS=[
+  {title:'Welcome to Scotland Yard',body:
+    '<p>Scotland Yard is a hidden-movement chase across London. One player is <b>Mr. X</b>, hiding and evading capture. Everyone else is a <b>detective</b>, working together to corner him.</p>'},
+  {title:'The map',body:
+    '<p>Stations across the city are linked by four kinds of transport, each drawn in its own color on the map.</p>'+
+    '<div class="demolegend">'+
+      '<div class="demoleg-row"><svg width="26" height="10" aria-hidden="true"><rect width="26" height="10" rx="5" fill="'+TKCOL.t+'"/></svg><span>Taxi</span></div>'+
+      '<div class="demoleg-row"><svg width="26" height="10" aria-hidden="true"><rect width="26" height="10" rx="5" fill="'+TKCOL.b+'"/></svg><span>Bus</span></div>'+
+      '<div class="demoleg-row"><svg width="26" height="10" aria-hidden="true"><rect width="26" height="10" rx="5" fill="'+TKCOL.u+'"/></svg><span>Underground</span></div>'+
+      '<div class="demoleg-row"><svg width="26" height="10" aria-hidden="true"><rect width="26" height="10" rx="5" fill="'+TKCOL.boat+'"/></svg><span>Ferry (Thames)</span></div>'+
+    '</div>'},
+  {title:'How detectives move',body:
+    '<p>Detectives move by spending a ticket that matches the transport they take — taxi, bus, or underground. Each detective starts with <b>10 taxi, 8 bus and 4 underground</b> tickets; once they\'re gone, they\'re gone.</p>'+
+    '<p>Two detectives can never share the same station.</p>'},
+  {title:'Mr. X\'s concealment',body:
+    '<p>Mr. X moves first each round, in secret — only the <b>ticket type</b> he plays is shown, never his station. On rounds <b style="color:var(--gold)">3, 8, 13, 18 and 24</b> he must surface and reveal exactly where he is.</p>'+
+    '<p><b>Black tickets</b> let him ride anything — including the Thames ferry — without revealing which transport he used. <b>Double-move</b> cards let him move twice in a single round.</p>'},
+  {title:'Making a move',body:
+    '<p>When it\'s your turn, click a highlighted station to move there. If more than one transport reaches it, you\'ll be asked which ticket to spend.</p>'+
+    '<p>Drag to pan the map; scroll or pinch to zoom.</p>'},
+  {title:'Winning the game',body:
+    '<p>Detectives win the moment one of them lands on Mr. X\'s station. Mr. X wins by evading capture for long enough to slip away.</p>'+
+    '<p class="tiny muted">You can revisit the full rules any time with the <b>Rules</b> button.</p>'}
+];
+var demoIdx=0;
+function demoMarkSeen(){try{localStorage.setItem('sy_demo_seen','1');}catch(e){}}
+function showDemo(){demoIdx=0;renderDemoStep();}
+function renderDemoStep(){
+  var n=DEMO_STEPS.length,s=DEMO_STEPS[demoIdx];
+  var dots='';
+  for(var i=0;i<n;i++)dots+='<span class="demodot'+(i===demoIdx?' on':'')+'"></span>';
+  var html='<div class="demohead"><span class="demostep">Step '+(demoIdx+1)+' of '+n+'</span>'+
+    '<button class="ghostbtn" id="demoSkip">Skip</button></div>'+
+    '<h2>'+s.title+'</h2>'+s.body+
+    '<div class="demodots">'+dots+'</div>'+
+    '<div class="demonav">'+
+      (demoIdx>0?'<button class="btn ghost" id="demoBack">Back</button>':'')+
+      '<button class="btn" id="demoNext">'+(demoIdx===n-1?'Done':'Next')+'</button>'+
+    '</div>';
+  showModal(html);
+  $('#demoSkip').onclick=function(){demoMarkSeen();hideModal();};
+  var back=$('#demoBack');
+  if(back)back.onclick=function(){demoIdx--;renderDemoStep();};
+  $('#demoNext').onclick=function(){
+    if(demoIdx===n-1){demoMarkSeen();hideModal();}
+    else{demoIdx++;renderDemoStep();}
+  };
+}
 /* ------- boot ------- */
 function boot(){
   renderLocalSeats();
@@ -863,6 +912,10 @@ function boot(){
     try{navigator.clipboard.writeText($('#codeOut').textContent);toast('Code copied.');}catch(e){}
   };
   $('#helpBtn').onclick=showRules;
+  $('#demoBtn').onclick=showDemo;
+  var sawDemo=false;
+  try{sawDemo=!!localStorage.getItem('sy_demo_seen');}catch(e){}
+  if(!sawDemo){demoMarkSeen();showDemo();}
   $('#sndBtn').onclick=function(){
     UI.soundOn=!UI.soundOn;
     $('#sndBtn').textContent=UI.soundOn?'🔊 Sound':'🔇 Muted';
