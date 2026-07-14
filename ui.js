@@ -408,13 +408,56 @@ function onGameOver(){
 // host's peer id and route their actions (seat claims, moves) through it.
 // No backend/shared-storage — works on any static host (e.g. GitHub Pages).
 var MYID=Math.random().toString(36).slice(2,10);
-var NET={code:null,isHost:false,v:0,busy:false,room:null,peer:null,conns:[],hostConn:null,joinTimer:null};
+var NET={code:null,isHost:false,v:0,busy:false,room:null,peer:null,conns:[],hostConn:null,joinTimer:null,localChat:[]};
 var PEER_PREFIX='syd-'; // namespace our ids on the public PeerJS broker
 function hasNet(){
   try{ return typeof Peer!=='undefined' && typeof RTCPeerConnection!=='undefined'; }
   catch(e){ return false; }
 }
 function myName(){return ($('#nameIn').value||'').trim()||'Player';}
+
+/* ---- room chat: player messages + automated join/leave system notices ----
+   Chat lives on the authoritative room object (NET.room.chat) and rides
+   along with the existing broadcastRoom() sync, the same way seats do —
+   no separate wire protocol needed for delivery to clients. */
+function escHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function pushChatEntry(kind,text,name){ // host-only: mutates the authoritative room + syncs it out
+  if(!NET.isHost||!NET.room)return;
+  if(!NET.room.chat)NET.room.chat=[];
+  NET.room.chat.push({kind:kind,text:text,name:name||'',ts:Date.now()});
+  if(NET.room.chat.length>200)NET.room.chat=NET.room.chat.slice(-200); // keep the log bounded
+  renderChat();
+  broadcastRoom();
+}
+function addSystemMsg(text){ pushChatEntry('sys',text); }
+function renderChat(){
+  var log=$('#chatLog'); if(!log)return;
+  var h='';
+  ((NET.room&&NET.room.chat)||[]).forEach(function(m){
+    h+=m.kind==='sys'
+      ? '<div class="chat-sys">'+escHtml(m.text)+'</div>'
+      : '<div class="chat-msg"><b>'+escHtml(m.name||'Player')+':</b> '+escHtml(m.text)+'</div>';
+  });
+  (NET.localChat||[]).forEach(function(m){ h+='<div class="chat-sys">'+escHtml(m.text)+'</div>'; });
+  log.innerHTML=h;
+  log.scrollTop=log.scrollHeight;
+}
+function updateChatVisibility(){
+  var p=$('#chatPanel'); if(!p)return;
+  p.hidden=!isNet();
+}
+function sendChatMessage(){
+  var inp=$('#chatIn'); if(!inp)return;
+  var val=(inp.value||'').trim();
+  if(!val||!NET.code)return;
+  inp.value='';
+  if(NET.isHost)pushChatEntry('msg',val,myName());
+  else sendHost({t:'chat',text:val,name:myName()});
+}
 
 /* ---- host: authoritative room broadcast ---- */
 function broadcastRoom(){
@@ -440,14 +483,20 @@ function refreshHostSeats(){ if(NET.room&&NET.room.phase==='lobby')renderNetSeat
 function hostHandleData(conn,msg){
   if(!msg||!NET.isHost||!NET.room)return;
   if(msg.t==='hello'){
-    conn._pid=msg.pid;
+    conn._pid=msg.pid; conn._name=msg.name||'Player';
     try{ conn.send({t:'room',room:NET.room}); }catch(e){}
+    addSystemMsg(conn._name+' has joined the room');
   }else if(msg.t==='claim'){
     applyClaim(NET.room,msg.i,msg.pid,msg.name); refreshHostSeats(); broadcastRoom();
   }else if(msg.t==='release'){
     applyRelease(NET.room,msg.i,msg.pid); refreshHostSeats(); broadcastRoom();
   }else if(msg.t==='leave'){
-    freeSeatsOf(NET.room,msg.pid); refreshHostSeats(); broadcastRoom();
+    conn._left=true; // explicit leave — the close event that follows shouldn't double up the system message
+    var lSeat=NET.room.seats.filter(function(s){return s.pid===msg.pid;})[0];
+    freeSeatsOf(NET.room,msg.pid); refreshHostSeats();
+    addSystemMsg(((lSeat&&lSeat.name)||conn._name||'A player')+' has left the room');
+  }else if(msg.t==='chat'){
+    pushChatEntry('msg',msg.text,msg.name);
   }else if(msg.t==='move'){
     // a client made a legal move — adopt its game state and rebroadcast
     if(NET.room.phase==='playing'&&msg.game&&(!G||msg.game.mv>G.mv)){
@@ -462,7 +511,12 @@ function hostAddConn(conn){
   conn.on('open',function(){ try{ conn.send({t:'room',room:NET.room}); }catch(e){} });
   conn.on('close',function(){
     NET.conns=NET.conns.filter(function(c){return c!==conn;});
-    if(conn._pid&&NET.room){ freeSeatsOf(NET.room,conn._pid); refreshHostSeats(); broadcastRoom(); }
+    if(conn._pid&&NET.room&&!conn._left){
+      var seat=NET.room.seats.filter(function(s){return s.pid===conn._pid;})[0];
+      var nm=(seat&&seat.name)||conn._name||'A player';
+      freeSeatsOf(NET.room,conn._pid); refreshHostSeats();
+      addSystemMsg(nm+' has disconnected');
+    }
   });
   conn.on('error',function(){});
 }
@@ -543,13 +597,15 @@ function leaveToLobby(){
   if(UI.botTimer){clearTimeout(UI.botTimer);UI.botTimer=null;}
   if(NET.code&&!NET.isHost)sendHost({t:'leave',pid:MYID}); // free my seats on the host
   tearDownPeer();
-  NET.code=null;NET.isHost=false;NET.v=0;NET.room=null;NET.busy=false;
+  NET.code=null;NET.isHost=false;NET.v=0;NET.room=null;NET.busy=false;NET.localChat=[];
   G=null;
   $('#roomBadge').hidden=true;
   $('#screen-game').hidden=true;
   $('#screen-lobby').hidden=false;
   $('#hostLobby').hidden=true;
   $('#joinLobby').hidden=true;
+  updateChatVisibility();
+  renderChat();
 }
 /* ------- net lobby ------- */
 function defaultNetSeats(){
@@ -607,6 +663,7 @@ function netCfg(i,val){ // host-only: clients don't render the cfg selects
 }
 function adoptRoom(room){
   NET.room=room;NET.v=room.v;
+  renderChat();
   if(room.phase==='lobby'){
     var el=NET.isHost?$('#seatListNet'):$('#seatListJoin');
     renderNetSeats(el,room,NET.isHost);
@@ -672,8 +729,8 @@ function createRoomFlow(retries){
   var settled=false;
   peer.on('open',function(){
     settled=true;
-    NET.peer=peer; NET.code=code; NET.isHost=true; NET.conns=[]; NET.v=0;
-    NET.room={code:code,v:0,hostId:MYID,phase:'lobby',seats:defaultNetSeats()};
+    NET.peer=peer; NET.code=code; NET.isHost=true; NET.conns=[]; NET.v=0; NET.localChat=[];
+    NET.room={code:code,v:0,hostId:MYID,phase:'lobby',seats:defaultNetSeats(),chat:[]};
     NET.room.seats[1]={kind:'human',pid:MYID,name:myName()}; // host defaults to Detective 1
     peer.on('connection',function(conn){ hostAddConn(conn); });
     $('#createRoom').disabled=false; $('#createRoom').hidden=true;
@@ -681,6 +738,8 @@ function createRoomFlow(retries){
     $('#codeOut').textContent=code;
     $('#roomBadge').textContent='ROOM '+code; $('#roomBadge').hidden=false;
     renderNetSeats($('#seatListNet'),NET.room,true);
+    updateChatVisibility();
+    addSystemMsg('Room created — share code '+code+' to invite players.');
   });
   peer.on('error',function(err){
     if(settled)return;
@@ -706,13 +765,18 @@ function joinRoomFlow(){
     conn.on('open',function(){
       if(done)return; done=true;
       if(NET.joinTimer){clearTimeout(NET.joinTimer);NET.joinTimer=null;}
-      NET.peer=peer; NET.code=code; NET.isHost=false; NET.hostConn=conn; NET.v=0;
+      NET.peer=peer; NET.code=code; NET.isHost=false; NET.hostConn=conn; NET.v=0; NET.localChat=[];
       conn.on('data',function(msg){ clientHandleData(msg); });
-      conn.on('close',function(){ toast('Disconnected from host.'); });
+      conn.on('close',function(){
+        toast('Disconnected from host.');
+        NET.localChat.push({text:'You have been disconnected from the host.',ts:Date.now()});
+        renderChat();
+      });
       conn.send({t:'hello',pid:MYID,name:myName()});
       $('#joinRoom').disabled=false; setJoinStatus('');
       $('#joinLobby').hidden=false;
       $('#roomBadge').textContent='ROOM '+code; $('#roomBadge').hidden=false;
+      updateChatVisibility();
     });
     conn.on('error',function(){ fail('Couldn\'t join that room.'); });
   });
@@ -777,6 +841,9 @@ function boot(){
   };
   $('#psBtn').onclick=function(){UI.showPs=!UI.showPs;sfx('click');render();};
   $('#leaveBtn').onclick=function(){sfx('click');leaveToLobby();};
+  $('#chatSend').onclick=sendChatMessage;
+  $('#chatIn').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); sendChatMessage(); } });
+  $('#chatHeader').onclick=function(){ $('#chatPanel').classList.toggle('collapsed'); };
   $('#modal').addEventListener('click',function(e){if(e.target.id==='modal'&&G&&!G.winner&&!UI.privacy)hideModal();});
   document.addEventListener('keydown',function(e){if(e.key==='Escape'){var c=$('#chooser');if(c)c.hidden=true;}});
 }
