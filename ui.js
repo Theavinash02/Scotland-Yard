@@ -1,5 +1,5 @@
 var G=null;
-var UI={mrxViewing:false,privacy:false,showPs:false,busy:false,botTimer:null,pending:null,soundOn:true,mapBuilt:false};
+var UI={mrxViewing:false,privacy:false,showPs:false,busy:false,botTimer:null,pending:null,soundOn:true,mapBuilt:false,tutorialActive:false};
 var DCOL=['#2E6FD8','#7A3FB8','#0FA3A3','#D8621F','#C23A6B'];
 var TKCOL={t:'#DFAE1F',b:'#2F8A52',u:'#D23A3A',x:'#20242B',boat:'#3E6E8E'};
 
@@ -354,6 +354,7 @@ function askPassToDets(){
 /* ---------------- bot driver (local) ---------------- */
 function maybeBot(){
   if(!G||G.winner||isNet())return;
+  if(UI.tutorialActive)return; // freeze bots while a guided tutorial highlights the board
   var s=currentSeat();
   if(s.kind!=='bot'||UI.botTimer||UI.busy)return;
   UI.botTimer=setTimeout(async function(){
