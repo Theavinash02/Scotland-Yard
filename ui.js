@@ -403,20 +403,47 @@ function onGameOver(){
   $('#mLobby').onclick=function(){hideModal();leaveToLobby();};
 }
 // ============ LOBBY / NET / BOOT ============
-// Online rooms use PeerJS (WebRTC) in a host-authoritative star topology:
-// the host owns the room object and broadcasts it; clients connect to the
-// host's peer id and route their actions (seat claims, moves) through it.
-// No backend/shared-storage — works on any static host (e.g. GitHub Pages).
-var MYID=Math.random().toString(36).slice(2,10);
+// -------------------------------------------------------------------------
+// LOBBY-vs-IN-GAME BOUNDARY (read before touching anything below).
+//
+// LOBBY phase (room creation, joining, seat claim/release, room-code
+// display) now runs on Firestore (see firestore-rooms.js / ROOMS). This
+// covers: createRoomFlow, joinRoomFlow, renderNetSeats, netClaim,
+// netRelease, netCfg, onRoomUpdate, and the seat-list parts of
+// leaveToLobby. The old PeerJS-broadcast seat sync (applyClaim,
+// applyRelease, freeSeatsOf, refreshHostSeats, and the
+// hello/claim/release/leave branches of hostHandleData) is removed —
+// replaced by Firestore transactions + onSnapshot.
+//
+// IN-GAME phase (once a game is underway: submitting/receiving actual
+// moves, ticket choices, bot turns) is UNTOUCHED and still runs on the
+// pre-existing PeerJS host-authoritative star topology: broadcastRoom(),
+// sendHost(), hostHandleData's 'move' branch, clientHandleData(),
+// adoptRoom(), adoptGame(), netPush(), hostDriveBots(). The PeerJS
+// connections themselves (NET.peer/conns/hostConn, hostAddConn,
+// tearDownPeer) are transport plumbing that's established while still in
+// the lobby but must stay alive and working unchanged once the game
+// starts — that's why they aren't touched even though creating them
+// happens inside createRoomFlow/joinRoomFlow.
+//
+// startNetGame() is the handoff point: it builds the seat list from the
+// Firestore-mirrored NET.room (unchanged shape), then calls
+// newGame()/broadcastRoom()/adoptGame() exactly as before — those calls
+// are the existing in-game mechanism and are left untouched.
+// -------------------------------------------------------------------------
+var MYID=(typeof ROOMS!=='undefined'&&typeof AUTH!=='undefined'&&AUTH.user)?AUTH.user.uid:(typeof ROOMS!=='undefined'?ROOMS.guestId():Math.random().toString(36).slice(2,10));
+if(typeof AUTH!=='undefined')AUTH.onChange(function(u){ if(u)MYID=u.uid; });
 var NET={code:null,isHost:false,v:0,busy:false,room:null,peer:null,conns:[],hostConn:null,joinTimer:null};
 var PEER_PREFIX='syd-'; // namespace our ids on the public PeerJS broker
 function hasNet(){
-  try{ return typeof Peer!=='undefined' && typeof RTCPeerConnection!=='undefined'; }
+  try{ return typeof Peer!=='undefined' && typeof RTCPeerConnection!=='undefined' && typeof ROOMS!=='undefined' && ROOMS.ready(); }
   catch(e){ return false; }
 }
-function myName(){return ($('#nameIn').value||'').trim()||'Player';}
+function myName(){return ($('#nameIn').value||'').trim()||(typeof AUTH!=='undefined'&&AUTH.user?AUTH.user.username:'')||'Player';}
 
-/* ---- host: authoritative room broadcast ---- */
+/* ---- host: authoritative room broadcast (IN-GAME ONLY — see boundary
+   note above; during the lobby, seat sync goes through ROOMS/Firestore
+   instead, this is only used for the game-start handoff and live moves) ---- */
 function broadcastRoom(){
   if(!NET.isHost||!NET.room)return;
   NET.room.v=(NET.room.v||0)+1; NET.v=NET.room.v;
@@ -424,30 +451,14 @@ function broadcastRoom(){
   NET.conns.forEach(function(c){ try{ if(c.open)c.send(msg); }catch(e){} });
 }
 function sendHost(msg){ try{ if(NET.hostConn&&NET.hostConn.open)NET.hostConn.send(msg); }catch(e){} }
-
-/* ---- seat mutations, applied on the host's authoritative room ---- */
 function freeSeatsOf(room,pid){ room.seats.forEach(function(s){ if(s.pid===pid){s.kind='open';s.pid=null;s.name='';} }); }
-function applyClaim(room,i,pid,name){
-  if(i<0||i>=room.seats.length)return;
-  if(room.seats[i].kind==='open'){ freeSeatsOf(room,pid); room.seats[i]={kind:'human',pid:pid,name:name||'Player'}; }
-}
-function applyRelease(room,i,pid){
-  if(room.seats[i]&&room.seats[i].pid===pid)room.seats[i]={kind:'open',pid:null,name:''};
-}
-function refreshHostSeats(){ if(NET.room&&NET.room.phase==='lobby')renderNetSeats($('#seatListNet'),NET.room,true); }
 
-/* ---- host: handle a message from a connected client ---- */
+/* ---- host: handle a message from a connected client (IN-GAME ONLY —
+   seat claim/release/leave used to travel here too; that's now Firestore) ---- */
 function hostHandleData(conn,msg){
   if(!msg||!NET.isHost||!NET.room)return;
   if(msg.t==='hello'){
-    conn._pid=msg.pid;
-    try{ conn.send({t:'room',room:NET.room}); }catch(e){}
-  }else if(msg.t==='claim'){
-    applyClaim(NET.room,msg.i,msg.pid,msg.name); refreshHostSeats(); broadcastRoom();
-  }else if(msg.t==='release'){
-    applyRelease(NET.room,msg.i,msg.pid); refreshHostSeats(); broadcastRoom();
-  }else if(msg.t==='leave'){
-    freeSeatsOf(NET.room,msg.pid); refreshHostSeats(); broadcastRoom();
+    conn._pid=msg.pid; // attributes this PeerJS conn to a player id, used below on disconnect
   }else if(msg.t==='move'){
     // a client made a legal move — adopt its game state and rebroadcast
     if(NET.room.phase==='playing'&&msg.game&&(!G||msg.game.mv>G.mv)){
@@ -455,14 +466,23 @@ function hostHandleData(conn,msg){
     }
   }
 }
-/* ---- host: wire up a freshly accepted client connection ---- */
+/* ---- host: wire up a freshly accepted client connection (transport-level
+   plumbing needed for the in-game PeerJS sync; established during the
+   lobby but must keep working once the game starts) ---- */
 function hostAddConn(conn){
   NET.conns.push(conn);
   conn.on('data',function(msg){ hostHandleData(conn,msg); });
-  conn.on('open',function(){ try{ conn.send({t:'room',room:NET.room}); }catch(e){} });
   conn.on('close',function(){
     NET.conns=NET.conns.filter(function(c){return c!==conn;});
-    if(conn._pid&&NET.room){ freeSeatsOf(NET.room,conn._pid); refreshHostSeats(); broadcastRoom(); }
+    if(!conn._pid||!NET.room)return;
+    if(NET.room.phase==='lobby'){
+      // lobby-phase disconnect: free the seat via Firestore so every
+      // client's (Firestore-driven) seat list reflects it
+      if(NET.code)ROOMS.releaseSeat(NET.code,conn._pid,function(){});
+    }else{
+      // in-game disconnect: unchanged pre-existing behaviour
+      freeSeatsOf(NET.room,conn._pid); broadcastRoom();
+    }
   });
   conn.on('error',function(){});
 }
@@ -541,7 +561,8 @@ function enterGame(){
 }
 function leaveToLobby(){
   if(UI.botTimer){clearTimeout(UI.botTimer);UI.botTimer=null;}
-  if(NET.code&&!NET.isHost)sendHost({t:'leave',pid:MYID}); // free my seats on the host
+  if(NET.code&&typeof ROOMS!=='undefined')ROOMS.releaseSeat(NET.code,MYID,function(){}); // free my seat in Firestore
+  if(typeof ROOMS!=='undefined')ROOMS.unsubscribe();
   tearDownPeer();
   NET.code=null;NET.isHost=false;NET.v=0;NET.room=null;NET.busy=false;
   G=null;
@@ -591,19 +612,42 @@ function renderNetSeats(el,room,amHost){
 }
 function netClaim(i){
   sfx('click');
-  if(NET.isHost){ applyClaim(NET.room,i,MYID,myName()); refreshHostSeats(); broadcastRoom(); }
-  else{ sendHost({t:'claim',i:i,pid:MYID,name:myName()}); }
+  if(!NET.code)return;
+  ROOMS.claimSeat(NET.code,i,{pid:MYID,uid:(typeof AUTH!=='undefined'&&AUTH.user)?AUTH.user.uid:null,name:myName()},function(err){
+    if(err)toast((err&&err.message)||'That seat was just taken.');
+  });
 }
 function netRelease(i){
   sfx('click');
-  if(NET.isHost){ applyRelease(NET.room,i,MYID); refreshHostSeats(); broadcastRoom(); }
-  else{ sendHost({t:'release',i:i,pid:MYID}); }
+  if(!NET.code)return;
+  ROOMS.releaseSeat(NET.code,MYID,function(err){
+    if(err)toast((err&&err.message)||'Could not leave the seat.');
+  });
 }
 function netCfg(i,val){ // host-only: clients don't render the cfg selects
-  if(!NET.isHost||!NET.room)return;
+  if(!NET.isHost||!NET.room||!NET.code)return;
   if(NET.room.seats[i].kind==='human')return;
-  NET.room.seats[i]=val==='open'?{kind:'open'}:val==='empty'?{kind:'empty'}:{kind:'bot',diff:val.split('-')[1]};
-  refreshHostSeats(); broadcastRoom();
+  var cfg=val==='open'?{kind:'open'}:val==='empty'?{kind:'empty'}:{kind:'bot',diff:val.split('-')[1]};
+  ROOMS.updateSeatConfig(NET.code,i,cfg,function(err){
+    if(err)toast((err&&err.message)||'Could not update seat.');
+  });
+}
+/* onRoomUpdate: Firestore onSnapshot callback for the LOBBY phase — replaces
+   the old PeerJS broadcastRoom()/adoptRoom() lobby path. adoptRoom() below
+   is left untouched and still handles the in-game 'playing' handoff that
+   arrives over PeerJS via broadcastRoom(); this only drives the lobby
+   seat-list UI while phase==='lobby'. */
+function onRoomUpdate(room){
+  if(!room)return;
+  NET.room=room; NET.v=room.v;
+  if(room.phase==='lobby'){
+    var el=NET.isHost?$('#seatListNet'):$('#seatListJoin');
+    if(el)renderNetSeats(el,room,NET.isHost);
+  }else if(room.phase==='playing'){
+    // lobby's job is done — the PeerJS broadcastRoom()/adoptGame() path
+    // (unchanged) takes over the game itself from here.
+    ROOMS.unsubscribe();
+  }
 }
 function adoptRoom(room){
   NET.room=room;NET.v=room.v;
@@ -672,15 +716,23 @@ function createRoomFlow(retries){
   var settled=false;
   peer.on('open',function(){
     settled=true;
-    NET.peer=peer; NET.code=code; NET.isHost=true; NET.conns=[]; NET.v=0;
-    NET.room={code:code,v:0,hostId:MYID,phase:'lobby',seats:defaultNetSeats()};
-    NET.room.seats[1]={kind:'human',pid:MYID,name:myName()}; // host defaults to Detective 1
-    peer.on('connection',function(conn){ hostAddConn(conn); });
-    $('#createRoom').disabled=false; $('#createRoom').hidden=true;
-    $('#hostLobby').hidden=false;
-    $('#codeOut').textContent=code;
-    $('#roomBadge').textContent='ROOM '+code; $('#roomBadge').hidden=false;
-    renderNetSeats($('#seatListNet'),NET.room,true);
+    NET.peer=peer; NET.isHost=true; NET.conns=[]; NET.v=0;
+    var seats=defaultNetSeats();
+    seats[1]={kind:'human',pid:MYID,uid:(typeof AUTH!=='undefined'&&AUTH.user)?AUTH.user.uid:null,name:myName()}; // host defaults to Detective 1
+    ROOMS.create({code:code,hostId:MYID,seats:seats},function(err,roomCode){
+      if(err){
+        $('#createRoom').disabled=false; toast('Couldn\'t create the room.');
+        try{peer.destroy();}catch(e){}
+        return;
+      }
+      NET.code=roomCode;
+      peer.on('connection',function(conn){ hostAddConn(conn); });
+      $('#createRoom').disabled=false; $('#createRoom').hidden=true;
+      $('#hostLobby').hidden=false;
+      $('#codeOut').textContent=roomCode;
+      $('#roomBadge').textContent='ROOM '+roomCode; $('#roomBadge').hidden=false;
+      ROOMS.subscribe(roomCode,onRoomUpdate);
+    });
   });
   peer.on('error',function(err){
     if(settled)return;
@@ -709,10 +761,11 @@ function joinRoomFlow(){
       NET.peer=peer; NET.code=code; NET.isHost=false; NET.hostConn=conn; NET.v=0;
       conn.on('data',function(msg){ clientHandleData(msg); });
       conn.on('close',function(){ toast('Disconnected from host.'); });
-      conn.send({t:'hello',pid:MYID,name:myName()});
+      conn.send({t:'hello',pid:MYID,name:myName()}); // lets the host attribute this conn to my pid (used for disconnect cleanup)
       $('#joinRoom').disabled=false; setJoinStatus('');
       $('#joinLobby').hidden=false;
       $('#roomBadge').textContent='ROOM '+code; $('#roomBadge').hidden=false;
+      ROOMS.subscribe(code,onRoomUpdate);
     });
     conn.on('error',function(){ fail('Couldn\'t join that room.'); });
   });
@@ -722,12 +775,14 @@ function joinRoomFlow(){
   });
 }
 function startNetGame(){
+  // Handoff point: lobby (Firestore) -> in-game (PeerJS, unchanged below).
   sfx('click');
   if(!NET.isHost||!NET.room)return;
   var cfg=NET.room.seats.map(function(s){return s.kind==='open'?{kind:'bot',diff:'hard'}:s;});
   var seats=buildGameSeats(cfg,'');
   if(seats.length<2){toast('You need at least one detective.');return;}
   var g=newGame(seats);
+  if(NET.code){ ROOMS.setPhase(NET.code,'playing',function(){}); ROOMS.unsubscribe(); } // lobby's Firestore role ends here
   NET.room.phase='playing'; NET.room.game=g;
   broadcastRoom();
   adoptGame(g);
