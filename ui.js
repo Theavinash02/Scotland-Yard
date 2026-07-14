@@ -1,5 +1,5 @@
 var G=null;
-var UI={mrxViewing:false,privacy:false,showPs:false,busy:false,botTimer:null,pending:null,soundOn:true,mapBuilt:false};
+var UI={mrxViewing:false,privacy:false,showPs:false,busy:false,botTimer:null,pending:null,soundOn:true,mapBuilt:false,tutorialActive:false};
 var DCOL=['#2E6FD8','#7A3FB8','#0FA3A3','#D8621F','#C23A6B'];
 var TKCOL={t:'#DFAE1F',b:'#2F8A52',u:'#D23A3A',x:'#20242B',boat:'#3E6E8E'};
 
@@ -110,7 +110,8 @@ function seatName(idx){
 }
 function render(){
   if(!G)return;
-  renderPieces();renderBanner();renderPlayers();renderLog();renderCtrls();renderHighlights();
+  updateMoveFeed();
+  renderPieces();renderBanner();renderPlayers();renderLog();renderCtrls();renderHighlights();renderActivityFeed();
 }
 function renderPieces(){
   var h='';
@@ -252,6 +253,45 @@ function renderHighlights(){
   }
   LAYER.hl.innerHTML=h;
 }
+function focusCurrentTurn(){
+  if(!G||G.winner)return;
+  if(G.turn===-1){
+    if(canSeeMrx()){
+      var p=POS[G.mrx.st];
+      focusStation(p.x,p.y);
+    }else{
+      toast('Mr. X\'s position is hidden this round');
+    }
+  }else{
+    var p=POS[G.dets[G.turn].st];
+    focusStation(p.x,p.y);
+  }
+}
+/* ---------------- activity feed ---------------- */
+var MOVE_TK_NAME={t:'taxi',b:'bus',u:'underground',x:'black'};
+function formatMoveFeedEntry(lm){
+  var label=MOVE_TK_NAME[lm.tk]||lm.tk;
+  if(lm.who==='mrx'){
+    var vis=canSeeMrx()||lm.rv;
+    return vis?('Mr. X → station '+lm.to+' ('+label+')'):('Mr. X moved ('+label+')');
+  }
+  return 'Detective '+(lm.who+1)+' → station '+lm.to+' ('+label+')';
+}
+function updateMoveFeed(){
+  if(!UI.moveFeed)UI.moveFeed=[];
+  if(UI.feedMv===undefined)UI.feedMv=-1;
+  if(G.mv<UI.feedMv){UI.moveFeed=[];UI.feedMv=-1;}
+  if(G.lastMove&&G.mv>UI.feedMv){
+    UI.moveFeed.unshift(formatMoveFeedEntry(G.lastMove));
+    if(UI.moveFeed.length>30)UI.moveFeed.length=30;
+  }
+  UI.feedMv=G.mv;
+}
+function renderActivityFeed(){
+  var el=$('#activityFeed');if(!el)return;
+  if(!UI.moveFeed||!UI.moveFeed.length){el.innerHTML='<div class="tiny muted">No moves yet.</div>';return;}
+  el.innerHTML=UI.moveFeed.map(function(s){return '<div class="feedrow">'+s+'</div>';}).join('');
+}
 /* ---------------- toast / modal ---------------- */
 var toastT=null;
 function toast(msg){
@@ -354,6 +394,7 @@ function askPassToDets(){
 /* ---------------- bot driver (local) ---------------- */
 function maybeBot(){
   if(!G||G.winner||isNet())return;
+  if(UI.tutorialActive)return; // freeze bots while a guided tutorial highlights the board
   var s=currentSeat();
   if(s.kind!=='bot'||UI.botTimer||UI.busy)return;
   UI.botTimer=setTimeout(async function(){
@@ -403,41 +444,79 @@ function onGameOver(){
   $('#mLobby').onclick=function(){hideModal();leaveToLobby();};
 }
 // ============ LOBBY / NET / BOOT ============
-// Online rooms use PeerJS (WebRTC) in a host-authoritative star topology:
-// the host owns the room object and broadcasts it; clients connect to the
-// host's peer id and route their actions (seat claims, moves) through it.
-// No backend/shared-storage — works on any static host (e.g. GitHub Pages).
-var MYID=Math.random().toString(36).slice(2,10);
-var NET={code:null,isHost:false,v:0,busy:false,room:null,peer:null,conns:[],hostConn:null,joinTimer:null,localChat:[]};
+// -------------------------------------------------------------------------
+// LOBBY-vs-IN-GAME BOUNDARY (read before touching anything below).
+//
+// LOBBY phase (room creation, joining, seat claim/release, room-code
+// display) now runs on Firestore (see firestore-rooms.js / ROOMS). This
+// covers: createRoomFlow, joinRoomFlow, renderNetSeats, netClaim,
+// netRelease, netCfg, onRoomUpdate, and the seat-list parts of
+// leaveToLobby. The old PeerJS-broadcast seat sync (applyClaim,
+// applyRelease, freeSeatsOf, refreshHostSeats, and the
+// hello/claim/release/leave branches of hostHandleData) is removed —
+// replaced by Firestore transactions + onSnapshot.
+//
+// IN-GAME phase (once a game is underway: submitting/receiving actual
+// moves, ticket choices, bot turns) is UNTOUCHED and still runs on the
+// pre-existing PeerJS host-authoritative star topology: broadcastRoom(),
+// sendHost(), hostHandleData's 'move' branch, clientHandleData(),
+// adoptRoom(), adoptGame(), netPush(), hostDriveBots(). The PeerJS
+// connections themselves (NET.peer/conns/hostConn, hostAddConn,
+// tearDownPeer) are transport plumbing that's established while still in
+// the lobby but must stay alive and working unchanged once the game
+// starts — that's why they aren't touched even though creating them
+// happens inside createRoomFlow/joinRoomFlow.
+//
+// startNetGame() is the handoff point: it builds the seat list from the
+// Firestore-mirrored NET.room (unchanged shape), then calls
+// newGame()/broadcastRoom()/adoptGame() exactly as before — those calls
+// are the existing in-game mechanism and are left untouched.
+//
+// CHAT is layered on top of the PeerJS transport only, in its own
+// NET.chat log (NOT NET.room.chat): during the lobby, NET.room is
+// overwritten wholesale on every Firestore seat-list snapshot
+// (onRoomUpdate), which would silently wipe any chat history stored on
+// NET.room every time someone claims/releases a seat. NET.chat/
+// broadcastChat() are a small host-authoritative log delivered over the
+// same PeerJS connections, independent of both Firestore and NET.room.
+// -------------------------------------------------------------------------
+var MYID=(typeof ROOMS!=='undefined'&&typeof AUTH!=='undefined'&&AUTH.user)?AUTH.user.uid:(typeof ROOMS!=='undefined'?ROOMS.guestId():Math.random().toString(36).slice(2,10));
+if(typeof AUTH!=='undefined')AUTH.onChange(function(u){ if(u)MYID=u.uid; });
+var NET={code:null,isHost:false,v:0,busy:false,room:null,peer:null,conns:[],hostConn:null,joinTimer:null,chat:[],localChat:[]};
 var PEER_PREFIX='syd-'; // namespace our ids on the public PeerJS broker
 function hasNet(){
-  try{ return typeof Peer!=='undefined' && typeof RTCPeerConnection!=='undefined'; }
+  try{ return typeof Peer!=='undefined' && typeof RTCPeerConnection!=='undefined' && typeof ROOMS!=='undefined' && ROOMS.ready(); }
   catch(e){ return false; }
 }
-function myName(){return ($('#nameIn').value||'').trim()||'Player';}
+function myName(){return ($('#nameIn').value||'').trim()||(typeof AUTH!=='undefined'&&AUTH.user?AUTH.user.username:'')||'Player';}
 
 /* ---- room chat: player messages + automated join/leave system notices ----
-   Chat lives on the authoritative room object (NET.room.chat) and rides
-   along with the existing broadcastRoom() sync, the same way seats do —
-   no separate wire protocol needed for delivery to clients. */
+   Chat lives in its own NET.chat log (see boundary note above for why it's
+   not on NET.room), delivered over the same PeerJS connections as
+   everything else, host-authoritative like seats/moves. */
 function escHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g,function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
   });
 }
-function pushChatEntry(kind,text,name){ // host-only: mutates the authoritative room + syncs it out
-  if(!NET.isHost||!NET.room)return;
-  if(!NET.room.chat)NET.room.chat=[];
-  NET.room.chat.push({kind:kind,text:text,name:name||'',ts:Date.now()});
-  if(NET.room.chat.length>200)NET.room.chat=NET.room.chat.slice(-200); // keep the log bounded
+function broadcastChat(){
+  if(!NET.isHost)return;
+  var msg={t:'chatlog',chat:NET.chat};
+  NET.conns.forEach(function(c){ try{ if(c.open)c.send(msg); }catch(e){} });
+}
+function pushChatEntry(kind,text,name){ // host-only: mutates the authoritative chat log + syncs it out
+  if(!NET.isHost)return;
+  if(!NET.chat)NET.chat=[];
+  NET.chat.push({kind:kind,text:text,name:name||'',ts:Date.now()});
+  if(NET.chat.length>200)NET.chat=NET.chat.slice(-200); // keep the log bounded
   renderChat();
-  broadcastRoom();
+  broadcastChat();
 }
 function addSystemMsg(text){ pushChatEntry('sys',text); }
 function renderChat(){
   var log=$('#chatLog'); if(!log)return;
   var h='';
-  ((NET.room&&NET.room.chat)||[]).forEach(function(m){
+  (NET.chat||[]).forEach(function(m){
     h+=m.kind==='sys'
       ? '<div class="chat-sys">'+escHtml(m.text)+'</div>'
       : '<div class="chat-msg"><b>'+escHtml(m.name||'Player')+':</b> '+escHtml(m.text)+'</div>';
@@ -459,7 +538,9 @@ function sendChatMessage(){
   else sendHost({t:'chat',text:val,name:myName()});
 }
 
-/* ---- host: authoritative room broadcast ---- */
+/* ---- host: authoritative room broadcast (IN-GAME ONLY — see boundary
+   note above; during the lobby, seat sync goes through ROOMS/Firestore
+   instead, this is only used for the game-start handoff and live moves) ---- */
 function broadcastRoom(){
   if(!NET.isHost||!NET.room)return;
   NET.room.v=(NET.room.v||0)+1; NET.v=NET.room.v;
@@ -467,34 +548,15 @@ function broadcastRoom(){
   NET.conns.forEach(function(c){ try{ if(c.open)c.send(msg); }catch(e){} });
 }
 function sendHost(msg){ try{ if(NET.hostConn&&NET.hostConn.open)NET.hostConn.send(msg); }catch(e){} }
-
-/* ---- seat mutations, applied on the host's authoritative room ---- */
 function freeSeatsOf(room,pid){ room.seats.forEach(function(s){ if(s.pid===pid){s.kind='open';s.pid=null;s.name='';} }); }
-function applyClaim(room,i,pid,name){
-  if(i<0||i>=room.seats.length)return;
-  if(room.seats[i].kind==='open'){ freeSeatsOf(room,pid); room.seats[i]={kind:'human',pid:pid,name:name||'Player'}; }
-}
-function applyRelease(room,i,pid){
-  if(room.seats[i]&&room.seats[i].pid===pid)room.seats[i]={kind:'open',pid:null,name:''};
-}
-function refreshHostSeats(){ if(NET.room&&NET.room.phase==='lobby')renderNetSeats($('#seatListNet'),NET.room,true); }
 
-/* ---- host: handle a message from a connected client ---- */
+/* ---- host: handle a message from a connected client (IN-GAME ONLY —
+   seat claim/release/leave used to travel here too; that's now Firestore) ---- */
 function hostHandleData(conn,msg){
   if(!msg||!NET.isHost||!NET.room)return;
   if(msg.t==='hello'){
-    conn._pid=msg.pid; conn._name=msg.name||'Player';
-    try{ conn.send({t:'room',room:NET.room}); }catch(e){}
+    conn._pid=msg.pid; conn._name=msg.name||'Player'; // attributes this PeerJS conn to a player id, used below on disconnect and for chat
     addSystemMsg(conn._name+' has joined the room');
-  }else if(msg.t==='claim'){
-    applyClaim(NET.room,msg.i,msg.pid,msg.name); refreshHostSeats(); broadcastRoom();
-  }else if(msg.t==='release'){
-    applyRelease(NET.room,msg.i,msg.pid); refreshHostSeats(); broadcastRoom();
-  }else if(msg.t==='leave'){
-    conn._left=true; // explicit leave — the close event that follows shouldn't double up the system message
-    var lSeat=NET.room.seats.filter(function(s){return s.pid===msg.pid;})[0];
-    freeSeatsOf(NET.room,msg.pid); refreshHostSeats();
-    addSystemMsg(((lSeat&&lSeat.name)||conn._name||'A player')+' has left the room');
   }else if(msg.t==='chat'){
     pushChatEntry('msg',msg.text,msg.name);
   }else if(msg.t==='move'){
@@ -504,19 +566,26 @@ function hostHandleData(conn,msg){
     }
   }
 }
-/* ---- host: wire up a freshly accepted client connection ---- */
+/* ---- host: wire up a freshly accepted client connection (transport-level
+   plumbing needed for the in-game PeerJS sync; established during the
+   lobby but must keep working once the game starts) ---- */
 function hostAddConn(conn){
   NET.conns.push(conn);
   conn.on('data',function(msg){ hostHandleData(conn,msg); });
-  conn.on('open',function(){ try{ conn.send({t:'room',room:NET.room}); }catch(e){} });
   conn.on('close',function(){
     NET.conns=NET.conns.filter(function(c){return c!==conn;});
-    if(conn._pid&&NET.room&&!conn._left){
-      var seat=NET.room.seats.filter(function(s){return s.pid===conn._pid;})[0];
-      var nm=(seat&&seat.name)||conn._name||'A player';
-      freeSeatsOf(NET.room,conn._pid); refreshHostSeats();
-      addSystemMsg(nm+' has disconnected');
+    if(!conn._pid||!NET.room)return;
+    var seat=NET.room.seats.filter(function(s){return s.pid===conn._pid;})[0];
+    var nm=(seat&&seat.name)||conn._name||'A player';
+    if(NET.room.phase==='lobby'){
+      // lobby-phase disconnect: free the seat via Firestore so every
+      // client's (Firestore-driven) seat list reflects it
+      if(NET.code)ROOMS.releaseSeat(NET.code,conn._pid,function(){});
+    }else{
+      // in-game disconnect: unchanged pre-existing behaviour
+      freeSeatsOf(NET.room,conn._pid); broadcastRoom();
     }
+    addSystemMsg(nm+' has disconnected');
   });
   conn.on('error',function(){});
 }
@@ -525,6 +594,8 @@ function clientHandleData(msg){
   if(!msg)return;
   if(msg.t==='room'&&msg.room&&((msg.room.v||0)>(NET.v||0)||!NET.room)){
     NET.v=msg.room.v||0; adoptRoom(msg.room);
+  }else if(msg.t==='chatlog'&&msg.chat){
+    NET.chat=msg.chat; renderChat();
   }
 }
 function tearDownPeer(){
@@ -581,7 +652,7 @@ function startLocalGame(prebuilt){
   G=newGame(seats);
   UI.privacy=!prebuilt? (seats[0].kind==='human'&&seats.slice(1).some(function(s){return s.kind==='human';}))
                       : (G.seats[0].kind==='human'&&G.seats.slice(1).some(function(s){return s.kind==='human';}));
-  UI.mrxViewing=false;UI.showPs=false;UI.busy=false;
+  UI.mrxViewing=false;UI.showPs=false;UI.busy=false;UI.moveFeed=[];UI.feedMv=-1;
   enterGame();
   if(UI.privacy&&G.turn===-1&&G.seats[0].kind==='human'){askPassToMrx();}
   else maybeBot();
@@ -595,7 +666,8 @@ function enterGame(){
 }
 function leaveToLobby(){
   if(UI.botTimer){clearTimeout(UI.botTimer);UI.botTimer=null;}
-  if(NET.code&&!NET.isHost)sendHost({t:'leave',pid:MYID}); // free my seats on the host
+  if(NET.code&&typeof ROOMS!=='undefined')ROOMS.releaseSeat(NET.code,MYID,function(){}); // free my seat in Firestore
+  if(typeof ROOMS!=='undefined')ROOMS.unsubscribe();
   tearDownPeer();
   NET.code=null;NET.isHost=false;NET.v=0;NET.room=null;NET.busy=false;NET.localChat=[];
   G=null;
@@ -647,19 +719,42 @@ function renderNetSeats(el,room,amHost){
 }
 function netClaim(i){
   sfx('click');
-  if(NET.isHost){ applyClaim(NET.room,i,MYID,myName()); refreshHostSeats(); broadcastRoom(); }
-  else{ sendHost({t:'claim',i:i,pid:MYID,name:myName()}); }
+  if(!NET.code)return;
+  ROOMS.claimSeat(NET.code,i,{pid:MYID,uid:(typeof AUTH!=='undefined'&&AUTH.user)?AUTH.user.uid:null,name:myName()},function(err){
+    if(err)toast((err&&err.message)||'That seat was just taken.');
+  });
 }
 function netRelease(i){
   sfx('click');
-  if(NET.isHost){ applyRelease(NET.room,i,MYID); refreshHostSeats(); broadcastRoom(); }
-  else{ sendHost({t:'release',i:i,pid:MYID}); }
+  if(!NET.code)return;
+  ROOMS.releaseSeat(NET.code,MYID,function(err){
+    if(err)toast((err&&err.message)||'Could not leave the seat.');
+  });
 }
 function netCfg(i,val){ // host-only: clients don't render the cfg selects
-  if(!NET.isHost||!NET.room)return;
+  if(!NET.isHost||!NET.room||!NET.code)return;
   if(NET.room.seats[i].kind==='human')return;
-  NET.room.seats[i]=val==='open'?{kind:'open'}:val==='empty'?{kind:'empty'}:{kind:'bot',diff:val.split('-')[1]};
-  refreshHostSeats(); broadcastRoom();
+  var cfg=val==='open'?{kind:'open'}:val==='empty'?{kind:'empty'}:{kind:'bot',diff:val.split('-')[1]};
+  ROOMS.updateSeatConfig(NET.code,i,cfg,function(err){
+    if(err)toast((err&&err.message)||'Could not update seat.');
+  });
+}
+/* onRoomUpdate: Firestore onSnapshot callback for the LOBBY phase — replaces
+   the old PeerJS broadcastRoom()/adoptRoom() lobby path. adoptRoom() below
+   is left untouched and still handles the in-game 'playing' handoff that
+   arrives over PeerJS via broadcastRoom(); this only drives the lobby
+   seat-list UI while phase==='lobby'. */
+function onRoomUpdate(room){
+  if(!room)return;
+  NET.room=room; NET.v=room.v;
+  if(room.phase==='lobby'){
+    var el=NET.isHost?$('#seatListNet'):$('#seatListJoin');
+    if(el)renderNetSeats(el,room,NET.isHost);
+  }else if(room.phase==='playing'){
+    // lobby's job is done — the PeerJS broadcastRoom()/adoptGame() path
+    // (unchanged) takes over the game itself from here.
+    ROOMS.unsubscribe();
+  }
 }
 function adoptRoom(room){
   NET.room=room;NET.v=room.v;
@@ -729,17 +824,25 @@ function createRoomFlow(retries){
   var settled=false;
   peer.on('open',function(){
     settled=true;
-    NET.peer=peer; NET.code=code; NET.isHost=true; NET.conns=[]; NET.v=0; NET.localChat=[];
-    NET.room={code:code,v:0,hostId:MYID,phase:'lobby',seats:defaultNetSeats(),chat:[]};
-    NET.room.seats[1]={kind:'human',pid:MYID,name:myName()}; // host defaults to Detective 1
-    peer.on('connection',function(conn){ hostAddConn(conn); });
-    $('#createRoom').disabled=false; $('#createRoom').hidden=true;
-    $('#hostLobby').hidden=false;
-    $('#codeOut').textContent=code;
-    $('#roomBadge').textContent='ROOM '+code; $('#roomBadge').hidden=false;
-    renderNetSeats($('#seatListNet'),NET.room,true);
-    updateChatVisibility();
-    addSystemMsg('Room created — share code '+code+' to invite players.');
+    NET.peer=peer; NET.isHost=true; NET.conns=[]; NET.v=0; NET.chat=[]; NET.localChat=[];
+    var seats=defaultNetSeats();
+    seats[1]={kind:'human',pid:MYID,uid:(typeof AUTH!=='undefined'&&AUTH.user)?AUTH.user.uid:null,name:myName()}; // host defaults to Detective 1
+    ROOMS.create({code:code,hostId:MYID,seats:seats},function(err,roomCode){
+      if(err){
+        $('#createRoom').disabled=false; toast('Couldn\'t create the room.');
+        try{peer.destroy();}catch(e){}
+        return;
+      }
+      NET.code=roomCode;
+      peer.on('connection',function(conn){ hostAddConn(conn); });
+      $('#createRoom').disabled=false; $('#createRoom').hidden=true;
+      $('#hostLobby').hidden=false;
+      $('#codeOut').textContent=roomCode;
+      $('#roomBadge').textContent='ROOM '+roomCode; $('#roomBadge').hidden=false;
+      updateChatVisibility();
+      addSystemMsg('Room created — share code '+roomCode+' to invite players.');
+      ROOMS.subscribe(roomCode,onRoomUpdate);
+    });
   });
   peer.on('error',function(err){
     if(settled)return;
@@ -765,18 +868,19 @@ function joinRoomFlow(){
     conn.on('open',function(){
       if(done)return; done=true;
       if(NET.joinTimer){clearTimeout(NET.joinTimer);NET.joinTimer=null;}
-      NET.peer=peer; NET.code=code; NET.isHost=false; NET.hostConn=conn; NET.v=0; NET.localChat=[];
+      NET.peer=peer; NET.code=code; NET.isHost=false; NET.hostConn=conn; NET.v=0; NET.chat=[]; NET.localChat=[];
       conn.on('data',function(msg){ clientHandleData(msg); });
       conn.on('close',function(){
         toast('Disconnected from host.');
         NET.localChat.push({text:'You have been disconnected from the host.',ts:Date.now()});
         renderChat();
       });
-      conn.send({t:'hello',pid:MYID,name:myName()});
+      conn.send({t:'hello',pid:MYID,name:myName()}); // lets the host attribute this conn to my pid (used for disconnect cleanup) and announce the join in chat
       $('#joinRoom').disabled=false; setJoinStatus('');
       $('#joinLobby').hidden=false;
       $('#roomBadge').textContent='ROOM '+code; $('#roomBadge').hidden=false;
       updateChatVisibility();
+      ROOMS.subscribe(code,onRoomUpdate);
     });
     conn.on('error',function(){ fail('Couldn\'t join that room.'); });
   });
@@ -786,12 +890,14 @@ function joinRoomFlow(){
   });
 }
 function startNetGame(){
+  // Handoff point: lobby (Firestore) -> in-game (PeerJS, unchanged below).
   sfx('click');
   if(!NET.isHost||!NET.room)return;
   var cfg=NET.room.seats.map(function(s){return s.kind==='open'?{kind:'bot',diff:'hard'}:s;});
   var seats=buildGameSeats(cfg,'');
   if(seats.length<2){toast('You need at least one detective.');return;}
   var g=newGame(seats);
+  if(NET.code){ ROOMS.setPhase(NET.code,'playing',function(){}); ROOMS.unsubscribe(); } // lobby's Firestore role ends here
   NET.room.phase='playing'; NET.room.game=g;
   broadcastRoom();
   adoptGame(g);
@@ -806,6 +912,55 @@ function showRules(){
   '<p class="tiny">Digital adaptation note: Mr. X\'s taxi/bus/underground tickets are unlimited here (in the tabletop game he recycles the detectives\' spent tickets, which almost never runs dry).</p>'+
   '<button class="btn" id="mOK">Got it</button>');
   $('#mOK').onclick=hideModal;
+}
+/* ------- onboarding demo ------- */
+var DEMO_STEPS=[
+  {title:'Welcome to Scotland Yard',body:
+    '<p>Scotland Yard is a hidden-movement chase across London. One player is <b>Mr. X</b>, hiding and evading capture. Everyone else is a <b>detective</b>, working together to corner him.</p>'},
+  {title:'The map',body:
+    '<p>Stations across the city are linked by four kinds of transport, each drawn in its own color on the map.</p>'+
+    '<div class="demolegend">'+
+      '<div class="demoleg-row"><svg width="26" height="10" aria-hidden="true"><rect width="26" height="10" rx="5" fill="'+TKCOL.t+'"/></svg><span>Taxi</span></div>'+
+      '<div class="demoleg-row"><svg width="26" height="10" aria-hidden="true"><rect width="26" height="10" rx="5" fill="'+TKCOL.b+'"/></svg><span>Bus</span></div>'+
+      '<div class="demoleg-row"><svg width="26" height="10" aria-hidden="true"><rect width="26" height="10" rx="5" fill="'+TKCOL.u+'"/></svg><span>Underground</span></div>'+
+      '<div class="demoleg-row"><svg width="26" height="10" aria-hidden="true"><rect width="26" height="10" rx="5" fill="'+TKCOL.boat+'"/></svg><span>Ferry (Thames)</span></div>'+
+    '</div>'},
+  {title:'How detectives move',body:
+    '<p>Detectives move by spending a ticket that matches the transport they take — taxi, bus, or underground. Each detective starts with <b>10 taxi, 8 bus and 4 underground</b> tickets; once they\'re gone, they\'re gone.</p>'+
+    '<p>Two detectives can never share the same station.</p>'},
+  {title:'Mr. X\'s concealment',body:
+    '<p>Mr. X moves first each round, in secret — only the <b>ticket type</b> he plays is shown, never his station. On rounds <b style="color:var(--gold)">3, 8, 13, 18 and 24</b> he must surface and reveal exactly where he is.</p>'+
+    '<p><b>Black tickets</b> let him ride anything — including the Thames ferry — without revealing which transport he used. <b>Double-move</b> cards let him move twice in a single round.</p>'},
+  {title:'Making a move',body:
+    '<p>When it\'s your turn, click a highlighted station to move there. If more than one transport reaches it, you\'ll be asked which ticket to spend.</p>'+
+    '<p>Drag to pan the map; scroll or pinch to zoom.</p>'},
+  {title:'Winning the game',body:
+    '<p>Detectives win the moment one of them lands on Mr. X\'s station. Mr. X wins by evading capture for long enough to slip away.</p>'+
+    '<p class="tiny muted">You can revisit the full rules any time with the <b>Rules</b> button.</p>'}
+];
+var demoIdx=0;
+function demoMarkSeen(){try{localStorage.setItem('sy_demo_seen','1');}catch(e){}}
+function showDemo(){demoIdx=0;renderDemoStep();}
+function renderDemoStep(){
+  var n=DEMO_STEPS.length,s=DEMO_STEPS[demoIdx];
+  var dots='';
+  for(var i=0;i<n;i++)dots+='<span class="demodot'+(i===demoIdx?' on':'')+'"></span>';
+  var html='<div class="demohead"><span class="demostep">Step '+(demoIdx+1)+' of '+n+'</span>'+
+    '<button class="ghostbtn" id="demoSkip">Skip</button></div>'+
+    '<h2>'+s.title+'</h2>'+s.body+
+    '<div class="demodots">'+dots+'</div>'+
+    '<div class="demonav">'+
+      (demoIdx>0?'<button class="btn ghost" id="demoBack">Back</button>':'')+
+      '<button class="btn" id="demoNext">'+(demoIdx===n-1?'Done':'Next')+'</button>'+
+    '</div>';
+  showModal(html);
+  $('#demoSkip').onclick=function(){demoMarkSeen();hideModal();};
+  var back=$('#demoBack');
+  if(back)back.onclick=function(){demoIdx--;renderDemoStep();};
+  $('#demoNext').onclick=function(){
+    if(demoIdx===n-1){demoMarkSeen();hideModal();}
+    else{demoIdx++;renderDemoStep();}
+  };
 }
 /* ------- boot ------- */
 function boot(){
@@ -831,6 +986,10 @@ function boot(){
     try{navigator.clipboard.writeText($('#codeOut').textContent);toast('Code copied.');}catch(e){}
   };
   $('#helpBtn').onclick=showRules;
+  $('#demoBtn').onclick=showDemo;
+  var sawDemo=false;
+  try{sawDemo=!!localStorage.getItem('sy_demo_seen');}catch(e){}
+  if(!sawDemo){demoMarkSeen();showDemo();}
   $('#sndBtn').onclick=function(){
     UI.soundOn=!UI.soundOn;
     $('#sndBtn').textContent=UI.soundOn?'🔊 Sound':'🔇 Muted';
@@ -844,6 +1003,7 @@ function boot(){
   $('#chatSend').onclick=sendChatMessage;
   $('#chatIn').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); sendChatMessage(); } });
   $('#chatHeader').onclick=function(){ $('#chatPanel').classList.toggle('collapsed'); };
+  $('#locateBtn').onclick=function(){sfx('click');focusCurrentTurn();};
   $('#modal').addEventListener('click',function(e){if(e.target.id==='modal'&&G&&!G.winner&&!UI.privacy)hideModal();});
   document.addEventListener('keydown',function(e){if(e.key==='Escape'){var c=$('#chooser');if(c)c.hidden=true;}});
 }

@@ -246,6 +246,26 @@ function zoomBy(k){
   VB.w=Math.min(2400,Math.max(120,VB.w*k));VB.h=VB.w*(MAP_H/1000);
   VB.x=cx-VB.w/2;VB.y=cy-VB.h/2;setVB();
 }
+var focusAnim=null;
+function focusStation(x,y){
+  if(focusAnim)focusAnim.cancelled=true;
+  var anim={cancelled:false};
+  focusAnim=anim;
+  var x0=VB.x,y0=VB.y;
+  var tx=x-VB.w/2,ty=y-VB.h/2;
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var dur=reduce?1:320;
+  var t0=performance.now();
+  function step(now){
+    if(anim.cancelled)return;
+    var k=(now-t0)/dur;if(k>1)k=1;
+    var e=k<0.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+    VB.x=x0+(tx-x0)*e;VB.y=y0+(ty-y0)*e;setVB();
+    if(k<1)requestAnimationFrame(step);
+    else if(focusAnim===anim)focusAnim=null;
+  }
+  requestAnimationFrame(step);
+}
 /* ---------------- vehicles + animation ---------------- */
 function vehicleSvg(kind){
   if(kind==='t')return '<g>'+
