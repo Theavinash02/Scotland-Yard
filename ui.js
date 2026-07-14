@@ -110,7 +110,8 @@ function seatName(idx){
 }
 function render(){
   if(!G)return;
-  renderPieces();renderBanner();renderPlayers();renderLog();renderCtrls();renderHighlights();
+  updateMoveFeed();
+  renderPieces();renderBanner();renderPlayers();renderLog();renderCtrls();renderHighlights();renderActivityFeed();
 }
 function renderPieces(){
   var h='';
@@ -251,6 +252,45 @@ function renderHighlights(){
       h+='<circle cx="'+POS[st].x+'" cy="'+POS[st].y+'" r="16" fill="none" stroke="#E9EEF4" stroke-width="1.4" stroke-dasharray="3 3" pointer-events="none"/>';
   }
   LAYER.hl.innerHTML=h;
+}
+function focusCurrentTurn(){
+  if(!G||G.winner)return;
+  if(G.turn===-1){
+    if(canSeeMrx()){
+      var p=POS[G.mrx.st];
+      focusStation(p.x,p.y);
+    }else{
+      toast('Mr. X\'s position is hidden this round');
+    }
+  }else{
+    var p=POS[G.dets[G.turn].st];
+    focusStation(p.x,p.y);
+  }
+}
+/* ---------------- activity feed ---------------- */
+var MOVE_TK_NAME={t:'taxi',b:'bus',u:'underground',x:'black'};
+function formatMoveFeedEntry(lm){
+  var label=MOVE_TK_NAME[lm.tk]||lm.tk;
+  if(lm.who==='mrx'){
+    var vis=canSeeMrx()||lm.rv;
+    return vis?('Mr. X → station '+lm.to+' ('+label+')'):('Mr. X moved ('+label+')');
+  }
+  return 'Detective '+(lm.who+1)+' → station '+lm.to+' ('+label+')';
+}
+function updateMoveFeed(){
+  if(!UI.moveFeed)UI.moveFeed=[];
+  if(UI.feedMv===undefined)UI.feedMv=-1;
+  if(G.mv<UI.feedMv){UI.moveFeed=[];UI.feedMv=-1;}
+  if(G.lastMove&&G.mv>UI.feedMv){
+    UI.moveFeed.unshift(formatMoveFeedEntry(G.lastMove));
+    if(UI.moveFeed.length>30)UI.moveFeed.length=30;
+  }
+  UI.feedMv=G.mv;
+}
+function renderActivityFeed(){
+  var el=$('#activityFeed');if(!el)return;
+  if(!UI.moveFeed||!UI.moveFeed.length){el.innerHTML='<div class="tiny muted">No moves yet.</div>';return;}
+  el.innerHTML=UI.moveFeed.map(function(s){return '<div class="feedrow">'+s+'</div>';}).join('');
 }
 /* ---------------- toast / modal ---------------- */
 var toastT=null;
@@ -527,7 +567,7 @@ function startLocalGame(prebuilt){
   G=newGame(seats);
   UI.privacy=!prebuilt? (seats[0].kind==='human'&&seats.slice(1).some(function(s){return s.kind==='human';}))
                       : (G.seats[0].kind==='human'&&G.seats.slice(1).some(function(s){return s.kind==='human';}));
-  UI.mrxViewing=false;UI.showPs=false;UI.busy=false;
+  UI.mrxViewing=false;UI.showPs=false;UI.busy=false;UI.moveFeed=[];UI.feedMv=-1;
   enterGame();
   if(UI.privacy&&G.turn===-1&&G.seats[0].kind==='human'){askPassToMrx();}
   else maybeBot();
@@ -777,6 +817,7 @@ function boot(){
   };
   $('#psBtn').onclick=function(){UI.showPs=!UI.showPs;sfx('click');render();};
   $('#leaveBtn').onclick=function(){sfx('click');leaveToLobby();};
+  $('#locateBtn').onclick=function(){sfx('click');focusCurrentTurn();};
   $('#modal').addEventListener('click',function(e){if(e.target.id==='modal'&&G&&!G.winner&&!UI.privacy)hideModal();});
   document.addEventListener('keydown',function(e){if(e.key==='Escape'){var c=$('#chooser');if(c)c.hidden=true;}});
 }
