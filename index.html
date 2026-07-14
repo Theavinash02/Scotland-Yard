@@ -103,16 +103,18 @@
 
 <main id="screen-game" hidden>
   <div id="mapwrap">
-    <svg id="map" xmlns="http://www.w3.org/2000/svg"></svg>
     <div id="banner"></div>
-    <div id="dblHint" hidden></div>
-    <div id="zoomctl">
-      <button id="zin" title="Zoom in">+</button>
-      <button id="zout" title="Zoom out">−</button>
-      <button id="zfit" title="Fit map">⌂</button>
-      <button id="locateBtn" title="Center on current turn">🎯</button>
+    <div id="maparea">
+      <svg id="map" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div id="dblHint" hidden></div>
+      <div id="zoomctl">
+        <button id="zin" title="Zoom in">+</button>
+        <button id="zout" title="Zoom out">−</button>
+        <button id="zfit" title="Fit map">⌂</button>
+        <button id="locateBtn" title="Center on current turn">🎯</button>
+      </div>
+      <div id="chooser" hidden></div>
     </div>
-    <div id="chooser" hidden></div>
   </div>
   <aside id="side">
     <div id="turnCard" class="card"></div>

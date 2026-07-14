@@ -317,7 +317,7 @@ function onStationClick(id,ev){
 var chooserOpenedAt=0;
 function openChooser(moves,ev){
   chooserOpenedAt=Date.now();
-  var ch=$('#chooser'),wrap=$('#mapwrap').getBoundingClientRect();
+  var ch=$('#chooser'),wrap=$('#maparea').getBoundingClientRect();
   var names={t:'Taxi',b:'Bus',u:'Underground',x:'Black ticket'};
   var icons={t:'🚕',b:'🚌',u:'🚇',x:'⚫'};
   var h='<div class="chooserhead">Travel by</div>';

@@ -42,15 +42,17 @@
   }
 
   function buildAmbience(){
-    var wrap=document.getElementById('mapwrap');
+    // The ambient sky sits over the map viewport only (#maparea), not the
+    // docked game-state bar above it — inset:0 needs a positioned ancestor
+    // that exactly matches the map's bounding box.
+    var wrap=document.getElementById('maparea');
     var mapSvg=document.getElementById('map');
-    var banner=document.getElementById('banner');
-    if(!wrap||!mapSvg||!banner||document.getElementById('ambience'))return;
+    if(!wrap||!mapSvg||document.getElementById('ambience'))return;
 
     var amb=document.createElement('div');
     amb.id='ambience';
     amb.setAttribute('aria-hidden','true');
-    wrap.insertBefore(amb,banner);
+    wrap.insertBefore(amb,mapSvg.nextSibling);
 
     var cloudCount=6+Math.floor(Math.random()*4); // 6-9
     for(var i=0;i<cloudCount;i++)amb.appendChild(makeCloud());
