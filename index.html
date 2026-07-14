@@ -6,6 +6,7 @@
 <title>Scotland Yard — Night Chase Across London</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;600;800&family=IBM+Plex+Mono:wght@500;700&family=Marcellus&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/driver.js@1.7.0/dist/driver.css">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -46,6 +47,7 @@
     <div class="card hero">
       <h2>Set up a chase</h2>
       <p class="muted">One fugitive. Up to five detectives. 24 rounds across 199 stations.</p>
+      <button id="tutorialBtn" class="btn ghost big" style="margin-bottom:14px">🎓 Play Tutorial</button>
       <label>Your name <input id="nameIn" maxlength="14" placeholder="e.g. Avi"></label>
       <div class="tabs">
         <button class="tab on" data-tab="local">Local / vs bots</button>
@@ -127,6 +129,7 @@
 <div id="modal" hidden><div id="modalBox"></div></div>
 <div id="toast"></div>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://unpkg.com/driver.js@1.7.0/dist/driver.js.iife.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -136,6 +139,7 @@
 <script src="bots.js"></script>
 <script src="map.js"></script>
 <script src="ui.js"></script>
+<script src="tutorial.js"></script>
 <script src="ambience.js"></script>
 </body>
 </html>

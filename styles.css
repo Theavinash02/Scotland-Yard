@@ -258,3 +258,17 @@ label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mute
 .authcard .btn.ghost.big{margin-top:8px}
 .autherror{background:#3A1A1A;border:1px solid #8A2E2E;color:#F0A0A0;border-radius:10px;padding:9px 12px;font-size:13px;margin:4px 0 2px}
 .userbadge{border-color:var(--line);color:var(--ink);letter-spacing:.5px;text-transform:none}
+
+/* driver.js tutorial popovers, themed to match the board */
+.driver-popover{background:var(--panel);color:var(--ink);border:1px solid var(--gold);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.5);font-family:'Jost',system-ui,sans-serif}
+.driver-popover-title{color:var(--gold);font-weight:800;font-size:16px}
+.driver-popover-description{color:var(--ink);font-size:14px;line-height:1.45}
+.driver-popover-progress-text{color:var(--muted);font-size:12px}
+.driver-popover-footer button{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;text-shadow:none;font-weight:600}
+.driver-popover-footer button:hover{background:var(--gold);color:#1a1408;border-color:var(--gold)}
+.driver-popover-close-btn{color:var(--muted)}
+.driver-popover-close-btn:hover{color:var(--ink)}
+.driver-popover-arrow-side-left.driver-popover-arrow{border-left-color:var(--gold)}
+.driver-popover-arrow-side-right.driver-popover-arrow{border-right-color:var(--gold)}
+.driver-popover-arrow-side-top.driver-popover-arrow{border-top-color:var(--gold)}
+.driver-popover-arrow-side-bottom.driver-popover-arrow{border-bottom-color:var(--gold)}
