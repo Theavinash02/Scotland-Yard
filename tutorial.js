@@ -107,6 +107,19 @@ function startTutorial(role){
       allowClose: true,
       stagePadding: 6,
       overlayOpacity: 0.6,
+      smoothScroll: true,
+      // The live board underneath the tour is meant to be looked at, not
+      // touched: on mobile a normal instinct to pan/pinch-zoom the map
+      // lands outside whatever tiny element is highlighted (e.g. a single
+      // piece), and driver.js's default overlayClickBehavior ('close')
+      // would tear down the whole tour on that "outside click". Swallow it
+      // instead — allowClose stays true so the popover's own × button and
+      // Escape still exit intentionally.
+      overlayClickBehavior: function(){},
+      // Keep the live board inert while a step highlights it (e.g. the
+      // #mapwrap step below) so an accidental tap can't trigger a real
+      // move/ticket-chooser mid-tour.
+      disableActiveInteraction: true,
       steps: steps,
       onDestroyed: function(){ endTutorial(); }
     });
