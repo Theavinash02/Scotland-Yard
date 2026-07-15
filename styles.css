@@ -65,9 +65,14 @@ label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mute
 .roomcode b{font-family:'IBM Plex Mono',monospace;font-size:22px;letter-spacing:6px;color:var(--gold)}
 .legend{display:flex;flex-direction:column;gap:10px;font-size:14px}
 .legrow{display:flex;align-items:center;gap:10px}
-.legline{width:44px;height:0;flex:none;border-top:4px solid}
-.leg-t{border-color:var(--taxi)} .leg-b{border-color:var(--bus)} .leg-u{border-color:var(--tube)}
-.leg-f{border-color:var(--ferry);border-top-style:dashed}
+/* Each transport gets a distinct stroke pattern, not just a color, so the
+   lines (and this legend) stay distinguishable under red-green colorblindness
+   — matches the dash patterns used for the map lines in map.js. */
+.legline{width:44px;height:4px;flex:none;border-radius:2px}
+.leg-t{background:var(--taxi)}
+.leg-b{background-image:repeating-linear-gradient(to right,var(--bus) 0 7px,transparent 7px 12px)}
+.leg-u{background-image:repeating-linear-gradient(to right,var(--tube) 0 9px,transparent 9px 12px,var(--tube) 12px 14px,transparent 14px 17px)}
+.leg-f{background-image:repeating-linear-gradient(to right,var(--ferry) 0 2px,transparent 2px 6px)}
 .rulebox{font-size:13px;color:var(--muted);line-height:1.55;margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
 .rulebox b{color:var(--ink)}
 
@@ -164,6 +169,21 @@ label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mute
 .handoff-icon{font-size:42px;line-height:1;margin-bottom:10px}
 .routelist{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}
 .routelist .tk{min-width:34px;height:22px;font-size:12px}
+.histsummary{display:flex;gap:10px;margin:12px 0;flex-wrap:wrap}
+.histsummary div{flex:1;min-width:100px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 10px;text-align:center}
+.histsummary b{display:block;font-size:19px;color:var(--gold)}
+.histsummary span{display:block;font-size:11px;color:var(--muted);margin-top:2px;line-height:1.3}
+.histlist{display:flex;flex-direction:column;gap:6px;max-height:44vh;overflow:auto;margin-top:4px}
+.histrow{display:grid;grid-template-columns:auto auto auto auto 1fr;gap:8px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px}
+.histrow-win{border-left-color:#2F8A52}
+.histrow-loss{border-left-color:var(--tube)}
+.histdate{color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11.5px}
+.histrole{font-weight:700}
+.histresult{font-weight:700}
+.histrow-win .histresult{color:#4CBE7B}
+.histrow-loss .histresult{color:#E5686E}
+.histround{color:var(--muted);font-size:12px}
+.histopp{text-align:right}
 .demohead{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 .demostep{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);font-weight:700}
 .demolegend{display:flex;flex-wrap:wrap;gap:10px 16px;margin:10px 0}

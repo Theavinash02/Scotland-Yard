@@ -110,8 +110,12 @@ function buildMap(){
   bigRect({fill:'url(#vigG)',style:'pointer-events:none'});
   ['pieces','fx'].forEach(function(n){var g=svgEl('g');g.setAttribute('id','L-'+n);g.setAttribute('style','pointer-events:none');svg.appendChild(g);LAYER[n]=g;});
   // transport lines, gently curved with weight variation
+  // Each type also gets a distinct stroke pattern (not just color) so the
+  // taxi/bus/underground/ferry lines stay distinguishable under red-green
+  // colorblindness, which is exactly the bus(green)/underground(red) pair.
   var order={t:0,b:1,u:2,f:3};
   var col={t:'#DFAE1F',b:'#2F8A52',u:'#D23A3A',f:'#3E6E8E'};
+  var dash={t:'',b:'10 6',u:'15 3 2 3',f:'0.1 6.5'};
   var lines=[];
   PAIRS.forEach(function(p){
     var types=p.types.slice().sort(function(a,b){return order[a]-order[b];});
@@ -127,7 +131,7 @@ function buildMap(){
     var hsh=hash2(l.a*7+order[l.t],l.b);
     var w=l.t==='t'?(2.0+(hsh%5)*0.12):l.t==='b'?(3.3+(hsh%4)*0.15):l.t==='u'?4.7:3.0;
     if(l.t==='u'||l.t==='b')eh+='<path d="'+q.d+'" fill="none" stroke="#F6F1DF" stroke-width="'+r1(w+2.4)+'" stroke-linecap="round"/>';
-    eh+='<path d="'+q.d+'" fill="none" stroke="'+col[l.t]+'" stroke-width="'+r1(w)+'" stroke-linecap="round" stroke-opacity="'+(l.t==='t'?0.92:0.95)+'"'+(l.t==='f'?' stroke-dasharray="8 7"':'')+'/>';
+    eh+='<path d="'+q.d+'" fill="none" stroke="'+col[l.t]+'" stroke-width="'+r1(w)+'" stroke-linecap="round" stroke-opacity="'+(l.t==='t'?0.92:0.95)+'"'+(dash[l.t]?' stroke-dasharray="'+dash[l.t]+'"':'')+'/>';
   });
   LAYER.edges.innerHTML=eh;
   LAYER.edges.setAttribute('filter','url(#eShadow)');
