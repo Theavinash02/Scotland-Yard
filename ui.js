@@ -348,6 +348,7 @@ async function doMrxMove(m){
   var visible=canSeeMrx();
   if(visible)await animateVehicle(from,m.to,m.tk);
   else await hiddenMoveFx(m.tk);
+  if(!G)return; // the game may have been left (G cleared) while that animation was in flight
   var wasDbl=G.dblPending>0;
   applyMrx(G,m);
   stampAndReveal();
@@ -358,6 +359,7 @@ async function doDetMove(i,m){
   UI.busy=true;renderHighlights();
   var from=G.dets[i].st;
   await animateVehicle(from,m.to,m.tk);
+  if(!G)return; // the game may have been left (G cleared) while that animation was in flight
   applyDet(G,i,m);
   UI.busy=false;
   afterAnyMove(false);
@@ -387,6 +389,7 @@ function recordMove(){
   }
 }
 function afterAnyMove(){
+  if(!G)return; // guards a bot/animation callback that resolved after leaveToLobby() cleared G
   render();
   recordMove();
   if(isNet())netPush();
@@ -418,7 +421,7 @@ function maybeBot(){
   UI.botTimer=setTimeout(async function(){
     UI.botTimer=null;
     await botAct();
-    if(!G.winner)maybeBot();
+    if(G&&!G.winner)maybeBot(); // G may have been cleared (leaveToLobby) while botAct() was in flight
   },700);
 }
 async function botAct(){
@@ -428,11 +431,12 @@ async function botAct(){
     if(!p)return;
     if(p.dbl&&startDouble(G)){toast('Mr. X plays a double move!');render();await wait(500);}
     await doMrxMove(p.move);
-    while(!G.winner&&G.dblPending>0&&G.turn===-1){
+    while(G&&!G.winner&&G.dblPending>0&&G.turn===-1){
       var p2=botMrxPick(G,G.seats[0].diff);
       if(!p2)break;
       await wait(350);
       await doMrxMove(p2.move);
+      if(!G)return; // left mid double-move
     }
   }else{
     var m=botDetPick(G,G.turn,G.seats[G.turn+1].diff);
@@ -863,6 +867,7 @@ function adoptGame(g){
     var vis=lm.who!=='mrx'||canSeeMrx();
     var p=vis?animateVehicle(lm.from,lm.to,lm.tk):hiddenMoveFx(lm.tk);
     p.then(function(){
+      if(!G)return; // left the room (G cleared) while that animation was in flight
       UI.busy=false;
       stampAndReveal();render();
       if(G.winner&&!wasOver)onGameOver();
