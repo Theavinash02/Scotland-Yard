@@ -14,34 +14,12 @@
   <div class="roundel"><span></span></div>
   <div class="ttl"><h1>SCOTLAND YARD</h1><div class="sub">night chase across london</div></div>
   <div class="hdr-right">
-    <span id="userBadge" class="badge userbadge" hidden></span>
-    <button id="signOutBtn" class="ghostbtn" hidden>Sign out</button>
     <span id="roomBadge" class="badge" hidden></span>
     <button id="sndBtn" class="ghostbtn" title="Toggle sound">🔊 Sound</button>
     <button id="demoBtn" class="ghostbtn">Demo</button>
     <button id="helpBtn" class="ghostbtn">Rules</button>
   </div>
 </header>
-
-<main id="screen-auth" hidden>
-  <div class="authwrap">
-    <div class="card authcard">
-      <h2>Who goes there?</h2>
-      <p class="muted tiny" style="margin:4px 0 14px">Sign in to play under one name everywhere — or jump straight in as a guest.</p>
-      <div class="atabs">
-        <button id="authLoginTab" class="atab on">Log in</button>
-        <button id="authSignupTab" class="atab">Sign up</button>
-      </div>
-      <label>Username <input id="authUser" maxlength="20" autocomplete="username" placeholder="letters, numbers, _"></label>
-      <label>Password <input id="authPass" type="password" autocomplete="current-password" placeholder="at least 6 characters"></label>
-      <label id="authConfirmRow" hidden>Confirm password <input id="authPass2" type="password" autocomplete="new-password"></label>
-      <div id="authError" class="autherror" hidden></div>
-      <button id="authSubmit" class="btn big">Log in</button>
-      <button id="authGuest" class="btn ghost big">Continue as guest</button>
-      <p class="tiny muted" style="margin-top:10px">Guests play exactly as before — just pick a name in the lobby.</p>
-    </div>
-  </div>
-</main>
 
 <main id="screen-lobby">
   <div class="lobbywrap">
@@ -146,11 +124,6 @@
 <div id="toast"></div>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="https://unpkg.com/driver.js@1.7.0/dist/driver.js.iife.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js"></script>
-<script src="auth.js"></script>
 <script src="engine.js"></script>
 <script src="bots.js"></script>
 <script src="map.js"></script>
