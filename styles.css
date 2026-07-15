@@ -65,9 +65,14 @@ label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mute
 .roomcode b{font-family:'IBM Plex Mono',monospace;font-size:22px;letter-spacing:6px;color:var(--gold)}
 .legend{display:flex;flex-direction:column;gap:10px;font-size:14px}
 .legrow{display:flex;align-items:center;gap:10px}
-.legline{width:44px;height:0;flex:none;border-top:4px solid}
-.leg-t{border-color:var(--taxi)} .leg-b{border-color:var(--bus)} .leg-u{border-color:var(--tube)}
-.leg-f{border-color:var(--ferry);border-top-style:dashed}
+/* Each transport gets a distinct stroke pattern, not just a color, so the
+   lines (and this legend) stay distinguishable under red-green colorblindness
+   — matches the dash patterns used for the map lines in map.js. */
+.legline{width:44px;height:4px;flex:none;border-radius:2px}
+.leg-t{background:var(--taxi)}
+.leg-b{background-image:repeating-linear-gradient(to right,var(--bus) 0 7px,transparent 7px 12px)}
+.leg-u{background-image:repeating-linear-gradient(to right,var(--tube) 0 9px,transparent 9px 12px,var(--tube) 12px 14px,transparent 14px 17px)}
+.leg-f{background-image:repeating-linear-gradient(to right,var(--ferry) 0 2px,transparent 2px 6px)}
 .rulebox{font-size:13px;color:var(--muted);line-height:1.55;margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
 .rulebox b{color:var(--ink)}
 
