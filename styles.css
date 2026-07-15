@@ -32,13 +32,17 @@ input:disabled,select:disabled{opacity:.5;cursor:not-allowed}
 /* lobby */
 #screen-lobby{flex:1;overflow:auto;padding:24px 16px}
 .lobbywrap{max-width:980px;margin:0 auto;display:grid;grid-template-columns:1.25fr 1fr;gap:18px;align-items:start}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+/* min-width:0 stops a grid/flex item from refusing to shrink below its
+   content's min-content size — without it, a long select option or an
+   unwrapped button row can force this card (and the whole grid track)
+   wider than the viewport on narrow phones. */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
 .card.hero h2{font-size:26px;font-weight:800;letter-spacing:.5px}
 .card.hero>p{margin:4px 0 14px;line-height:1.5}
 .muted{color:var(--muted)} .tiny{font-size:12px}
 label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--muted);margin-bottom:12px}
 .tabs{display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--line);padding-bottom:10px}
-.tab{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:20px;padding:7px 14px;font-size:14px;font-weight:600}
+.tab{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:20px;padding:7px 14px;font-size:14px;font-weight:600;min-width:0}
 .tab:hover{color:var(--ink);border-color:var(--muted)}
 .tab:active{transform:scale(.96)}
 .tab.on{background:var(--gold);border-color:var(--gold);color:#1a1408}
@@ -46,9 +50,9 @@ label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mute
 .seatrow{display:flex;align-items:center;gap:10px;padding:7px 6px;margin:0 -6px;border-bottom:1px dashed var(--line);border-radius:8px;transition:background-color var(--transition)}
 .seatrow:last-child{border-bottom:none}
 .seatrow:hover{background:rgba(255,255,255,.03)}
-.seatrow .who{width:110px;font-weight:600;font-size:14px;display:flex;align-items:center;gap:7px}
+.seatrow .who{width:110px;flex:none;font-weight:600;font-size:14px;display:flex;align-items:center;gap:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dot{width:12px;height:12px;border-radius:50%;flex:none}
-.seatrow select{flex:1;padding:6px 8px;font-size:14px}
+.seatrow select{flex:1;min-width:0;padding:6px 8px;font-size:14px}
 .claimbtn{background:var(--panel2);border:1px solid var(--gold);color:var(--gold);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600}
 .claimbtn:hover{background:var(--gold);color:#1a1408}
 .claimbtn:active{transform:scale(.96)}
@@ -238,21 +242,36 @@ label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mute
   #screen-game{flex-direction:column}
   #side{width:100%;border-left:none;border-top:1px solid var(--line);max-height:44%;flex:none}
   #mapwrap{min-height:0;flex:1}
+  /* Sound/Demo/Rules/History don't fit beside the title below ~600px wide —
+     they used to silently run off the right edge (History was invisible).
+     Wrap them onto their own row instead of clipping them. */
+  #hdr{flex-wrap:wrap;row-gap:8px}
+  .hdr-right{margin-left:0;width:100%;flex-wrap:wrap}
 }
 @media (max-width:480px) and (orientation:portrait){
-  #hdr{padding:8px 12px;gap:8px;flex-wrap:wrap}
+  #hdr{padding:8px 12px;gap:8px}
   .ttl h1{font-size:15px;letter-spacing:1.5px;white-space:nowrap}
   .ttl .sub{display:none}
-  /* Previously fixed-row header buttons (Sound/Demo/Rules/History, plus the
-     room badge + Room history button while in an online room) overflowed off
-     the right edge of the screen on any viewport under ~512px, making them
-     unreachable rather than just cramped. Wrapping onto a second row keeps
-     every button reachable at any width instead of clipping silently. */
-  .hdr-right{width:100%;margin-left:0;flex-wrap:wrap;justify-content:flex-start;gap:6px}
+  /* The header already wraps to a second row below 820px (see above); on
+     the narrowest phones also shrink the wrapped buttons so all four
+     (Sound/Demo/Rules/History) comfortably fit on their own row. */
+  .hdr-right{gap:6px}
   .hdr-right .ghostbtn{padding:8px 10px;font-size:12.5px}
   .card{padding:13px}
   .card.hero h2{font-size:22px}
   #banner{font-size:12px}
+  /* Divide the tab row evenly instead of sizing each tab to its own text —
+     on very narrow phones the three tabs' natural widths add up to more
+     than the screen, which used to force the whole card wider than the
+     viewport. */
+  .tabs{gap:4px}
+  .tab{flex:1 1 0;padding:9px 4px;font-size:12.5px;text-align:center}
+}
+@media (max-width:360px) and (orientation:portrait){
+  /* Only the narrowest phones (iPhone SE class) need the seat label
+     shortened too — wider small phones have room for the full name. */
+  .seatrow{gap:6px}
+  .seatrow .who{width:82px;font-size:12.5px}
 }
 /* Landscape phones: keep the map and sidebar side-by-side (like desktop) so
    rotating the device actually buys a bigger board, just tighten everything
