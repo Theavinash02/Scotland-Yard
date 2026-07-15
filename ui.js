@@ -427,7 +427,19 @@ function onGameOver(){
   render();
   var meIsX=isNet()?G.seats[0].pid===MYID:G.seats[0].kind==='human';
   var iWon=(G.winner==='mrx')===meIsX;
-  sfx(G.seats.some(function(s){return s.kind==='human';})?(iWon?'win':'lose'):'win');
+  var iAmPlaying=G.seats.some(function(s){return s.kind==='human';});
+  sfx(iAmPlaying?(iWon?'win':'lose'):'win');
+  if(iAmPlaying){
+    var oppSeats=meIsX?G.seats.slice(1):[G.seats[0]];
+    historyRecord({
+      date:Date.now(),
+      role:meIsX?'mrx':'det',
+      result:iWon?'win':'loss',
+      round:G.log.length,
+      mode:isNet()?'online':'local',
+      opponents:oppSeats.some(function(s){return s.kind==='human';})?'human':'bots'
+    });
+  }
   var names={t:'T',b:'B',u:'U',x:'●'};
   var route='';
   G.log.forEach(function(e,i){
@@ -855,6 +867,34 @@ function showRules(){
   '<button class="btn" id="mOK">Got it</button>');
   $('#mOK').onclick=hideModal;
 }
+/* ------- history modal ------- */
+function showHistory(){
+  var arr=historyLoad();
+  var s=historySummary(arr);
+  var summary=arr.length?(
+    '<div class="histsummary">'+
+      '<div><b>'+s.games+'</b><span>games played</span></div>'+
+      '<div><b>'+historyPct(s.detWins,s.detGames)+'%</b><span>win rate as detective ('+s.detGames+')</span></div>'+
+      '<div><b>'+historyPct(s.mrxWins,s.mrxGames)+'%</b><span>win rate as Mr. X ('+s.mrxGames+')</span></div>'+
+    '</div>'
+  ):'';
+  var rows=arr.map(function(e){
+    var d=new Date(e.date);
+    return '<div class="histrow histrow-'+e.result+'">'+
+      '<span class="histdate">'+d.toLocaleDateString()+'</span>'+
+      '<span class="histrole">'+(e.role==='mrx'?'Mr. X':'Detective')+'</span>'+
+      '<span class="histresult">'+(e.result==='win'?'Win':'Loss')+'</span>'+
+      '<span class="histround">round '+e.round+'</span>'+
+      '<span class="histopp tiny muted">vs '+e.opponents+(e.mode==='online'?' · online':'')+'</span>'+
+    '</div>';
+  }).join('');
+  showModal('<h2>Game history</h2>'+
+    '<p class="tiny muted">Stored locally on this device only — nothing leaves your browser.</p>'+
+    summary+
+    '<div class="histlist">'+(rows||'<p class="muted tiny" style="margin-top:10px">No games recorded yet. Play a game to see it here.</p>')+'</div>'+
+    '<button class="btn ghost" id="mOK" style="margin-top:12px">Close</button>');
+  $('#mOK').onclick=hideModal;
+}
 /* ------- onboarding demo ------- */
 var DEMO_STEPS=[
   {title:'Welcome to Scotland Yard',body:
@@ -929,6 +969,7 @@ function boot(){
   };
   $('#helpBtn').onclick=showRules;
   $('#demoBtn').onclick=showDemo;
+  $('#historyBtn').onclick=showHistory;
   var sawDemo=false;
   try{sawDemo=!!localStorage.getItem('sy_demo_seen');}catch(e){}
   if(!sawDemo){demoMarkSeen();showDemo();}
