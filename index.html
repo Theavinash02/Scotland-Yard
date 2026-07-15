@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Scotland Yard — Night Chase Across London</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0F1722">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;600;800&family=IBM+Plex+Mono:wght@500;700&family=Marcellus&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/driver.js@1.7.0/dist/driver.css">
@@ -37,6 +41,7 @@
         <div id="seatList"></div>
         <button id="startLocal" class="btn big">Start game</button>
         <p class="tiny muted" style="margin-top:8px">Multiple humans on this device play hot-seat — the app blanks Mr.&nbsp;X's position between turns.</p>
+        <p class="tiny muted" id="offlineNote" style="margin-top:4px">📴 Works offline once loaded — installable, and local/bot games play with no connection. Online rooms below still need a live network.</p>
       </div>
       <div id="tab-host" class="tabpane" hidden>
         <div id="netUnavail" class="warn" hidden>Online rooms need WebRTC, which this browser or environment doesn't support. Local play and bots work fully.</div>
@@ -130,5 +135,12 @@
 <script src="ui.js"></script>
 <script src="tutorial.js"></script>
 <script src="ambience.js"></script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){/* offline caching unavailable — app still works online */});
+  });
+}
+</script>
 </body>
 </html>
