@@ -441,12 +441,21 @@ async function botAct(){
 }
 function wait(ms){return new Promise(function(r){setTimeout(r,ms);});}
 /* ---------------- game over ---------------- */
+function amSeatedPlayer(){
+  // a connected net client who never claimed a seat is a spectator, not a
+  // player — their local history/win-lose feedback shouldn't attribute the
+  // result to them. Hot-seat/local has no distinct spectator concept: the
+  // device is shared, so "some seat is human" is the right check there.
+  if(!G)return false;
+  if(isNet())return G.seats.some(function(s){return s.pid===MYID;});
+  return G.seats.some(function(s){return s.kind==='human';});
+}
 function onGameOver(){
   render();
   clearActiveGame(); // a finished game must never resurface as a stale resume prompt
   var meIsX=isNet()?G.seats[0].pid===MYID:G.seats[0].kind==='human';
   var iWon=(G.winner==='mrx')===meIsX;
-  var iAmPlaying=G.seats.some(function(s){return s.kind==='human';});
+  var iAmPlaying=amSeatedPlayer();
   sfx(iAmPlaying?(iWon?'win':'lose'):'win');
   if(iAmPlaying){
     var oppSeats=meIsX?G.seats.slice(1):[G.seats[0]];
@@ -498,7 +507,7 @@ function onGameOver(){
 // NET.chat log (NOT NET.room), delivered over the same connections as
 // everything else, host-authoritative like seats/moves.
 var MYID=getStableClientId();
-var NET={code:null,isHost:false,v:0,busy:false,room:null,peer:null,conns:[],hostConn:null,joinTimer:null,chat:[],localChat:[]};
+var NET={code:null,isHost:false,v:0,busy:false,room:null,peer:null,conns:[],hostConn:null,joinTimer:null,chat:[],localChat:[],spectating:false};
 var PEER_PREFIX='syd-'; // namespace our ids on the public PeerJS broker
 function hasNet(){
   try{ return typeof Peer!=='undefined' && typeof RTCPeerConnection!=='undefined'; }
@@ -766,7 +775,7 @@ function leaveToLobby(){
   if(UI.botTimer){clearTimeout(UI.botTimer);UI.botTimer=null;}
   if(NET.code&&!NET.isHost)sendHost({t:'leave',pid:MYID}); // free my seats on the host
   tearDownPeer();
-  NET.code=null;NET.isHost=false;NET.v=0;NET.room=null;NET.busy=false;NET.localChat=[];
+  NET.code=null;NET.isHost=false;NET.v=0;NET.room=null;NET.busy=false;NET.localChat=[];NET.spectating=false;
   G=null;
   $('#roomBadge').hidden=true;
   $('#screen-game').hidden=true;
@@ -816,6 +825,7 @@ function renderNetSeats(el,room,amHost){
 }
 function netClaim(i){
   sfx('click');
+  setSpectating(false); // claiming a seat means you're playing, not just watching
   if(NET.isHost){ applyClaim(NET.room,i,MYID,myName()); refreshHostSeats(); broadcastRoom(); }
   else{ sendHost({t:'claim',i:i,pid:MYID,name:myName()}); }
 }
@@ -935,7 +945,7 @@ function joinRoomFlow(){
     conn.on('open',function(){
       if(done)return; done=true;
       if(NET.joinTimer){clearTimeout(NET.joinTimer);NET.joinTimer=null;}
-      NET.peer=peer; NET.code=code; NET.isHost=false; NET.hostConn=conn; NET.v=0; NET.chat=[]; NET.localChat=[];
+      NET.peer=peer; NET.code=code; NET.isHost=false; NET.hostConn=conn; NET.v=0; NET.chat=[]; NET.localChat=[]; NET.spectating=false;
       conn.on('data',function(msg){ clientHandleData(msg); });
       conn.on('close',function(){
         toast('Disconnected from host.');
@@ -954,6 +964,18 @@ function joinRoomFlow(){
     if(err&&err.type==='peer-unavailable')fail('No room found with that code.');
     else fail('Connection failed — check your network and try again.');
   });
+}
+/* ---- spectating: watch a room live without occupying a seat or sending
+   moves — a connected client that never claims a seat already gets exactly
+   the detective's read-only view for free (canSeeMrx()/iControlCurrent()
+   are both keyed off "does a seat's pid match mine", which is never true
+   for a spectator), so this is mostly an explicit UI affordance for it. ---- */
+function setSpectating(v){
+  NET.spectating=!!v;
+  var tip=$('#joinLobbyTip');
+  if(tip)tip.textContent=NET.spectating
+    ? 'Spectating — you\'ll see the game live, but can\'t move. Claim a seat above to play instead.'
+    : 'Claim a seat, then wait for the host to start…';
 }
 function startNetGame(){
   sfx('click');
@@ -1194,6 +1216,7 @@ function boot(){
   $('#createRoom').onclick=function(){createRoomFlow();};
   $('#joinRoom').onclick=joinRoomFlow;
   $('#startNet').onclick=startNetGame;
+  $('#spectateBtn').onclick=function(){ sfx('click'); setSpectating(true); toast('Spectating — waiting for the host to start.'); };
   $('#copyCode').onclick=function(){
     try{navigator.clipboard.writeText($('#codeOut').textContent);toast('Code copied.');}catch(e){}
   };
