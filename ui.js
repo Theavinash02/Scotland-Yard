@@ -370,9 +370,27 @@ function stampAndReveal(){
     toast('Mr. X surfaces at station '+lm.to+'!');
   }
 }
+/* ---- per-move replay log, kept on the game object itself so it rides
+   along for free with the existing persistence (resume) and net-sync
+   (adoptGame/adoptRoom) code, which already serialize/transmit the whole
+   game object wholesale. Only the side that actually applied a move
+   records it — everyone else receives it already-appended when they
+   adopt that game state, so there's no double-counting. ---- */
+function recordMove(){
+  if(!G||!G.lastMove)return;
+  if(!G.moveLog)G.moveLog=[];
+  var lm=G.lastMove,round=G.log.length;
+  if(lm.who==='mrx'){
+    G.moveLog.push({round:round,actor:'mrx',label:'Mr. X',tk:lm.tk,to:lm.rv?lm.to:null});
+  }else{
+    G.moveLog.push({round:round,actor:'det'+lm.who,label:'Detective '+(lm.who+1),tk:lm.tk,to:lm.to});
+  }
+}
 function afterAnyMove(){
   render();
+  recordMove();
   if(isNet())netPush();
+  else persistLocalGame(G,{privacy:UI.privacy});
   if(G.winner){onGameOver();return;}
   // hot-seat privacy handoff
   if(UI.privacy&&!isNet()){
@@ -423,11 +441,21 @@ async function botAct(){
 }
 function wait(ms){return new Promise(function(r){setTimeout(r,ms);});}
 /* ---------------- game over ---------------- */
+function amSeatedPlayer(){
+  // a connected net client who never claimed a seat is a spectator, not a
+  // player — their local history/win-lose feedback shouldn't attribute the
+  // result to them. Hot-seat/local has no distinct spectator concept: the
+  // device is shared, so "some seat is human" is the right check there.
+  if(!G)return false;
+  if(isNet())return G.seats.some(function(s){return s.pid===MYID;});
+  return G.seats.some(function(s){return s.kind==='human';});
+}
 function onGameOver(){
   render();
+  clearActiveGame(); // a finished game must never resurface as a stale resume prompt
   var meIsX=isNet()?G.seats[0].pid===MYID:G.seats[0].kind==='human';
   var iWon=(G.winner==='mrx')===meIsX;
-  var iAmPlaying=G.seats.some(function(s){return s.kind==='human';});
+  var iAmPlaying=amSeatedPlayer();
   sfx(iAmPlaying?(iWon?'win':'lose'):'win');
   if(iAmPlaying){
     var oppSeats=meIsX?G.seats.slice(1):[G.seats[0]];
@@ -437,8 +465,22 @@ function onGameOver(){
       result:iWon?'win':'loss',
       round:G.log.length,
       mode:isNet()?'online':'local',
-      opponents:oppSeats.some(function(s){return s.kind==='human';})?'human':'bots'
+      opponents:oppSeats.some(function(s){return s.kind==='human';})?'human':'bots',
+      moveLog:G.moveLog||[]
     });
+  }
+  if(isNet()&&NET.isHost&&NET.room){ // host is authoritative for the room-wide shared log
+    roomHistoryAppend(NET.room,{
+      date:Date.now(),
+      winner:G.winner,
+      round:G.log.length,
+      players:G.seats.map(function(s,i){
+        return {label:i===0?'Mr. X':'Detective '+i,
+          name:s.kind==='human'?(s.name||'Player'):('Bot ('+(s.diff||'hard')+')'),
+          kind:s.kind};
+      })
+    });
+    broadcastRoom();
   }
   var names={t:'T',b:'B',u:'U',x:'●'};
   var route='';
@@ -464,8 +506,8 @@ function onGameOver(){
 // CHAT is layered on top of the same PeerJS transport, in its own
 // NET.chat log (NOT NET.room), delivered over the same connections as
 // everything else, host-authoritative like seats/moves.
-var MYID=Math.random().toString(36).slice(2,10);
-var NET={code:null,isHost:false,v:0,busy:false,room:null,peer:null,conns:[],hostConn:null,joinTimer:null,chat:[],localChat:[]};
+var MYID=getStableClientId();
+var NET={code:null,isHost:false,v:0,busy:false,room:null,peer:null,conns:[],hostConn:null,joinTimer:null,chat:[],localChat:[],spectating:false};
 var PEER_PREFIX='syd-'; // namespace our ids on the public PeerJS broker
 function hasNet(){
   try{ return typeof Peer!=='undefined' && typeof RTCPeerConnection!=='undefined'; }
@@ -508,9 +550,23 @@ function renderChat(){
   log.innerHTML=h;
   log.scrollTop=log.scrollHeight;
 }
+function ensureRoomHistBtn(){
+  // created here (not in index.html) to stay within this phase's file
+  // allowlist (ui.js/history.js/styles.css only) — same badge it sits beside.
+  var btn=$('#roomHistBtn');
+  if(!btn){
+    btn=document.createElement('button');
+    btn.id='roomHistBtn'; btn.className='ghostbtn'; btn.hidden=true; btn.textContent='Room history';
+    btn.onclick=showRoomHistory;
+    var badge=$('#roomBadge');
+    if(badge&&badge.parentNode)badge.parentNode.insertBefore(btn,badge.nextSibling);
+  }
+  return btn;
+}
 function updateChatVisibility(){
   var p=$('#chatPanel'); if(!p)return;
   p.hidden=!isNet();
+  ensureRoomHistBtn().hidden=!isNet();
 }
 function sendChatMessage(){
   var inp=$('#chatIn'); if(!inp)return;
@@ -527,6 +583,7 @@ function broadcastRoom(){
   NET.room.v=(NET.room.v||0)+1; NET.v=NET.room.v;
   var msg={t:'room',room:NET.room};
   NET.conns.forEach(function(c){ try{ if(c.open)c.send(msg); }catch(e){} });
+  persistNetGame(NET.room,{isHost:true,code:NET.code,name:myName()});
 }
 function sendHost(msg){ try{ if(NET.hostConn&&NET.hostConn.open)NET.hostConn.send(msg); }catch(e){} }
 
@@ -593,6 +650,66 @@ function tearDownPeer(){
   try{ if(NET.peer)NET.peer.destroy(); }catch(e){}
   NET.peer=null;NET.conns=[];NET.hostConn=null;
 }
+/* ---- resume: reconnect into a previously-saved online room ----
+   There's no backend here — a room only exists in the host tab's memory —
+   so a resume can only succeed if the host (or, for the host itself, its
+   PeerJS id) is still reachable. Both branches reuse the same connection
+   patterns as createRoomFlow/joinRoomFlow, just seeded with the saved room
+   code, identity and last-known room snapshot instead of starting fresh. */
+function resumeFailed(code){
+  toast('Couldn\'t rejoin room '+code+' — the host may be gone.');
+  clearActiveGame();
+  leaveToLobby();
+}
+function resumeAsHost(obj,retries){
+  retries=retries||0;
+  var code=obj.code,peer;
+  try{ peer=new Peer(PEER_PREFIX+code); }
+  catch(e){ resumeFailed(code); return; }
+  var settled=false;
+  peer.on('open',function(){
+    settled=true;
+    NET.peer=peer; NET.code=code; NET.isHost=true; NET.conns=[]; NET.v=obj.room.v||0;
+    NET.chat=[]; NET.localChat=[]; NET.room=obj.room;
+    peer.on('connection',function(conn){ hostAddConn(conn); });
+    $('#roomBadge').textContent='ROOM '+code; $('#roomBadge').hidden=false;
+    updateChatVisibility();
+    addSystemMsg('Host reconnected — resuming the game.');
+    adoptRoom(NET.room);
+  });
+  peer.on('error',function(err){
+    if(settled)return;
+    try{peer.destroy();}catch(e){}
+    if(err&&err.type==='unavailable-id'&&retries<5){ setTimeout(function(){resumeAsHost(obj,retries+1);},700); return; }
+    resumeFailed(code);
+  });
+}
+function resumeAsClient(obj){
+  var code=obj.code,peer,done=false;
+  function fail(){ if(done)return; done=true; try{peer&&peer.destroy();}catch(e){} resumeFailed(code); }
+  try{ peer=new Peer(); }catch(e){ fail(); return; }
+  var giveUp=setTimeout(fail,9000);
+  peer.on('open',function(){
+    var conn=peer.connect(PEER_PREFIX+code,{reliable:true});
+    conn.on('open',function(){
+      if(done)return; done=true; clearTimeout(giveUp);
+      NET.peer=peer; NET.code=code; NET.isHost=false; NET.hostConn=conn; NET.v=obj.room.v||0;
+      NET.chat=[]; NET.localChat=[]; NET.room=obj.room;
+      conn.on('data',function(msg){ clientHandleData(msg); });
+      conn.on('close',function(){
+        toast('Disconnected from host.');
+        NET.localChat.push({text:'You have been disconnected from the host.',ts:Date.now()});
+        renderChat();
+      });
+      conn.send({t:'hello',pid:MYID,name:obj.name||myName()}); // re-announce so the host re-attributes this conn to our (stable) pid
+      $('#roomBadge').textContent='ROOM '+code; $('#roomBadge').hidden=false;
+      updateChatVisibility();
+      adoptRoom(NET.room); // show the last-known state immediately; the host's reply reconciles it
+    });
+    conn.on('error',fail);
+  });
+  peer.on('error',fail);
+}
 /* ------- local lobby seats ------- */
 var localSeats=[
   {kind:'bot',diff:'hard'},          // Mr X
@@ -642,6 +759,7 @@ function startLocalGame(prebuilt){
   UI.privacy=!prebuilt? (seats[0].kind==='human'&&seats.slice(1).some(function(s){return s.kind==='human';}))
                       : (G.seats[0].kind==='human'&&G.seats.slice(1).some(function(s){return s.kind==='human';}));
   UI.mrxViewing=false;UI.showPs=false;UI.busy=false;UI.moveFeed=[];UI.feedMv=-1;
+  persistLocalGame(G,{privacy:UI.privacy});
   enterGame();
   if(UI.privacy&&G.turn===-1&&G.seats[0].kind==='human'){askPassToMrx();}
   else maybeBot();
@@ -657,7 +775,7 @@ function leaveToLobby(){
   if(UI.botTimer){clearTimeout(UI.botTimer);UI.botTimer=null;}
   if(NET.code&&!NET.isHost)sendHost({t:'leave',pid:MYID}); // free my seats on the host
   tearDownPeer();
-  NET.code=null;NET.isHost=false;NET.v=0;NET.room=null;NET.busy=false;NET.localChat=[];
+  NET.code=null;NET.isHost=false;NET.v=0;NET.room=null;NET.busy=false;NET.localChat=[];NET.spectating=false;
   G=null;
   $('#roomBadge').hidden=true;
   $('#screen-game').hidden=true;
@@ -707,6 +825,7 @@ function renderNetSeats(el,room,amHost){
 }
 function netClaim(i){
   sfx('click');
+  setSpectating(false); // claiming a seat means you're playing, not just watching
   if(NET.isHost){ applyClaim(NET.room,i,MYID,myName()); refreshHostSeats(); broadcastRoom(); }
   else{ sendHost({t:'claim',i:i,pid:MYID,name:myName()}); }
 }
@@ -723,6 +842,7 @@ function netCfg(i,val){ // host-only: clients don't render the cfg selects
 }
 function adoptRoom(room){
   NET.room=room;NET.v=room.v;
+  persistNetGame(room,{isHost:false,code:NET.code,name:myName()});
   renderChat();
   if(room.phase==='lobby'){
     var el=NET.isHost?$('#seatListNet'):$('#seatListJoin');
@@ -825,7 +945,7 @@ function joinRoomFlow(){
     conn.on('open',function(){
       if(done)return; done=true;
       if(NET.joinTimer){clearTimeout(NET.joinTimer);NET.joinTimer=null;}
-      NET.peer=peer; NET.code=code; NET.isHost=false; NET.hostConn=conn; NET.v=0; NET.chat=[]; NET.localChat=[];
+      NET.peer=peer; NET.code=code; NET.isHost=false; NET.hostConn=conn; NET.v=0; NET.chat=[]; NET.localChat=[]; NET.spectating=false;
       conn.on('data',function(msg){ clientHandleData(msg); });
       conn.on('close',function(){
         toast('Disconnected from host.');
@@ -844,6 +964,18 @@ function joinRoomFlow(){
     if(err&&err.type==='peer-unavailable')fail('No room found with that code.');
     else fail('Connection failed — check your network and try again.');
   });
+}
+/* ---- spectating: watch a room live without occupying a seat or sending
+   moves — a connected client that never claims a seat already gets exactly
+   the detective's read-only view for free (canSeeMrx()/iControlCurrent()
+   are both keyed off "does a seat's pid match mine", which is never true
+   for a spectator), so this is mostly an explicit UI affordance for it. ---- */
+function setSpectating(v){
+  NET.spectating=!!v;
+  var tip=$('#joinLobbyTip');
+  if(tip)tip.textContent=NET.spectating
+    ? 'Spectating — you\'ll see the game live, but can\'t move. Claim a seat above to play instead.'
+    : 'Claim a seat, then wait for the host to start…';
 }
 function startNetGame(){
   sfx('click');
@@ -878,7 +1010,7 @@ function showHistory(){
       '<div><b>'+historyPct(s.mrxWins,s.mrxGames)+'%</b><span>win rate as Mr. X ('+s.mrxGames+')</span></div>'+
     '</div>'
   ):'';
-  var rows=arr.map(function(e){
+  var rows=arr.map(function(e,i){
     var d=new Date(e.date);
     return '<div class="histrow histrow-'+e.result+'">'+
       '<span class="histdate">'+d.toLocaleDateString()+'</span>'+
@@ -886,12 +1018,93 @@ function showHistory(){
       '<span class="histresult">'+(e.result==='win'?'Win':'Loss')+'</span>'+
       '<span class="histround">round '+e.round+'</span>'+
       '<span class="histopp tiny muted">vs '+e.opponents+(e.mode==='online'?' · online':'')+'</span>'+
+      '<button class="ghostbtn histreplaybtn" data-i="'+i+'">Replay</button>'+
     '</div>';
   }).join('');
   showModal('<h2>Game history</h2>'+
     '<p class="tiny muted">Stored locally on this device only — nothing leaves your browser.</p>'+
     summary+
     '<div class="histlist">'+(rows||'<p class="muted tiny" style="margin-top:10px">No games recorded yet. Play a game to see it here.</p>')+'</div>'+
+    '<button class="btn ghost" id="mOK" style="margin-top:12px">Close</button>');
+  $('#mOK').onclick=hideModal;
+  Array.prototype.forEach.call(document.querySelectorAll('.histreplaybtn'),function(btn){
+    btn.onclick=function(){ showReplay(arr[+btn.dataset.i]); };
+  });
+}
+/* ------- replay: text-based scrub-through view of a finished game's move log ------- */
+function replayExportText(e){
+  var d=new Date(e.date);
+  var lines=[
+    'Scotland Yard — game recap',
+    d.toLocaleDateString()+' · '+(e.role==='mrx'?'Mr. X':'Detective')+' · '+(e.result==='win'?'Win':'Loss')+
+      ' · ended round '+e.round+' · vs '+e.opponents+(e.mode==='online'?' (online)':''),
+    ''
+  ];
+  (e.moveLog||[]).forEach(function(m){
+    lines.push('Round '+m.round+'  '+m.label+'  '+TK_NAME[m.tk]+'  → '+(m.to!=null?('station '+m.to):'hidden'));
+  });
+  return lines.join('\n');
+}
+function showReplay(e){
+  var log=e.moveLog||[];
+  if(!log.length){
+    showModal('<h2>Replay</h2>'+
+      '<p class="muted tiny">No replay data for this game — it was recorded before replay support was added.</p>'+
+      '<button class="btn ghost" id="mBack" style="margin-top:8px">Back to history</button>');
+    $('#mBack').onclick=showHistory;
+    return;
+  }
+  var step=log.length-1;
+  function draw(){
+    var m=log[step];
+    var rows=log.map(function(row,i){
+      return '<div class="replayrow'+(i===step?' on':'')+'" data-i="'+i+'">'+
+        '<span class="replayround">R'+row.round+'</span>'+
+        '<span class="tk '+row.tk+'">'+(row.tk==='x'?'●':row.tk.toUpperCase())+'</span>'+
+        '<span class="replaywho">'+row.label+'</span>'+
+        '<span class="replayto">'+(row.to!=null?('→ station '+row.to):'→ hidden')+'</span>'+
+      '</div>';
+    }).join('');
+    showModal('<h2>Replay</h2>'+
+      '<p class="tiny muted">Move '+(step+1)+' of '+log.length+' — round '+m.round+', '+m.label+'.</p>'+
+      '<div class="replaynav">'+
+        '<button class="ghostbtn" id="rPrev"'+(step===0?' disabled':'')+'>◀ Prev</button>'+
+        '<button class="ghostbtn" id="rNext"'+(step===log.length-1?' disabled':'')+'>Next ▶</button>'+
+      '</div>'+
+      '<div class="replaylist">'+rows+'</div>'+
+      '<button class="btn ghost" id="mCopy" style="margin-top:10px">Copy as text</button>'+
+      '<button class="btn ghost" id="mBack" style="margin-top:8px">Back to history</button>');
+    var cur=document.querySelector('.replayrow.on');
+    if(cur)cur.scrollIntoView({block:'nearest'});
+    $('#mBack').onclick=showHistory;
+    $('#mCopy').onclick=function(){
+      try{ navigator.clipboard.writeText(replayExportText(e)); toast('Recap copied to clipboard.'); }
+      catch(err){ toast('Couldn\'t copy — clipboard unavailable.'); }
+    };
+    var prev=$('#rPrev'); if(prev)prev.onclick=function(){ if(step>0){step--;draw();} };
+    var next=$('#rNext'); if(next)next.onclick=function(){ if(step<log.length-1){step++;draw();} };
+    Array.prototype.forEach.call(document.querySelectorAll('.replayrow'),function(row){
+      row.onclick=function(){ step=+row.dataset.i; draw(); };
+    });
+  }
+  draw();
+}
+/* ------- room history modal (online rooms only) ------- */
+function showRoomHistory(){
+  var arr=(NET.room&&NET.room.history)||[];
+  var rows=arr.map(function(e){
+    var d=new Date(e.date);
+    var plist=e.players.map(function(p){return escHtml(p.label+': '+p.name);}).join(' · ');
+    return '<div class="roomhistrow roomhistrow-'+e.winner+'">'+
+      '<span class="histdate">'+d.toLocaleDateString()+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'</span>'+
+      '<span class="histresult">'+(e.winner==='mrx'?'Mr. X escaped':'Detectives won')+'</span>'+
+      '<span class="histround">round '+e.round+'</span>'+
+      '<div class="roomhistplayers tiny muted">'+plist+'</div>'+
+    '</div>';
+  }).join('');
+  showModal('<h2>Room history — '+escHtml(NET.code||'')+'</h2>'+
+    '<p class="tiny muted">Visible to anyone with this room\'s code — same as the rest of online play, this isn\'t private.</p>'+
+    '<div class="histlist">'+(rows||'<p class="muted tiny" style="margin-top:10px">No completed games in this room yet.</p>')+'</div>'+
     '<button class="btn ghost" id="mOK" style="margin-top:12px">Close</button>');
   $('#mOK').onclick=hideModal;
 }
@@ -944,6 +1157,45 @@ function renderDemoStep(){
     else{demoIdx++;renderDemoStep();}
   };
 }
+/* ------- resume prompt ------- */
+function checkResumable(){
+  var obj=loadActiveGame();
+  if(!obj)return false;
+  if(obj.kind==='local'){
+    var g=obj.game;
+    var role=g.seats[0].kind==='human'?'Mr. X':'a detective';
+    showModal('<h2>Resume your game?</h2>'+
+      '<p>You have an in-progress local game — round '+(g.log.length+1)+' of 24, playing as <b>'+role+'</b>.</p>'+
+      '<button class="btn" id="mResume">Resume game</button>'+
+      '<button class="btn ghost" id="mNewGame" style="margin-top:8px">Start new game</button>');
+    $('#mResume').onclick=function(){
+      hideModal();
+      G=g;
+      UI.privacy=!!obj.privacy;UI.mrxViewing=false;UI.showPs=false;UI.busy=false;UI.moveFeed=[];UI.feedMv=-1;
+      enterGame();
+      if(UI.privacy&&G.turn===-1&&currentSeat().kind==='human'){askPassToMrx();}
+      else maybeBot();
+    };
+    $('#mNewGame').onclick=function(){hideModal();clearActiveGame();};
+    return true;
+  }
+  if(obj.kind==='net'){
+    if(!hasNet()){clearActiveGame();return false;} // can't reconnect on a browser without WebRTC
+    showModal('<h2>Rejoin your room?</h2>'+
+      '<p>You were in an in-progress online game — room <b>'+escHtml(obj.code)+'</b>. '+
+      'Reconnecting only works if the host is still online.</p>'+
+      '<button class="btn" id="mResume">Rejoin room</button>'+
+      '<button class="btn ghost" id="mNewGame" style="margin-top:8px">Start new game</button>');
+    $('#mResume').onclick=function(){
+      hideModal();
+      toast('Reconnecting to room '+obj.code+'…');
+      if(obj.isHost)resumeAsHost(obj);else resumeAsClient(obj);
+    };
+    $('#mNewGame').onclick=function(){hideModal();clearActiveGame();};
+    return true;
+  }
+  return false;
+}
 /* ------- boot ------- */
 function boot(){
   renderLocalSeats();
@@ -964,15 +1216,18 @@ function boot(){
   $('#createRoom').onclick=function(){createRoomFlow();};
   $('#joinRoom').onclick=joinRoomFlow;
   $('#startNet').onclick=startNetGame;
+  $('#spectateBtn').onclick=function(){ sfx('click'); setSpectating(true); toast('Spectating — waiting for the host to start.'); };
   $('#copyCode').onclick=function(){
     try{navigator.clipboard.writeText($('#codeOut').textContent);toast('Code copied.');}catch(e){}
   };
   $('#helpBtn').onclick=showRules;
   $('#demoBtn').onclick=showDemo;
   $('#historyBtn').onclick=showHistory;
+  ensureRoomHistBtn();
+  var resuming=checkResumable();
   var sawDemo=false;
   try{sawDemo=!!localStorage.getItem('sy_demo_seen');}catch(e){}
-  if(!sawDemo){demoMarkSeen();showDemo();}
+  if(!resuming&&!sawDemo){demoMarkSeen();showDemo();}
   $('#sndBtn').onclick=function(){
     UI.soundOn=!UI.soundOn;
     $('#sndBtn').textContent=UI.soundOn?'🔊 Sound':'🔇 Muted';
