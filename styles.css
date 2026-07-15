@@ -232,9 +232,16 @@ label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mute
   .claimbtn{padding:11px 14px;min-height:40px}
 }
 @media (max-width:480px){
-  #hdr{padding:8px 12px;gap:8px}
+  #hdr{padding:8px 12px;gap:8px;flex-wrap:wrap}
   .ttl h1{font-size:15px;letter-spacing:1.5px;white-space:nowrap}
   .ttl .sub{display:none}
+  /* Previously fixed-row header buttons (Sound/Demo/Rules/History, plus the
+     room badge + Room history button while in an online room) overflowed off
+     the right edge of the screen on any viewport under ~512px, making them
+     unreachable rather than just cramped. Wrapping onto a second row keeps
+     every button reachable at any width instead of clipping silently. */
+  .hdr-right{width:100%;margin-left:0;flex-wrap:wrap;justify-content:flex-start;gap:6px}
+  .hdr-right .ghostbtn{padding:8px 10px;font-size:12.5px}
   .card{padding:13px}
   .card.hero h2{font-size:22px}
   #banner{font-size:12px}
