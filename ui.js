@@ -373,6 +373,7 @@ function stampAndReveal(){
 function afterAnyMove(){
   render();
   if(isNet())netPush();
+  else persistLocalGame(G,{privacy:UI.privacy});
   if(G.winner){onGameOver();return;}
   // hot-seat privacy handoff
   if(UI.privacy&&!isNet()){
@@ -425,6 +426,7 @@ function wait(ms){return new Promise(function(r){setTimeout(r,ms);});}
 /* ---------------- game over ---------------- */
 function onGameOver(){
   render();
+  clearActiveGame(); // a finished game must never resurface as a stale resume prompt
   var meIsX=isNet()?G.seats[0].pid===MYID:G.seats[0].kind==='human';
   var iWon=(G.winner==='mrx')===meIsX;
   var iAmPlaying=G.seats.some(function(s){return s.kind==='human';});
@@ -464,7 +466,7 @@ function onGameOver(){
 // CHAT is layered on top of the same PeerJS transport, in its own
 // NET.chat log (NOT NET.room), delivered over the same connections as
 // everything else, host-authoritative like seats/moves.
-var MYID=Math.random().toString(36).slice(2,10);
+var MYID=getStableClientId();
 var NET={code:null,isHost:false,v:0,busy:false,room:null,peer:null,conns:[],hostConn:null,joinTimer:null,chat:[],localChat:[]};
 var PEER_PREFIX='syd-'; // namespace our ids on the public PeerJS broker
 function hasNet(){
@@ -527,6 +529,7 @@ function broadcastRoom(){
   NET.room.v=(NET.room.v||0)+1; NET.v=NET.room.v;
   var msg={t:'room',room:NET.room};
   NET.conns.forEach(function(c){ try{ if(c.open)c.send(msg); }catch(e){} });
+  persistNetGame(NET.room,{isHost:true,code:NET.code,name:myName()});
 }
 function sendHost(msg){ try{ if(NET.hostConn&&NET.hostConn.open)NET.hostConn.send(msg); }catch(e){} }
 
@@ -593,6 +596,66 @@ function tearDownPeer(){
   try{ if(NET.peer)NET.peer.destroy(); }catch(e){}
   NET.peer=null;NET.conns=[];NET.hostConn=null;
 }
+/* ---- resume: reconnect into a previously-saved online room ----
+   There's no backend here — a room only exists in the host tab's memory —
+   so a resume can only succeed if the host (or, for the host itself, its
+   PeerJS id) is still reachable. Both branches reuse the same connection
+   patterns as createRoomFlow/joinRoomFlow, just seeded with the saved room
+   code, identity and last-known room snapshot instead of starting fresh. */
+function resumeFailed(code){
+  toast('Couldn\'t rejoin room '+code+' — the host may be gone.');
+  clearActiveGame();
+  leaveToLobby();
+}
+function resumeAsHost(obj,retries){
+  retries=retries||0;
+  var code=obj.code,peer;
+  try{ peer=new Peer(PEER_PREFIX+code); }
+  catch(e){ resumeFailed(code); return; }
+  var settled=false;
+  peer.on('open',function(){
+    settled=true;
+    NET.peer=peer; NET.code=code; NET.isHost=true; NET.conns=[]; NET.v=obj.room.v||0;
+    NET.chat=[]; NET.localChat=[]; NET.room=obj.room;
+    peer.on('connection',function(conn){ hostAddConn(conn); });
+    $('#roomBadge').textContent='ROOM '+code; $('#roomBadge').hidden=false;
+    updateChatVisibility();
+    addSystemMsg('Host reconnected — resuming the game.');
+    adoptRoom(NET.room);
+  });
+  peer.on('error',function(err){
+    if(settled)return;
+    try{peer.destroy();}catch(e){}
+    if(err&&err.type==='unavailable-id'&&retries<5){ setTimeout(function(){resumeAsHost(obj,retries+1);},700); return; }
+    resumeFailed(code);
+  });
+}
+function resumeAsClient(obj){
+  var code=obj.code,peer,done=false;
+  function fail(){ if(done)return; done=true; try{peer&&peer.destroy();}catch(e){} resumeFailed(code); }
+  try{ peer=new Peer(); }catch(e){ fail(); return; }
+  var giveUp=setTimeout(fail,9000);
+  peer.on('open',function(){
+    var conn=peer.connect(PEER_PREFIX+code,{reliable:true});
+    conn.on('open',function(){
+      if(done)return; done=true; clearTimeout(giveUp);
+      NET.peer=peer; NET.code=code; NET.isHost=false; NET.hostConn=conn; NET.v=obj.room.v||0;
+      NET.chat=[]; NET.localChat=[]; NET.room=obj.room;
+      conn.on('data',function(msg){ clientHandleData(msg); });
+      conn.on('close',function(){
+        toast('Disconnected from host.');
+        NET.localChat.push({text:'You have been disconnected from the host.',ts:Date.now()});
+        renderChat();
+      });
+      conn.send({t:'hello',pid:MYID,name:obj.name||myName()}); // re-announce so the host re-attributes this conn to our (stable) pid
+      $('#roomBadge').textContent='ROOM '+code; $('#roomBadge').hidden=false;
+      updateChatVisibility();
+      adoptRoom(NET.room); // show the last-known state immediately; the host's reply reconciles it
+    });
+    conn.on('error',fail);
+  });
+  peer.on('error',fail);
+}
 /* ------- local lobby seats ------- */
 var localSeats=[
   {kind:'bot',diff:'hard'},          // Mr X
@@ -642,6 +705,7 @@ function startLocalGame(prebuilt){
   UI.privacy=!prebuilt? (seats[0].kind==='human'&&seats.slice(1).some(function(s){return s.kind==='human';}))
                       : (G.seats[0].kind==='human'&&G.seats.slice(1).some(function(s){return s.kind==='human';}));
   UI.mrxViewing=false;UI.showPs=false;UI.busy=false;UI.moveFeed=[];UI.feedMv=-1;
+  persistLocalGame(G,{privacy:UI.privacy});
   enterGame();
   if(UI.privacy&&G.turn===-1&&G.seats[0].kind==='human'){askPassToMrx();}
   else maybeBot();
@@ -723,6 +787,7 @@ function netCfg(i,val){ // host-only: clients don't render the cfg selects
 }
 function adoptRoom(room){
   NET.room=room;NET.v=room.v;
+  persistNetGame(room,{isHost:false,code:NET.code,name:myName()});
   renderChat();
   if(room.phase==='lobby'){
     var el=NET.isHost?$('#seatListNet'):$('#seatListJoin');
@@ -944,6 +1009,45 @@ function renderDemoStep(){
     else{demoIdx++;renderDemoStep();}
   };
 }
+/* ------- resume prompt ------- */
+function checkResumable(){
+  var obj=loadActiveGame();
+  if(!obj)return false;
+  if(obj.kind==='local'){
+    var g=obj.game;
+    var role=g.seats[0].kind==='human'?'Mr. X':'a detective';
+    showModal('<h2>Resume your game?</h2>'+
+      '<p>You have an in-progress local game — round '+(g.log.length+1)+' of 24, playing as <b>'+role+'</b>.</p>'+
+      '<button class="btn" id="mResume">Resume game</button>'+
+      '<button class="btn ghost" id="mNewGame" style="margin-top:8px">Start new game</button>');
+    $('#mResume').onclick=function(){
+      hideModal();
+      G=g;
+      UI.privacy=!!obj.privacy;UI.mrxViewing=false;UI.showPs=false;UI.busy=false;UI.moveFeed=[];UI.feedMv=-1;
+      enterGame();
+      if(UI.privacy&&G.turn===-1&&currentSeat().kind==='human'){askPassToMrx();}
+      else maybeBot();
+    };
+    $('#mNewGame').onclick=function(){hideModal();clearActiveGame();};
+    return true;
+  }
+  if(obj.kind==='net'){
+    if(!hasNet()){clearActiveGame();return false;} // can't reconnect on a browser without WebRTC
+    showModal('<h2>Rejoin your room?</h2>'+
+      '<p>You were in an in-progress online game — room <b>'+escHtml(obj.code)+'</b>. '+
+      'Reconnecting only works if the host is still online.</p>'+
+      '<button class="btn" id="mResume">Rejoin room</button>'+
+      '<button class="btn ghost" id="mNewGame" style="margin-top:8px">Start new game</button>');
+    $('#mResume').onclick=function(){
+      hideModal();
+      toast('Reconnecting to room '+obj.code+'…');
+      if(obj.isHost)resumeAsHost(obj);else resumeAsClient(obj);
+    };
+    $('#mNewGame').onclick=function(){hideModal();clearActiveGame();};
+    return true;
+  }
+  return false;
+}
 /* ------- boot ------- */
 function boot(){
   renderLocalSeats();
@@ -970,9 +1074,10 @@ function boot(){
   $('#helpBtn').onclick=showRules;
   $('#demoBtn').onclick=showDemo;
   $('#historyBtn').onclick=showHistory;
+  var resuming=checkResumable();
   var sawDemo=false;
   try{sawDemo=!!localStorage.getItem('sy_demo_seen');}catch(e){}
-  if(!sawDemo){demoMarkSeen();showDemo();}
+  if(!resuming&&!sawDemo){demoMarkSeen();showDemo();}
   $('#sndBtn').onclick=function(){
     UI.soundOn=!UI.soundOn;
     $('#sndBtn').textContent=UI.soundOn?'🔊 Sound':'🔇 Muted';
