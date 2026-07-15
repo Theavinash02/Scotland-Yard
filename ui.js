@@ -370,8 +370,25 @@ function stampAndReveal(){
     toast('Mr. X surfaces at station '+lm.to+'!');
   }
 }
+/* ---- per-move replay log, kept on the game object itself so it rides
+   along for free with the existing persistence (resume) and net-sync
+   (adoptGame/adoptRoom) code, which already serialize/transmit the whole
+   game object wholesale. Only the side that actually applied a move
+   records it — everyone else receives it already-appended when they
+   adopt that game state, so there's no double-counting. ---- */
+function recordMove(){
+  if(!G||!G.lastMove)return;
+  if(!G.moveLog)G.moveLog=[];
+  var lm=G.lastMove,round=G.log.length;
+  if(lm.who==='mrx'){
+    G.moveLog.push({round:round,actor:'mrx',label:'Mr. X',tk:lm.tk,to:lm.rv?lm.to:null});
+  }else{
+    G.moveLog.push({round:round,actor:'det'+lm.who,label:'Detective '+(lm.who+1),tk:lm.tk,to:lm.to});
+  }
+}
 function afterAnyMove(){
   render();
+  recordMove();
   if(isNet())netPush();
   else persistLocalGame(G,{privacy:UI.privacy});
   if(G.winner){onGameOver();return;}
@@ -439,7 +456,8 @@ function onGameOver(){
       result:iWon?'win':'loss',
       round:G.log.length,
       mode:isNet()?'online':'local',
-      opponents:oppSeats.some(function(s){return s.kind==='human';})?'human':'bots'
+      opponents:oppSeats.some(function(s){return s.kind==='human';})?'human':'bots',
+      moveLog:G.moveLog||[]
     });
   }
   var names={t:'T',b:'B',u:'U',x:'●'};
@@ -943,7 +961,7 @@ function showHistory(){
       '<div><b>'+historyPct(s.mrxWins,s.mrxGames)+'%</b><span>win rate as Mr. X ('+s.mrxGames+')</span></div>'+
     '</div>'
   ):'';
-  var rows=arr.map(function(e){
+  var rows=arr.map(function(e,i){
     var d=new Date(e.date);
     return '<div class="histrow histrow-'+e.result+'">'+
       '<span class="histdate">'+d.toLocaleDateString()+'</span>'+
@@ -951,6 +969,7 @@ function showHistory(){
       '<span class="histresult">'+(e.result==='win'?'Win':'Loss')+'</span>'+
       '<span class="histround">round '+e.round+'</span>'+
       '<span class="histopp tiny muted">vs '+e.opponents+(e.mode==='online'?' · online':'')+'</span>'+
+      '<button class="ghostbtn histreplaybtn" data-i="'+i+'">Replay</button>'+
     '</div>';
   }).join('');
   showModal('<h2>Game history</h2>'+
@@ -959,6 +978,67 @@ function showHistory(){
     '<div class="histlist">'+(rows||'<p class="muted tiny" style="margin-top:10px">No games recorded yet. Play a game to see it here.</p>')+'</div>'+
     '<button class="btn ghost" id="mOK" style="margin-top:12px">Close</button>');
   $('#mOK').onclick=hideModal;
+  Array.prototype.forEach.call(document.querySelectorAll('.histreplaybtn'),function(btn){
+    btn.onclick=function(){ showReplay(arr[+btn.dataset.i]); };
+  });
+}
+/* ------- replay: text-based scrub-through view of a finished game's move log ------- */
+function replayExportText(e){
+  var d=new Date(e.date);
+  var lines=[
+    'Scotland Yard — game recap',
+    d.toLocaleDateString()+' · '+(e.role==='mrx'?'Mr. X':'Detective')+' · '+(e.result==='win'?'Win':'Loss')+
+      ' · ended round '+e.round+' · vs '+e.opponents+(e.mode==='online'?' (online)':''),
+    ''
+  ];
+  (e.moveLog||[]).forEach(function(m){
+    lines.push('Round '+m.round+'  '+m.label+'  '+TK_NAME[m.tk]+'  → '+(m.to!=null?('station '+m.to):'hidden'));
+  });
+  return lines.join('\n');
+}
+function showReplay(e){
+  var log=e.moveLog||[];
+  if(!log.length){
+    showModal('<h2>Replay</h2>'+
+      '<p class="muted tiny">No replay data for this game — it was recorded before replay support was added.</p>'+
+      '<button class="btn ghost" id="mBack" style="margin-top:8px">Back to history</button>');
+    $('#mBack').onclick=showHistory;
+    return;
+  }
+  var step=log.length-1;
+  function draw(){
+    var m=log[step];
+    var rows=log.map(function(row,i){
+      return '<div class="replayrow'+(i===step?' on':'')+'" data-i="'+i+'">'+
+        '<span class="replayround">R'+row.round+'</span>'+
+        '<span class="tk '+row.tk+'">'+(row.tk==='x'?'●':row.tk.toUpperCase())+'</span>'+
+        '<span class="replaywho">'+row.label+'</span>'+
+        '<span class="replayto">'+(row.to!=null?('→ station '+row.to):'→ hidden')+'</span>'+
+      '</div>';
+    }).join('');
+    showModal('<h2>Replay</h2>'+
+      '<p class="tiny muted">Move '+(step+1)+' of '+log.length+' — round '+m.round+', '+m.label+'.</p>'+
+      '<div class="replaynav">'+
+        '<button class="ghostbtn" id="rPrev"'+(step===0?' disabled':'')+'>◀ Prev</button>'+
+        '<button class="ghostbtn" id="rNext"'+(step===log.length-1?' disabled':'')+'>Next ▶</button>'+
+      '</div>'+
+      '<div class="replaylist">'+rows+'</div>'+
+      '<button class="btn ghost" id="mCopy" style="margin-top:10px">Copy as text</button>'+
+      '<button class="btn ghost" id="mBack" style="margin-top:8px">Back to history</button>');
+    var cur=document.querySelector('.replayrow.on');
+    if(cur)cur.scrollIntoView({block:'nearest'});
+    $('#mBack').onclick=showHistory;
+    $('#mCopy').onclick=function(){
+      try{ navigator.clipboard.writeText(replayExportText(e)); toast('Recap copied to clipboard.'); }
+      catch(err){ toast('Couldn\'t copy — clipboard unavailable.'); }
+    };
+    var prev=$('#rPrev'); if(prev)prev.onclick=function(){ if(step>0){step--;draw();} };
+    var next=$('#rNext'); if(next)next.onclick=function(){ if(step<log.length-1){step++;draw();} };
+    Array.prototype.forEach.call(document.querySelectorAll('.replayrow'),function(row){
+      row.onclick=function(){ step=+row.dataset.i; draw(); };
+    });
+  }
+  draw();
 }
 /* ------- onboarding demo ------- */
 var DEMO_STEPS=[

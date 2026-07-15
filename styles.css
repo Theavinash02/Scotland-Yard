@@ -174,7 +174,7 @@ label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mute
 .histsummary b{display:block;font-size:19px;color:var(--gold)}
 .histsummary span{display:block;font-size:11px;color:var(--muted);margin-top:2px;line-height:1.3}
 .histlist{display:flex;flex-direction:column;gap:6px;max-height:44vh;overflow:auto;margin-top:4px}
-.histrow{display:grid;grid-template-columns:auto auto auto auto 1fr;gap:8px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px}
+.histrow{display:grid;grid-template-columns:auto auto auto auto 1fr auto;gap:8px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px}
 .histrow-win{border-left-color:#2F8A52}
 .histrow-loss{border-left-color:var(--tube)}
 .histdate{color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11.5px}
@@ -184,6 +184,18 @@ label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mute
 .histrow-loss .histresult{color:#E5686E}
 .histround{color:var(--muted);font-size:12px}
 .histopp{text-align:right}
+.histreplaybtn{font-size:11.5px;padding:4px 9px}
+/* replay scrub-through view */
+.replaynav{display:flex;gap:8px;margin:10px 0}
+.replaynav .ghostbtn{flex:1;padding:8px 10px;font-size:13px}
+.replaynav .ghostbtn:disabled{opacity:.35;cursor:not-allowed}
+.replaylist{display:flex;flex-direction:column;gap:4px;max-height:38vh;overflow:auto}
+.replayrow{display:grid;grid-template-columns:auto auto 1fr auto;gap:8px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:6px 9px;font-size:12.5px;cursor:pointer;transition:border-color var(--transition),background-color var(--transition)}
+.replayrow:hover{border-color:var(--muted)}
+.replayrow.on{border-color:var(--gold);background:#22314480}
+.replayround{color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px}
+.replaywho{font-weight:600}
+.replayto{color:var(--muted);text-align:right;font-size:12px}
 .demohead{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 .demostep{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);font-weight:700}
 .demolegend{display:flex;flex-wrap:wrap;gap:10px 16px;margin:10px 0}
