@@ -460,6 +460,19 @@ function onGameOver(){
       moveLog:G.moveLog||[]
     });
   }
+  if(isNet()&&NET.isHost&&NET.room){ // host is authoritative for the room-wide shared log
+    roomHistoryAppend(NET.room,{
+      date:Date.now(),
+      winner:G.winner,
+      round:G.log.length,
+      players:G.seats.map(function(s,i){
+        return {label:i===0?'Mr. X':'Detective '+i,
+          name:s.kind==='human'?(s.name||'Player'):('Bot ('+(s.diff||'hard')+')'),
+          kind:s.kind};
+      })
+    });
+    broadcastRoom();
+  }
   var names={t:'T',b:'B',u:'U',x:'●'};
   var route='';
   G.log.forEach(function(e,i){
@@ -528,9 +541,23 @@ function renderChat(){
   log.innerHTML=h;
   log.scrollTop=log.scrollHeight;
 }
+function ensureRoomHistBtn(){
+  // created here (not in index.html) to stay within this phase's file
+  // allowlist (ui.js/history.js/styles.css only) — same badge it sits beside.
+  var btn=$('#roomHistBtn');
+  if(!btn){
+    btn=document.createElement('button');
+    btn.id='roomHistBtn'; btn.className='ghostbtn'; btn.hidden=true; btn.textContent='Room history';
+    btn.onclick=showRoomHistory;
+    var badge=$('#roomBadge');
+    if(badge&&badge.parentNode)badge.parentNode.insertBefore(btn,badge.nextSibling);
+  }
+  return btn;
+}
 function updateChatVisibility(){
   var p=$('#chatPanel'); if(!p)return;
   p.hidden=!isNet();
+  ensureRoomHistBtn().hidden=!isNet();
 }
 function sendChatMessage(){
   var inp=$('#chatIn'); if(!inp)return;
@@ -1040,6 +1067,25 @@ function showReplay(e){
   }
   draw();
 }
+/* ------- room history modal (online rooms only) ------- */
+function showRoomHistory(){
+  var arr=(NET.room&&NET.room.history)||[];
+  var rows=arr.map(function(e){
+    var d=new Date(e.date);
+    var plist=e.players.map(function(p){return escHtml(p.label+': '+p.name);}).join(' · ');
+    return '<div class="roomhistrow roomhistrow-'+e.winner+'">'+
+      '<span class="histdate">'+d.toLocaleDateString()+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'</span>'+
+      '<span class="histresult">'+(e.winner==='mrx'?'Mr. X escaped':'Detectives won')+'</span>'+
+      '<span class="histround">round '+e.round+'</span>'+
+      '<div class="roomhistplayers tiny muted">'+plist+'</div>'+
+    '</div>';
+  }).join('');
+  showModal('<h2>Room history — '+escHtml(NET.code||'')+'</h2>'+
+    '<p class="tiny muted">Visible to anyone with this room\'s code — same as the rest of online play, this isn\'t private.</p>'+
+    '<div class="histlist">'+(rows||'<p class="muted tiny" style="margin-top:10px">No completed games in this room yet.</p>')+'</div>'+
+    '<button class="btn ghost" id="mOK" style="margin-top:12px">Close</button>');
+  $('#mOK').onclick=hideModal;
+}
 /* ------- onboarding demo ------- */
 var DEMO_STEPS=[
   {title:'Welcome to Scotland Yard',body:
@@ -1154,6 +1200,7 @@ function boot(){
   $('#helpBtn').onclick=showRules;
   $('#demoBtn').onclick=showDemo;
   $('#historyBtn').onclick=showHistory;
+  ensureRoomHistBtn();
   var resuming=checkResumable();
   var sawDemo=false;
   try{sawDemo=!!localStorage.getItem('sy_demo_seen');}catch(e){}

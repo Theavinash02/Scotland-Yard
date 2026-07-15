@@ -196,6 +196,14 @@ label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mute
 .replayround{color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px}
 .replaywho{font-weight:600}
 .replayto{color:var(--muted);text-align:right;font-size:12px}
+/* room-wide (shared) history — visible to anyone with the room code */
+.roomhistrow{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"date result round" "players players players";gap:4px 8px;background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:8px;padding:7px 10px;font-size:13px}
+.roomhistrow-mrx{border-left-color:var(--tube)}
+.roomhistrow-dets{border-left-color:#2F8A52}
+.roomhistrow .histdate{grid-area:date}
+.roomhistrow .histresult{grid-area:result}
+.roomhistrow .histround{grid-area:round;text-align:right}
+.roomhistplayers{grid-area:players;line-height:1.5}
 .demohead{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 .demostep{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);font-weight:700}
 .demolegend{display:flex;flex-wrap:wrap;gap:10px 16px;margin:10px 0}
