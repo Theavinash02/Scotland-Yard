@@ -171,6 +171,17 @@ function buildMap(){
 /* ---------------- pan / zoom ---------------- */
 function initPanZoom(){
   var svg=$('#map'),ptrs={},panStart=null,pinch=null;
+  // Coalesce viewBox writes to one per animation frame instead of one per raw
+  // pointermove — touchmove can fire far faster than the display refresh rate,
+  // and each redundant setAttribute()+layout was visible as mobile pan/pinch
+  // jank. Pointer tracking itself (cheap, no DOM access) still happens on
+  // every event so the gesture never feels like it's lagging behind a finger.
+  var rafPending=false;
+  function scheduleVB(){
+    if(rafPending)return;
+    rafPending=true;
+    requestAnimationFrame(function(){rafPending=false;setVB();});
+  }
   function clientToMap(cx,cy){
     // Use the SVG's own coordinate transform so we honour the viewBox's
     // preserveAspectRatio letterboxing. A naive rect-based mapping assumes
@@ -192,35 +203,45 @@ function initPanZoom(){
     var p=clientToMap(ev.clientX,ev.clientY);
     var nw=Math.min(2400,Math.max(120,VB.w*k)),nh=nw*(MAP_H/1000);
     VB.x=p.x-(p.x-VB.x)*(nw/VB.w);VB.y=p.y-(p.y-VB.y)*(nh/VB.h);
-    VB.w=nw;VB.h=nh;setVB();
+    VB.w=nw;VB.h=nh;scheduleVB();
   },{passive:false});
   svg.addEventListener('pointerdown',function(ev){
     try{svg.setPointerCapture(ev.pointerId);}catch(e){}
     ptrs[ev.pointerId]={x:ev.clientX,y:ev.clientY};
     var ids=Object.keys(ptrs);
-    if(ids.length===1){panStart={cx:ev.clientX,cy:ev.clientY,vx:VB.x,vy:VB.y,t:Date.now(),moved:0};svg.classList.add('dragging');}
+    if(ids.length===1){panStart={cx:ev.clientX,cy:ev.clientY,vx:VB.x,vy:VB.y,t:Date.now(),moved:0,rect:svg.getBoundingClientRect()};svg.classList.add('dragging');}
     else if(ids.length===2){
       panStart=null;
       var a=ptrs[ids[0]],b=ptrs[ids[1]];
       pinch={d:Math.hypot(a.x-b.x,a.y-b.y),w:VB.w,cx:(a.x+b.x)/2,cy:(a.y+b.y)/2};
+      // clientToMap() below needs VB as of *this* gesture's start, and the
+      // element's rect can't change mid-pinch, so both are captured once here
+      // rather than read again on every pointermove.
+      pinch.anchor=clientToMap(pinch.cx,pinch.cy);
+      pinch.vx=VB.x;pinch.vy=VB.y;
     }
   });
   svg.addEventListener('pointermove',function(ev){
     if(!ptrs[ev.pointerId])return;
     ptrs[ev.pointerId]={x:ev.clientX,y:ev.clientY};
-    var ids=Object.keys(ptrs),r=svg.getBoundingClientRect();
+    var ids=Object.keys(ptrs);
     if(ids.length===1&&panStart){
+      var r=panStart.rect;
       panStart.moved=Math.max(panStart.moved,Math.hypot(ev.clientX-panStart.cx,ev.clientY-panStart.cy));
       VB.x=panStart.vx-(ev.clientX-panStart.cx)/r.width*VB.w;
       VB.y=panStart.vy-(ev.clientY-panStart.cy)/r.height*VB.h;
-      setVB();
+      scheduleVB();
     }else if(ids.length===2&&pinch){
       var a=ptrs[ids[0]],b=ptrs[ids[1]];
       var d=Math.hypot(a.x-b.x,a.y-b.y)||1;
-      var p=clientToMap(pinch.cx,pinch.cy);
+      var p=pinch.anchor;
       var nw=Math.min(2400,Math.max(120,pinch.w*pinch.d/d)),nh=nw*(MAP_H/1000);
-      VB.x=p.x-(p.x-VB.x)*(nw/VB.w);VB.y=p.y-(p.y-VB.y)*(nh/VB.h);
-      VB.w=nw;VB.h=nh;setVB();
+      // Both axes scale by the same factor (zoom is aspect-locked), so the
+      // fixed anchor point (captured once at gesture start, see pointerdown)
+      // maps to the new viewBox the same way on x and y.
+      var scale=nw/pinch.w;
+      VB.x=p.x-(p.x-pinch.vx)*scale;VB.y=p.y-(p.y-pinch.vy)*scale;
+      VB.w=nw;VB.h=nh;scheduleVB();
     }
   });
   function up(ev){
