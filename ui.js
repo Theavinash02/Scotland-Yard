@@ -1021,12 +1021,16 @@ function showHistory(){
   var rows=arr.map(function(e,i){
     var d=new Date(e.date);
     return '<div class="histrow histrow-'+e.result+'">'+
-      '<span class="histdate">'+d.toLocaleDateString()+'</span>'+
-      '<span class="histrole">'+(e.role==='mrx'?'Mr. X':'Detective')+'</span>'+
-      '<span class="histresult">'+(e.result==='win'?'Win':'Loss')+'</span>'+
-      '<span class="histround">round '+e.round+'</span>'+
-      '<span class="histopp tiny muted">vs '+e.opponents+(e.mode==='online'?' · online':'')+'</span>'+
-      '<button class="ghostbtn histreplaybtn" data-i="'+i+'">Replay</button>'+
+      '<div class="histrow-top">'+
+        '<span class="histdate">'+d.toLocaleDateString()+'</span>'+
+        '<span class="histrole">'+(e.role==='mrx'?'Mr. X':'Detective')+'</span>'+
+        '<span class="histresult">'+(e.result==='win'?'Win':'Loss')+'</span>'+
+        '<span class="histround">round '+e.round+'</span>'+
+      '</div>'+
+      '<div class="histrow-bottom">'+
+        '<span class="histopp tiny muted">vs '+e.opponents+(e.mode==='online'?' · online':'')+'</span>'+
+        '<button class="ghostbtn histreplaybtn" data-i="'+i+'">Replay</button>'+
+      '</div>'+
     '</div>';
   }).join('');
   showModal('<h2>Game history</h2>'+
