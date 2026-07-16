@@ -14,12 +14,20 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div id="screen-intro">
-  <div id="introArt" aria-hidden="true"></div>
-  <div id="introTitle" aria-hidden="true">
-    <h1>SCOTLAND YARD</h1>
-    <div class="introSub">A CHASE IN 199 STATIONS</div>
+<div id="rotateOverlay" aria-hidden="true">
+  <div class="rotateIcon">
+    <svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true">
+      <rect class="rotatePhone" x="20" y="8" width="24" height="42" rx="4" fill="none" stroke="currentColor" stroke-width="2.4"/>
+      <circle class="rotatePhone" cx="32" cy="43.5" r="1.6" fill="currentColor"/>
+      <path class="rotateArrow" d="M 46 16 A 20 20 0 1 1 18 12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+      <path class="rotateArrow" d="M 44 9 L 46 16 L 39 15 Z" fill="currentColor"/>
+    </svg>
   </div>
+  <div class="rotateTxt">Rotate your device</div>
+  <div class="rotateSub">Scotland Yard plays in landscape</div>
+</div>
+<div id="screen-intro">
+  <video id="introVideo" playsinline webkit-playsinline disablepictureinpicture disableremoteplayback aria-hidden="true"></video>
   <div id="introGateTxt" aria-hidden="true">
     <div class="introWordmark">SCOTLAND YARD</div>
     <div class="introTap">Tap, click, or press any key to begin</div>
@@ -45,6 +53,7 @@
       <h2>Set up a chase</h2>
       <p class="muted">One fugitive. Up to five detectives. 24 rounds across 199 stations.</p>
       <button id="tutorialBtn" class="btn ghost big" style="margin-bottom:14px">🎓 Play Tutorial</button>
+      <button id="howtoBtn" class="btn ghost big" style="margin-bottom:14px">🎬 How to Play</button>
       <label>Your name <input id="nameIn" maxlength="14" placeholder="e.g. Avi"></label>
       <div class="tabs">
         <button class="tab on" data-tab="local">Local / vs bots</button>
@@ -142,6 +151,11 @@
   </div>
 </div>
 <div id="modal" hidden><div id="modalBox"></div></div>
+<div id="howtoOverlay" hidden>
+  <video id="howtoVideo" playsinline webkit-playsinline disablepictureinpicture disableremoteplayback aria-hidden="true"></video>
+  <div id="howtoSkipTxt" aria-hidden="true">Close ✕</div>
+  <div id="howtoCatcher" role="button" aria-label="Close how to play video"></div>
+</div>
 <div id="toast"></div>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="https://unpkg.com/driver.js@1.7.0/dist/driver.js.iife.js"></script>
