@@ -236,6 +236,9 @@ function renderCtrls(){
   var ps=$('#psBtn');
   var n=UI.showPs?possibleSet(G).size:null;
   ps.textContent=UI.showPs?'Hide possible Mr. X spots ('+(n===null?'':n)+')':'Show possible Mr. X spots';
+  var lp=$('#lastPosBtn');
+  lp.hidden=canSeeMrx()||!G.rev;
+  if(!lp.hidden)lp.textContent='📍 Mr. X\'s last known position ('+G.rev+')';
 }
 function renderHighlights(){
   var h='';
@@ -1242,6 +1245,14 @@ function boot(){
     if(startDouble(G)){sfx('click');toast('Double move armed — two hops this round.');render();}
   };
   $('#psBtn').onclick=function(){UI.showPs=!UI.showPs;sfx('click');render();};
+  $('#lastPosBtn').onclick=function(){
+    sfx('click');
+    if(!G||!G.rev)return;
+    var p=POS[G.rev];
+    focusStation(p.x,p.y);
+    revealPing(G.rev);
+    toast('Mr. X was last seen at station '+G.rev+'.');
+  };
   $('#leaveBtn').onclick=function(){sfx('click');leaveToLobby();};
   $('#chatSend').onclick=sendChatMessage;
   $('#chatIn').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); sendChatMessage(); } });
