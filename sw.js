@@ -1,5 +1,5 @@
 // Bump this on every deploy so old caches get cleared out.
-var CACHE_VERSION = 'sy-v3';
+var CACHE_VERSION = 'sy-v4';
 var CORE_ASSETS = [
   './',
   './index.html',
@@ -17,24 +17,11 @@ var CORE_ASSETS = [
   './icons/icon-192.png',
   './icons/icon-512.png'
 ];
-// The recorded title theme is optional — the intro falls back to its
-// procedural engine when it's absent. cache.addAll() rejects the whole
-// install on any single 404, so these are cached best-effort instead of
-// being required like CORE_ASSETS.
-var OPTIONAL_ASSETS = [
-  './audio/theme.ogg',
-  './audio/theme.mp3'
-];
 
 self.addEventListener('install', function(e){
   e.waitUntil(
-    caches.open(CACHE_VERSION).then(function(cache){
-      return cache.addAll(CORE_ASSETS).then(function(){
-        return Promise.all(OPTIONAL_ASSETS.map(function(url){
-          return cache.add(url).catch(function(){/* not present in this deploy — fine */});
-        }));
-      });
-    }).then(function(){ return self.skipWaiting(); })
+    caches.open(CACHE_VERSION).then(function(cache){ return cache.addAll(CORE_ASSETS); })
+      .then(function(){ return self.skipWaiting(); })
   );
 });
 
@@ -46,12 +33,33 @@ self.addEventListener('activate', function(e){
   );
 });
 
-// Cache-first for our own static assets (this is a local-play offline cache —
-// online multiplayer still needs a live network connection to reach peers).
 self.addEventListener('fetch', function(e){
   if(e.request.method!=='GET')return;
   var url=new URL(e.request.url);
   if(url.origin!==self.location.origin)return;
+
+  // Intro/how-to-play videos: deliberately NOT in CORE_ASSETS (multi-MB —
+  // precaching them would bloat install and delay first paint). Network
+  // first so players always get the current file when online, caching each
+  // successful response as we go so a later offline visit still has it.
+  if(url.pathname.indexOf('/video/')!==-1){
+    e.respondWith(
+      fetch(e.request).then(function(res){
+        if(res && res.ok){
+          var copy=res.clone();
+          // Multi-MB writes are slow enough that the worker can be torn
+          // down before an un-awaited cache.put() finishes — waitUntil()
+          // keeps it alive until the write actually completes.
+          e.waitUntil(caches.open(CACHE_VERSION).then(function(cache){ return cache.put(e.request, copy); }));
+        }
+        return res;
+      }).catch(function(){ return caches.match(e.request); })
+    );
+    return;
+  }
+
+  // Cache-first for our own static assets (this is a local-play offline cache —
+  // online multiplayer still needs a live network connection to reach peers).
   e.respondWith(
     caches.match(e.request).then(function(cached){
       if(cached)return cached;

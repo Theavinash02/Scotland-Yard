@@ -1236,6 +1236,7 @@ function boot(){
   $('#helpBtn').onclick=showRules;
   $('#demoBtn').onclick=showDemo;
   $('#historyBtn').onclick=showHistory;
+  $('#howtoBtn').onclick=function(){sfx('click');if(typeof showHowToVideo==='function')showHowToVideo();};
   ensureRoomHistBtn();
   $('#sndBtn').onclick=function(){
     UI.soundOn=!UI.soundOn;
@@ -1275,4 +1276,44 @@ function boot(){
   $('#modal').addEventListener('click',function(e){if(e.target.id==='modal'&&G&&!G.winner&&!UI.privacy)hideModal();});
   document.addEventListener('keydown',function(e){if(e.key==='Escape'){var c=$('#chooser');if(c)c.hidden=true;}});
 }
+
+/* ---------------- phone rotate-to-landscape lock ----------------
+   Browsers can't force orientation on iOS, so the real guarantee is a
+   full-viewport "rotate your device" overlay shown on touch phones in
+   portrait (CSS media query + a JS matchMedia/resize/orientationchange
+   listener toggling an <html> class, so either mechanism alone is enough).
+   screen.orientation.lock() is attempted best-effort for browsers that
+   support it (mainly installed Android PWAs); it silently no-ops elsewhere
+   and never blocks play. While the overlay is up, any playing intro/how-to
+   video is paused; it resumes automatically once the phone is landscape. */
+(function(){
+  function isCoarsePointer(){
+    try{return window.matchMedia('(pointer: coarse)').matches;}catch(e){return false;}
+  }
+  function isPortrait(){
+    try{return window.matchMedia('(orientation: portrait)').matches;}catch(e){return window.innerHeight>window.innerWidth;}
+  }
+  var locked=false;
+  function applyPause(paused){
+    if(typeof introSetPaused==='function')introSetPaused(paused);
+    if(typeof introHowtoSetPaused==='function')introHowtoSetPaused(paused);
+  }
+  function update(){
+    var shouldLock=isCoarsePointer()&&isPortrait();
+    if(shouldLock===locked)return;
+    locked=shouldLock;
+    var html=document.documentElement;
+    html.classList.toggle('rotate-lock',locked);
+    html.classList.toggle('rotate-unlock',!locked);
+    applyPause(locked);
+  }
+  update();
+  window.addEventListener('resize',update);
+  window.addEventListener('orientationchange',update);
+  try{window.matchMedia('(orientation: portrait)').addEventListener('change',update);}catch(e){}
+  try{
+    if(screen.orientation&&screen.orientation.lock)screen.orientation.lock('landscape').catch(function(){});
+  }catch(e){}
+})();
+
 if(typeof document!=='undefined')boot();
