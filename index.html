@@ -14,7 +14,20 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<header id="hdr">
+<div id="screen-intro">
+  <div id="introArt" aria-hidden="true"></div>
+  <div id="introTitle" aria-hidden="true">
+    <h1>SCOTLAND YARD</h1>
+    <div class="introSub">A CHASE IN 199 STATIONS</div>
+  </div>
+  <div id="introGateTxt" aria-hidden="true">
+    <div class="introWordmark">SCOTLAND YARD</div>
+    <div class="introTap">Tap, click, or press any key to begin</div>
+  </div>
+  <div id="introSkipTxt" aria-hidden="true" hidden>Skip ›</div>
+  <div id="introCatcher" role="button" aria-label="Begin"></div>
+</div>
+<header id="hdr" hidden>
   <div class="roundel"><span></span></div>
   <div class="ttl"><h1>SCOTLAND YARD</h1><div class="sub">night chase across london</div></div>
   <div class="hdr-right">
@@ -26,7 +39,7 @@
   </div>
 </header>
 
-<main id="screen-lobby">
+<main id="screen-lobby" hidden>
   <div class="lobbywrap">
     <div class="card hero">
       <h2>Set up a chase</h2>
@@ -137,6 +150,7 @@
 <script src="map.js"></script>
 <script src="history.js"></script>
 <script src="persistence.js"></script>
+<script src="intro.js"></script>
 <script src="ui.js"></script>
 <script src="tutorial.js"></script>
 <script src="ambience.js"></script>

@@ -772,6 +772,7 @@ function startLocalGame(prebuilt){
   else maybeBot();
 }
 function enterGame(){
+  if(typeof introTeardown==='function')introTeardown();
   $('#screen-lobby').hidden=true;
   $('#screen-game').hidden=false;
   buildMap();
@@ -1236,15 +1237,24 @@ function boot(){
   $('#demoBtn').onclick=showDemo;
   $('#historyBtn').onclick=showHistory;
   ensureRoomHistBtn();
-  var resuming=checkResumable();
-  var sawDemo=false;
-  try{sawDemo=!!localStorage.getItem('sy_demo_seen');}catch(e){}
-  if(!resuming&&!sawDemo){demoMarkSeen();showDemo();}
   $('#sndBtn').onclick=function(){
     UI.soundOn=!UI.soundOn;
     $('#sndBtn').textContent=UI.soundOn?'🔊 Sound':'🔇 Muted';
+    if(typeof introSetMuted==='function')introSetMuted(!UI.soundOn);
     if(UI.soundOn)sfx('click');
   };
+  function enterMenu(){
+    $('#hdr').hidden=false;
+    $('#screen-lobby').hidden=false;
+    var resuming=checkResumable();
+    var sawDemo=false;
+    try{sawDemo=!!localStorage.getItem('sy_demo_seen');}catch(e){}
+    if(!resuming&&!sawDemo){demoMarkSeen();showDemo();}
+  }
+  try{
+    if(typeof startIntro==='function')startIntro(enterMenu);
+    else enterMenu();
+  }catch(e){enterMenu();}
   $('#dblBtn').onclick=function(){
     if(startDouble(G)){sfx('click');toast('Double move armed — two hops this round.');render();}
   };
