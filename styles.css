@@ -424,9 +424,29 @@ label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mute
 #screen-intro.introGone{display:none}
 #screen-intro *{user-select:none;-webkit-user-select:none;-ms-user-select:none}
 
-#introArt{position:absolute;inset:0;opacity:0;transition:opacity .9s ease}
+#introArt{position:absolute;inset:0;opacity:0;transition:opacity 1.1s ease;overflow:hidden}
 #introArt.on{opacity:1}
 #introArt svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+/* Single camera wrapper: everything in the shot (illustration + fog/rain)
+   lives inside here so the slow push-in and cross-layer parallax move the
+   whole take together instead of a stack of independently-animated bits. */
+#introCamera{
+  position:absolute;inset:-6% -6%;width:112%;height:112%;
+  transform-origin:52% 58%;transform:scale(1) translate3d(0,0,0);
+  transition:transform 13s cubic-bezier(.15,.55,.15,1);will-change:transform;
+}
+#introCamera.push{transform:scale(1.13) translate3d(-1.4%,-2.1%,0)}
+
+.intro-sky{will-change:transform}
+.intro-sky-far{animation:introSkyDriftFar 34s ease-in-out infinite}
+.intro-sky-near{animation:introSkyDriftNear 22s ease-in-out infinite}
+@keyframes introSkyDriftFar{0%,100%{transform:translateX(-0.6%)}50%{transform:translateX(0.6%)}}
+@keyframes introSkyDriftNear{0%,100%{transform:translateX(0.3%)}50%{transform:translateX(-0.3%)}}
+.intro-landmarks{will-change:transform;animation:introSkyDriftNear 22s ease-in-out infinite}
+
+.intro-glow{opacity:.35;animation:introGlowFlicker 4.5s ease-in-out infinite}
+@keyframes introGlowFlicker{0%,100%{opacity:.22}45%{opacity:.75}55%{opacity:.4}80%{opacity:.68}}
 
 .intro-fog{
   position:absolute;top:var(--top);left:0;width:var(--w);height:var(--h);border-radius:999px;
@@ -437,30 +457,48 @@ label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mute
 }
 @keyframes introFogDrift{from{transform:translate3d(-32vw,0,0)}to{transform:translate3d(132vw,0,0)}}
 
+.intro-rain{
+  position:absolute;inset:-15% -10%;pointer-events:none;mix-blend-mode:screen;opacity:0;
+  background:repeating-linear-gradient(112deg, rgba(200,214,230,0) 0px, rgba(200,214,230,.09) 1px, rgba(200,214,230,0) 2px, rgba(200,214,230,0) 26px);
+  transition:opacity 1.4s ease;
+  animation:introRainFall .55s linear infinite;
+}
+.intro-rain.on{opacity:.4}
+@keyframes introRainFall{from{transform:translate3d(0,-26px,0)}to{transform:translate3d(0,0,0)}}
+
 .intro-beam{
   position:absolute;left:20%;top:-25%;width:150%;height:170%;
   background:conic-gradient(from 200deg at 26% 18%, rgba(255,247,214,0) 0deg, rgba(255,247,214,.12) 7deg, rgba(255,247,214,0) 18deg);
   transform-origin:26% 18%;mix-blend-mode:screen;pointer-events:none;
-  opacity:0;transition:opacity 1.2s ease;
+  opacity:0;transition:opacity 1.2s ease, background 1.4s ease;
   animation:introBeamSweep 10s ease-in-out infinite;
 }
 .intro-beam.on{opacity:1}
+.intro-beam.found{
+  background:conic-gradient(from 200deg at 26% 18%, rgba(255,247,214,0) 0deg, rgba(255,247,214,.2) 7deg, rgba(255,247,214,0) 16deg);
+  animation:introBeamFound 6s ease-in-out infinite;
+}
 @keyframes introBeamSweep{0%,100%{transform:rotate(-13deg)}50%{transform:rotate(11deg)}}
+@keyframes introBeamFound{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(4deg)}}
 
-.intro-river,.intro-route{fill:none;stroke-linecap:round;transition:stroke-dashoffset 1.5s cubic-bezier(.3,.7,.2,1)}
-.intro-sil{opacity:0;filter:blur(5px);transition:opacity 1.1s ease,filter 1.1s ease}
-.intro-sil.on{opacity:.94;filter:blur(0)}
+.intro-river,.intro-route{fill:none;stroke-linecap:round;transition:stroke-dashoffset 1.6s cubic-bezier(.3,.7,.2,1)}
+.intro-sil{opacity:0;filter:blur(6px);transition:opacity 1.3s ease,filter 1.3s ease}
+.intro-sil.on{opacity:.95;filter:blur(0)}
 .intro-sil.gone{opacity:0;filter:blur(3px);transition:opacity .5s ease,filter .5s ease}
 .intro-compass{opacity:.55;transform-origin:center;animation:introCompassSpin 60s linear infinite}
 @keyframes introCompassSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 
 .intro-token{
-  position:absolute;left:var(--sx);top:var(--sy);width:9px;height:9px;margin:-4.5px 0 0 -4.5px;
-  border-radius:50%;background:var(--c);opacity:0;pointer-events:none;
-  box-shadow:0 0 6px 1px var(--c);
+  /* SVG <circle> — position comes from cx/cy plus the wrapping <g>'s
+     transform, not CSS left/top/margin, which don't apply to SVG shapes. */
+  opacity:0;pointer-events:none;
   animation:introTokenBurst 1s cubic-bezier(.2,.7,.3,1) forwards;animation-delay:var(--tdelay,0s);
 }
 @keyframes introTokenBurst{0%{opacity:0;transform:translate(0,0) scale(.5)}12%{opacity:1}100%{opacity:0;transform:translate(var(--tx),var(--ty)) scale(1)}}
+
+#introFlash{position:absolute;inset:0;background:#F2C230;opacity:0;pointer-events:none;mix-blend-mode:screen}
+#introFlash.go{animation:introFlashPulse .5s ease-out}
+@keyframes introFlashPulse{0%{opacity:0}12%{opacity:.22}100%{opacity:0}}
 
 #introTitle{
   position:absolute;left:50%;top:42%;transform:translate(-50%,-50%) scale(1.2);
@@ -505,8 +543,13 @@ label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mute
 #introCatcher{position:absolute;inset:0;z-index:50;cursor:pointer;background:transparent}
 
 @media (prefers-reduced-motion:reduce){
-  .intro-fog,.intro-beam,.intro-compass,.intro-token{animation:none!important;opacity:0}
+  .intro-fog,.intro-beam,.intro-compass,.intro-token,.intro-rain{animation:none!important;opacity:0}
+  /* The skyline itself stays visible for atmosphere — only its drift and
+     the window-flicker loop (motion) are switched off. */
+  .intro-sky,.intro-landmarks{animation:none!important;transform:none!important}
+  .intro-glow{animation:none!important;opacity:.5}
   .intro-river,.intro-route{transition:none}
   .introTap{animation:none;opacity:.85}
+  #introCamera{transition:none!important;transform:none!important}
 }
 .driver-popover-arrow-side-bottom.driver-popover-arrow{border-bottom-color:var(--gold)}
