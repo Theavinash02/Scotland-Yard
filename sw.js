@@ -1,5 +1,5 @@
 // Bump this on every deploy so old caches get cleared out.
-var CACHE_VERSION = 'sy-v2';
+var CACHE_VERSION = 'sy-v3';
 var CORE_ASSETS = [
   './',
   './index.html',
@@ -17,11 +17,24 @@ var CORE_ASSETS = [
   './icons/icon-192.png',
   './icons/icon-512.png'
 ];
+// The recorded title theme is optional — the intro falls back to its
+// procedural engine when it's absent. cache.addAll() rejects the whole
+// install on any single 404, so these are cached best-effort instead of
+// being required like CORE_ASSETS.
+var OPTIONAL_ASSETS = [
+  './audio/theme.ogg',
+  './audio/theme.mp3'
+];
 
 self.addEventListener('install', function(e){
   e.waitUntil(
-    caches.open(CACHE_VERSION).then(function(cache){ return cache.addAll(CORE_ASSETS); })
-      .then(function(){ return self.skipWaiting(); })
+    caches.open(CACHE_VERSION).then(function(cache){
+      return cache.addAll(CORE_ASSETS).then(function(){
+        return Promise.all(OPTIONAL_ASSETS.map(function(url){
+          return cache.add(url).catch(function(){/* not present in this deploy — fine */});
+        }));
+      });
+    }).then(function(){ return self.skipWaiting(); })
   );
 });
 
