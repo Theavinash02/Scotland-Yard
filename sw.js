@@ -1,5 +1,5 @@
 // Bump this on every deploy so old caches get cleared out.
-var CACHE_VERSION = 'sy-v4';
+var CACHE_VERSION = 'sy-v5';
 var CORE_ASSETS = [
   './',
   './index.html',

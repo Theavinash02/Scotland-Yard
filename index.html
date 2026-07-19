@@ -41,6 +41,7 @@
   <div class="hdr-right">
     <span id="roomBadge" class="badge" hidden></span>
     <button id="sndBtn" class="ghostbtn" title="Toggle sound">🔊 Sound</button>
+    <button id="settingsBtn" class="ghostbtn" title="Settings" aria-label="Settings">⚙ Settings</button>
     <button id="demoBtn" class="ghostbtn">Demo</button>
     <button id="helpBtn" class="ghostbtn">Rules</button>
     <button id="historyBtn" class="ghostbtn">History</button>
@@ -115,10 +116,10 @@
       <svg id="map" xmlns="http://www.w3.org/2000/svg"></svg>
       <div id="dblHint" hidden></div>
       <div id="zoomctl">
-        <button id="zin" title="Zoom in">+</button>
-        <button id="zout" title="Zoom out">−</button>
-        <button id="zfit" title="Fit map">⌂</button>
-        <button id="locateBtn" title="Center on current turn">🎯</button>
+        <button id="zin" title="Zoom in" aria-label="Zoom in">+</button>
+        <button id="zout" title="Zoom out" aria-label="Zoom out">−</button>
+        <button id="zfit" title="Fit map" aria-label="Fit map to view">⌂</button>
+        <button id="locateBtn" title="Center on current turn" aria-label="Center on current turn">🎯</button>
       </div>
       <div id="chooser" hidden></div>
     </div>
@@ -157,6 +158,7 @@
   <div id="howtoCatcher" role="button" aria-label="Close how to play video"></div>
 </div>
 <div id="toast"></div>
+<div id="srLive" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="https://unpkg.com/driver.js@1.7.0/dist/driver.js.iife.js"></script>
 <script src="engine.js"></script>

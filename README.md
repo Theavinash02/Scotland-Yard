@@ -25,6 +25,10 @@ This is an original fan implementation: it uses the real published station/conne
 - 🌈 **Colorblind-friendly transport lines** — each transport type has a distinct stroke pattern (solid/dashed/dash-dot/dotted) in addition to its color.
 - 📴 **Installable & offline-capable** — add it to your home screen; local and bot games keep working with no connection.
 - 🎓 **Guided tutorial** — an interactive, driver.js-powered walkthrough for first-time players.
+- 💡 **On-demand move hints** — stuck on your turn? "Suggest a move" runs the hard-bot logic on your own position and flashes the recommended move.
+- ⏱️ **Next-reveal HUD** — an always-visible countdown to the round Mr. X must next surface, so detectives can time the squeeze.
+- ⌨️ **Keyboard & screen-reader accessible** — play the whole move loop from a labeled move list with live turn/result announcements, no pinpoint tapping required.
+- ⚙️ **Settings** — sound-volume slider, bot-speed control, reduce-motion switch, and a high-contrast board, all persisted locally.
 - 🔊 **Synthesized sound** — every effect is generated at runtime with the Web Audio API, no audio files.
 
 ## 📸 Screenshots
@@ -73,7 +77,8 @@ Online rooms are peer-to-peer (WebRTC via [PeerJS](https://peerjs.com)) — no b
 - **Detectives** move in turn order after Mr. X, always in the open, spending real tickets (10 taxi / 8 bus / 4 underground each, standard allocation). Two detectives can't share a station.
 - **Win conditions:** detectives win instantly if one lands on Mr. X's station, or if Mr. X ever has no legal move. Mr. X wins if the round log fills to 24 without being caught, or if every detective is stuck.
 - **Black tickets** let Mr. X take any transport (including the Thames ferry) without revealing which one. **Double-move** cards let him take two hops in one round.
-- Tap/click a highlighted station to move; if it's reachable by more than one ticket type, a small chooser pops up. Drag to pan, scroll/pinch to zoom.
+- Tap/click a highlighted station to move; if it's reachable by more than one ticket type, a small chooser pops up. Drag to pan, scroll/pinch to zoom. Prefer the keyboard? Every legal move is also listed as a button in the **turn panel** — activate one to move.
+- Not sure what to do? Hit **💡 Suggest a move** for an AI recommendation, and watch the **next-reveal countdown** at the top of the turn panel to plan around Mr. X's forced surfacings.
 - A "show possible Mr. X spots" toggle lets you see the live deduced location set (same logic the hard detective bots use).
 - New to the game? Hit **Play Tutorial** on the lobby screen for an interactive, guided first game.
 
@@ -107,6 +112,8 @@ The hard detectives measurably out-perform the previous logic (about +4–5 perc
 ## 🌈 Accessibility
 
 Transport lines carry a distinct **stroke pattern** in addition to their color — taxi solid, bus dashed, underground dash-dot, Thames ferry dotted — plus a legend showing pattern + color + label for each. This keeps the map readable under red-green colorblindness (the hardest case: bus/green vs. underground/red) without changing the colors players already know.
+
+Beyond color, the app now offers a **keyboard- and screen-reader-accessible way to play**: on your turn, every legal move is listed as a labeled button ("Move to station 45 by Taxi") in the turn panel, so you can move without hitting a pinpoint target on the SVG map. A polite `aria-live` region announces whose turn it is, how many moves are available, hints, and the final result; icon-only controls carry `aria-label`s. **Settings** (⚙ in the header) add a **reduce-motion** switch and a **high-contrast board** option (bolder station numbers and route strokes) alongside a sound-volume slider and bot-speed control.
 
 ## 🗺️ Map data
 
@@ -146,7 +153,7 @@ The app is split into plain `<script>`-tag modules (no bundler, loaded in this o
 - **Anyone with the room code can join, spectate, or read that room's shared history** — there's no server-side authority. Treat online rooms as "good enough for friends," not cheat-proof.
 - **Mr. X's non-black ticket supply is treated as unlimited** in this digital version, rather than being recycled from tickets detectives spend (the tabletop mechanic). In practice the physical version almost never runs Mr. X out of taxi/bus/underground tickets either, so this shouldn't change how a game plays out, but it's a deliberate simplification worth knowing about.
 - **Persistence/history/replay are per-device, local-storage only** — nothing syncs across devices or browsers, and clearing site data clears them.
-- Not tested for accessibility beyond colorblind-safe transport lines — no screen reader or keyboard-only play support; pointer/touch only.
+- Accessibility support covers the core move loop — a keyboard/screen-reader move list, live turn/result announcements, labeled controls, a reduce-motion switch, and a high-contrast board — but is not a full audit. Panning/zooming the SVG map is still pointer/touch only (you can move via the accessible list without it), and the tutorial/replay flows haven't been screen-reader tested.
 
 ## 🧪 Testing so far
 

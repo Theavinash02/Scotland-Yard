@@ -30,7 +30,7 @@ function tone(ctx,type,f0,f1,t0,dur,peak,dest){
 }
 function sfx(kind){
   var ctx=actx();if(!ctx)return;
-  var t=ctx.currentTime,m=ctx.createGain();m.gain.value=0.5;m.connect(ctx.destination);
+  var t=ctx.currentTime,m=ctx.createGain();m.gain.value=0.5*masterVol();m.connect(ctx.destination);
   if(kind==='click'){tone(ctx,'sine',900,700,t,0.06,0.25,m);}
   else if(kind==='deny'){tone(ctx,'square',180,140,t,0.12,0.18,m);}
   else if(kind==='taxi'){
@@ -111,7 +111,7 @@ function seatName(idx){
 function render(){
   if(!G)return;
   updateMoveFeed();
-  renderPieces();renderBanner();renderPlayers();renderLog();renderCtrls();renderHighlights();renderActivityFeed();
+  renderPieces();renderBanner();renderPlayers();renderLog();renderCtrls();renderHighlights();renderActivityFeed();renderTurnCard();
 }
 function renderPieces(){
   var h='';
@@ -425,7 +425,7 @@ function maybeBot(){
     UI.botTimer=null;
     await botAct();
     if(G&&!G.winner)maybeBot(); // G may have been cleared (leaveToLobby) while botAct() was in flight
-  },700);
+  },botDelayMs());
 }
 async function botAct(){
   if(!G||G.winner)return;
@@ -496,6 +496,7 @@ function onGameOver(){
   });
   showModal('<h2>'+(G.winner==='mrx'?'Mr. X vanished into the night':'Scotland Yard closes the net')+'</h2>'+
     '<p>'+G.reason+'</p>'+
+    debriefHtml()+
     '<div class="cardhead" style="margin-top:10px">Mr. X\'s full route</div>'+
     '<div class="routelist">'+(route||'<span class="muted tiny">He never moved.</span>')+'</div>'+
     (isNet()?'':'<button class="btn" id="mAgain">Rematch — same seats</button>')+
@@ -1212,7 +1213,163 @@ function checkResumable(){
   return false;
 }
 /* ------- boot ------- */
+/* ============ v5 enhancements ============
+   Player-facing polish layered on top of the game state, all reading from the
+   same plain game object: persisted settings (volume / motion / bot speed /
+   contrast), a screen-reader live region + keyboard-accessible move list, a
+   "next reveal" HUD, an AI-powered move hint, and an end-of-game debrief. */
+var SETTINGS={volume:1,reduceMotion:false,botSpeed:'normal',highContrast:false};
+function loadSettings(){
+  try{
+    var s=JSON.parse(localStorage.getItem('sy_settings')||'{}');
+    if(typeof s.volume==='number')SETTINGS.volume=Math.min(1,Math.max(0,s.volume));
+    if(typeof s.reduceMotion==='boolean')SETTINGS.reduceMotion=s.reduceMotion;
+    if(s.botSpeed==='slow'||s.botSpeed==='normal'||s.botSpeed==='fast')SETTINGS.botSpeed=s.botSpeed;
+    if(typeof s.highContrast==='boolean')SETTINGS.highContrast=s.highContrast;
+  }catch(e){}
+  applySettings();
+}
+function saveSettings(){try{localStorage.setItem('sy_settings',JSON.stringify(SETTINGS));}catch(e){}}
+function applySettings(){
+  document.body.classList.toggle('reduce-motion',SETTINGS.reduceMotion);
+  document.body.classList.toggle('hc',SETTINGS.highContrast);
+}
+function masterVol(){return SETTINGS.volume;}
+var BOT_DELAY={slow:1150,normal:700,fast:280};
+function botDelayMs(){return BOT_DELAY[SETTINGS.botSpeed]||700;}
+
+/* Screen-reader announcements via the #srLive polite live region. Repeats of
+   the same string are suppressed so re-renders don't spam assistive tech. */
+var lastAnnounce='';
+function announce(msg){
+  if(!msg||msg===lastAnnounce)return;
+  lastAnnounce=msg;
+  var el=$('#srLive');if(el)el.textContent=msg;
+}
+
+var TK_ICON={t:'🚕',b:'🚌',u:'🚇',x:'⚫'},TK_WORD={t:'Taxi',b:'Bus',u:'Underground',x:'Black ticket'};
+// The reveal round Mr. X's *next* move falls on, or null if none remain.
+function nextRevealRound(){
+  var up=(G?G.log.length:0)+1;
+  for(var i=0;i<REVEALS.length;i++)if(REVEALS[i]>=up)return REVEALS[i];
+  return null;
+}
+function movesForCurrent(){
+  return G.turn===-1?mrxMoves(G):detMoves(G,G.turn);
+}
+function canActNow(){
+  return G&&!G.winner&&iControlCurrent()&&!UI.busy&&(!UI.privacy||G.turn!==-1||UI.mrxViewing);
+}
+// Repurposes the (previously empty) #turnCard: reveal HUD + accessible move list
+// + hint button, giving keyboard/screen-reader users a first-class way to move.
+function renderTurnCard(){
+  var el=$('#turnCard');if(!el)return;
+  if(!G){el.innerHTML='';return;}
+  var h='';
+  // --- reveal HUD ---
+  if(!G.winner){
+    var up=G.log.length+1,nr=nextRevealRound(),until=nr===null?null:nr-up;
+    if(until===0){
+      h+='<div class="revhud now"><span class="revnum">!</span><span class="revlbl"><b>Mr. X surfaces</b> on this round ('+nr+')</span></div>';
+    }else if(until!==null){
+      h+='<div class="revhud"><span class="revnum">'+until+'</span><span class="revlbl">round'+(until===1?'':'s')+' until <b>Mr. X surfaces</b> (round '+nr+')</span></div>';
+    }else{
+      h+='<div class="revhud"><span class="revnum">✓</span><span class="revlbl">No reveals left — the final stretch</span></div>';
+    }
+  }
+  // --- accessible move list ---
+  if(canActNow()){
+    var moves=movesForCurrent();
+    var suggest=(UI.hint&&UI.hint.mv===G.mv)?UI.hint:null;
+    h+='<div class="moveshead"><div class="cardhead" style="margin:0">Your moves</div><span class="tiny muted">'+moves.length+'</span></div>';
+    h+='<div id="movesList" role="list" aria-label="Available moves">';
+    moves.forEach(function(m,i){
+      var sug=suggest&&suggest.to===m.to&&suggest.tk===m.tk?' suggest':'';
+      var extra=m.tk==='x'?' ('+G.mrx.black+' left)':'';
+      h+='<button class="movebtn '+m.tk+sug+'" role="listitem" data-i="'+i+'" '+
+         'aria-label="Move to station '+m.to+' by '+TK_WORD[m.tk]+extra+'">'+
+         '<span class="mvico">'+TK_ICON[m.tk]+'</span>'+TK_WORD[m.tk]+extra+
+         '<span class="mvto">'+m.to+'</span></button>';
+    });
+    h+='</div>';
+    h+='<button id="hintBtn" class="btn ghost" style="margin-top:2px">💡 Suggest a move</button>';
+  }else if(!G.winner){
+    var who=G.turn===-1?seatName(0):seatName(G.turn+1);
+    h+='<div class="tc-empty">Waiting for '+who+'…</div>';
+  }
+  el.innerHTML=h;
+  var list=$('#movesList');
+  if(list){
+    var mv=movesForCurrent();
+    Array.prototype.forEach.call(list.querySelectorAll('.movebtn'),function(b){
+      b.onclick=function(){var m=mv[+b.dataset.i];if(!m)return;sfx('click');commitMove(m);};
+    });
+  }
+  var hb=$('#hintBtn');if(hb)hb.onclick=suggestMove;
+  announceTurn();
+}
+function announceTurn(){
+  if(!G)return;
+  if(G.winner){announce((G.winner==='mrx'?'Mr. X escaped. ':'Detectives win. ')+G.reason);return;}
+  var round=G.turn===-1?G.log.length+1:G.log.length;if(round<1)round=1;
+  if(canActNow()){
+    var n=movesForCurrent().length;
+    announce('Round '+round+'. Your move'+(G.turn===-1?' as Mr. X':' as Detective '+(G.turn+1))+'. '+n+' move'+(n===1?'':'s')+' available.');
+  }else{
+    var who=G.turn===-1?'Mr. X':'Detective '+(G.turn+1);
+    announce('Round '+round+'. '+who+' to move.');
+  }
+}
+// AI-powered hint: reuses the tested hard-difficulty bot logic to suggest a move
+// for whichever side the human is playing, then flashes it on the board.
+function suggestMove(){
+  if(!canActNow())return;
+  sfx('click');
+  var m=G.turn===-1?(botMrxPick(G,'hard')||{}).move:botDetPick(G,G.turn,'hard');
+  if(!m){toast('No suggestion available.');return;}
+  UI.hint={mv:G.mv,to:m.to,tk:m.tk};
+  renderTurnCard();
+  var p=POS[m.to];if(p)focusStation(p.x,p.y);
+  if(typeof revealPing==='function')revealPing(m.to);
+  var msg='Suggested: '+TK_WORD[m.tk]+' to station '+m.to;
+  toast('💡 '+msg);announce(msg);
+}
+function showSettings(){
+  var volPct=Math.round(SETTINGS.volume*100);
+  var seg=function(v,label){return '<button data-speed="'+v+'" class="'+(SETTINGS.botSpeed===v?'on':'')+'">'+label+'</button>';};
+  showModal('<h2>Settings</h2>'+
+    '<div class="setrow"><div><div class="setlbl">Sound volume</div><div class="setsub">Affects all game sound effects.</div></div>'+
+      '<input id="setVol" type="range" min="0" max="100" value="'+volPct+'"></div>'+
+    '<div class="setrow"><div><div class="setlbl">Bot move speed</div><div class="setsub">How long bots pause before moving.</div></div>'+
+      '<div class="setseg" id="setSpeed">'+seg('slow','Slow')+seg('normal','Normal')+seg('fast','Fast')+'</div></div>'+
+    '<div class="setrow"><div><div class="setlbl">Reduce motion</div><div class="setsub">Minimise animations across the app.</div></div>'+
+      '<label class="switch"><input id="setMotion" type="checkbox"'+(SETTINGS.reduceMotion?' checked':'')+'><span class="track"></span></label></div>'+
+    '<div class="setrow"><div><div class="setlbl">High-contrast board</div><div class="setsub">Bolder station numbers and routes.</div></div>'+
+      '<label class="switch"><input id="setContrast" type="checkbox"'+(SETTINGS.highContrast?' checked':'')+'><span class="track"></span></label></div>'+
+    '<button class="btn" id="mSetDone" style="margin-top:14px">Done</button>');
+  $('#setVol').oninput=function(){SETTINGS.volume=(+this.value)/100;saveSettings();};
+  $('#setVol').onchange=function(){sfx('click');};
+  Array.prototype.forEach.call($('#setSpeed').querySelectorAll('button'),function(b){
+    b.onclick=function(){SETTINGS.botSpeed=b.dataset.speed;saveSettings();
+      Array.prototype.forEach.call($('#setSpeed').querySelectorAll('button'),function(x){x.classList.toggle('on',x===b);});};
+  });
+  $('#setMotion').onchange=function(){SETTINGS.reduceMotion=this.checked;applySettings();saveSettings();};
+  $('#setContrast').onchange=function(){SETTINGS.highContrast=this.checked;applySettings();saveSettings();};
+  $('#mSetDone').onclick=hideModal;
+}
+// Extra end-of-game stats appended to the game-over modal (see onGameOver).
+function debriefHtml(){
+  var blackUsed=G.nd-G.mrx.black,dblUsed=2-G.mrx.dbl,reveals=0;
+  G.log.forEach(function(e){if(e.rv)reveals++;});
+  var gap=1e9;G.dets.forEach(function(d){var dd=DIST[G.mrx.st][d.st];if(dd<gap)gap=dd;});
+  if(gap===1e9)gap='—';
+  function cell(v,l){return '<div class="dcell"><div class="dval">'+v+'</div><div class="dlbl">'+l+'</div></div>';}
+  return '<div class="cardhead" style="margin-top:12px">Match debrief</div>'+
+    '<div class="debrief">'+cell(G.log.length,'Rounds played')+cell(reveals,'Reveals forced')+
+    cell(blackUsed,'Black tickets used')+cell(gap,'Final gap to Mr. X')+'</div>';
+}
 function boot(){
+  loadSettings();
   renderLocalSeats();
   // tabs
   Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(t){
@@ -1238,6 +1395,7 @@ function boot(){
   $('#helpBtn').onclick=showRules;
   $('#demoBtn').onclick=showDemo;
   $('#historyBtn').onclick=showHistory;
+  $('#settingsBtn').onclick=function(){sfx('click');showSettings();};
   $('#howtoBtn').onclick=function(){sfx('click');if(typeof showHowToVideo==='function')showHowToVideo();};
   ensureRoomHistBtn();
   $('#sndBtn').onclick=function(){
