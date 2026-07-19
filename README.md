@@ -15,7 +15,7 @@ This is an original fan implementation: it uses the real published station/conne
 ## ✨ Highlights
 
 - 🎨 **Hand-built illustrated map** — 199 stations, 467 taxi/bus/underground/ferry connections, rendered as SVG at runtime with parchment/night-map styling, not a scan of the real board.
-- 🤖 **Bots with real strategy** — easy (random-legal) and hard (possible-location tracking for detectives, distance-maximizing evasion for Mr. X) difficulties.
+- 🤖 **Bots with real strategy** — three difficulty tiers (easy / normal / hard) for either role, from random-legal moves up to hard detectives that anticipate and cover Mr. X's *next-round* escape routes as a coordinated team.
 - 🧑‍🤝‍🧑 **Three ways to play** — solo vs. bots, hot-seat on one device (with an automatic "pass the device" privacy handoff), or online rooms over WebRTC.
 - 📡 **Peer-to-peer online rooms** — share a 5-letter code, no backend server, with room chat and a live activity feed.
 - 👁️ **Spectator mode** — watch a live online room without occupying a seat or seeing anything a detective couldn't.
@@ -68,7 +68,7 @@ Online rooms are peer-to-peer (WebRTC via [PeerJS](https://peerjs.com)) — no b
 
 ## 🎮 How to play
 
-- **Setup:** the lobby lets you assign each of the 6 seats (Mr. X + up to 5 detectives) to a human or a bot (easy/hard), or leave detective seats empty.
+- **Setup:** the lobby lets you assign each of the 6 seats (Mr. X + up to 5 detectives) to a human or a bot (easy/normal/hard), or leave detective seats empty.
 - **Mr. X** moves first each round, in secret — only the ticket type he plays (taxi/bus/underground/black) is shown to detectives. He must surface and reveal his true station on rounds **3, 8, 13, 18, and 24**.
 - **Detectives** move in turn order after Mr. X, always in the open, spending real tickets (10 taxi / 8 bus / 4 underground each, standard allocation). Two detectives can't share a station.
 - **Win conditions:** detectives win instantly if one lands on Mr. X's station, or if Mr. X ever has no legal move. Mr. X wins if the round log fills to 24 without being caught, or if every detective is stuck.
@@ -79,10 +79,15 @@ Online rooms are peer-to-peer (WebRTC via [PeerJS](https://peerjs.com)) — no b
 
 ## 🤖 Bots
 
+Three difficulty tiers, for either role, so the challenge ramps smoothly from a first game to an expert one:
+
 - **Easy:** picks a random legal move (Mr. X avoids spending black tickets unless forced).
-- **Hard:**
-  - *Detectives* track Mr. X's possible-location set from ticket types and reveal rounds, then move to minimize distance to that set while spreading out across high-connectivity junctions.
-  - *Mr. X* maximizes distance to the nearest detective, avoids dead ends, prefers black tickets right after a reveal or when a move is ferry-only, and plays a double-move when a detective gets adjacent.
+- **Normal:** a solid single-piece heuristic — detectives track Mr. X's possible-location set from ticket types and reveal rounds and close on it while spreading across high-connectivity junctions; Mr. X keeps his distance from the nearest detective, avoids dead ends, and uses black tickets when a move is ferry-only.
+- **Hard:** adds anticipation and coordination on top of that.
+  - *Detectives* cover the whole set of stations Mr. X could reach **next** round, not just where he is now — because a skilled fugitive dodges the single likeliest spot, uniform containment beats chasing it. They split the work through a nearest-teammate baseline (each covers the suspects no one else is near) so they fan out instead of clumping, and still pounce on any direct catch.
+  - *Mr. X* reads two moves deep — shying away from stations that are one *or* two hops from a detective — and spends a double-move to break contact when cornered.
+
+The hard detectives measurably out-perform the previous logic (about +4–5 percentage points of win rate at every detective count in headless simulation), and both difficulty ladders are monotonic — see the [testing](#-testing-so-far) section for the reproducible numbers.
 
 ## 🧑‍🤝‍🧑 Multiplayer
 
@@ -133,6 +138,7 @@ The app is split into plain `<script>`-tag modules (no bundler, loaded in this o
 | `ambience.js` | Atmospheric background visuals/sound. |
 | `ui.js` | Game/UI state, sound effects, rendering, lobby/hot-seat/online-room flow, and boot. |
 | `manifest.json`, `sw.js` | PWA scaffolding — install metadata and the offline service worker. |
+| `test/simulate.js` | Dependency-free headless harness — runs bot-vs-bot games to check engine invariants and report difficulty balance. |
 
 ## ⚠️ Known limitations
 
@@ -144,7 +150,7 @@ The app is split into plain `<script>`-tag modules (no bundler, loaded in this o
 
 ## 🧪 Testing so far
 
-The rules engine has been exercised with headless bot-vs-bot simulations (hundreds of full games across bot difficulty/detective-count combinations) checking win conditions, ticket accounting, no-shared-stations, and that the detectives' deduced possible-location set always contains Mr. X's true station. UI-level checks (tap-to-move, pan/zoom, resume, online-room sync, spectator view) have been run via headless-browser smoke tests. None of this is a substitute for real playtesting — bug reports welcome.
+The rules engine and bots ship with a dependency-free headless harness — **`node test/simulate.js`** — that plays thousands of full bot-vs-bot games across every difficulty/detective-count combination. It asserts the engine invariants after every move (win conditions, ticket accounting, no two detectives on a station, and that the deduced possible-location set always contains Mr. X's true station), then prints a balance report of win rates by role and difficulty. Run `node test/simulate.js --balance 3000` for a higher-confidence balance sweep. UI-level checks (tap-to-move, pan/zoom, resume, online-room sync, spectator view) have been run via headless-browser smoke tests. None of this is a substitute for real playtesting — bug reports welcome.
 
 ## License
 

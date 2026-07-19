@@ -737,6 +737,7 @@ function renderLocalSeats(){
       '<select data-i="'+i+'">'+
       '<option value="human"'+(val==='human'?' selected':'')+'>Human (this device)</option>'+
       '<option value="bot-easy"'+(val==='bot-easy'?' selected':'')+'>Bot — easy</option>'+
+      '<option value="bot-normal"'+(val==='bot-normal'?' selected':'')+'>Bot — normal</option>'+
       '<option value="bot-hard"'+(val==='bot-hard'?' selected':'')+'>Bot — hard</option>'+
       (i>=2?'<option value="empty"'+(val==='empty'?' selected':'')+'>Empty seat</option>':'')+
       '</select></div>';
@@ -813,6 +814,7 @@ function renderNetSeats(el,room,amHost){
       right='<select data-act="cfg" data-i="'+i+'">'+
         '<option value="open"'+(val==='open'?' selected':'')+'>Open — waiting for player</option>'+
         '<option value="bot-easy"'+(val==='bot-easy'?' selected':'')+'>Bot — easy</option>'+
+        '<option value="bot-normal"'+(val==='bot-normal'?' selected':'')+'>Bot — normal</option>'+
         '<option value="bot-hard"'+(val==='bot-hard'?' selected':'')+'>Bot — hard</option>'+
         (i>=2?'<option value="empty"'+(val==='empty'?' selected':'')+'>Empty seat</option>':'')+
         '</select>'+(s.kind==='open'?'<button class="claimbtn" data-act="claim" data-i="'+i+'">sit here</button>':'');
