@@ -7,6 +7,11 @@ async function bootToLobby(page) {
   await page.addInitScript(() => {
     try { localStorage.setItem('sy_demo_seen', '1'); } catch (e) {}
   });
+  // Abort the app's optional third-party CDN assets (PeerJS, driver.js, Google
+  // Fonts). The app degrades gracefully without them, and this keeps the suite
+  // hermetic and fast: otherwise each page load blocks for seconds on those
+  // synchronous <script>/<link> tags (instant here vs. their network timeout).
+  await page.route(/^https?:\/\/(unpkg\.com|fonts\.googleapis\.com|fonts\.gstatic\.com)/, (r) => r.abort());
   await page.goto('/index.html', { waitUntil: 'load' });
   await page.evaluate(() => window.introTeardown && window.introTeardown());
   await page.evaluate(() => { try { if (window.hideModal) window.hideModal(); } catch (e) {} });
