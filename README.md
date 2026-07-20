@@ -32,7 +32,9 @@ This is an original fan implementation: it uses the real published station/conne
 - 🎯 **Proximity readout** — the turn panel shows how many hops separate you from the nearest detective (as Mr. X) or the nearest suspect station (as a detective).
 - ⏱️ **Next-reveal HUD** — an always-visible countdown to the round Mr. X must next surface, so detectives can time the squeeze.
 - ⌨️ **Keyboard & screen-reader accessible** — play the whole move loop from a labeled move list with live turn/result announcements, no pinpoint tapping required.
-- ⚙️ **Settings** — sound-volume slider, bot-speed control, reduce-motion switch, and a high-contrast board, all persisted locally.
+- ⚙️ **Settings** — light/dark theme, sound-volume slider, opt-in ambient music, bot-speed control, reduce-motion switch, and a high-contrast board, all persisted locally.
+- 🔥 **Belief heatmap** — the "possible Mr. X spots" overlay is weighted: brighter, larger halos mark the stations his ticket trail makes most likely.
+- 📊 **Results timeline** — the history screen charts your recent wins/losses (by role) as a compact inline-SVG strip.
 - 🔊 **Synthesized sound** — every effect is generated at runtime with the Web Audio API, no audio files.
 
 ## 📸 Screenshots
@@ -84,7 +86,7 @@ Online rooms are peer-to-peer (WebRTC via [PeerJS](https://peerjs.com)) — no b
 - Tap/click a highlighted station to move; if it's reachable by more than one ticket type, a small chooser pops up. Drag to pan, scroll/pinch to zoom. Prefer the keyboard? Every legal move is also listed as a button in the **turn panel** — activate one to move.
 - Not sure what to do? Hit **💡 Suggest a move** for an AI recommendation, and watch the **next-reveal countdown** at the top of the turn panel to plan around Mr. X's forced surfacings.
 - **Keyboard shortcuts** during a game: number keys `1`–`9` play the nth move in the list, `H` for a hint, `U` (or `Z`) to undo in local games, `P` to toggle the possible-locations overlay, `D` to arm a double move. **Undo** and **Achievements** round out the extras — undo rewinds to your last decision in solo/vs-bots games; achievements track milestones on the History screen.
-- A "show possible Mr. X spots" toggle lets you see the live deduced location set (same logic the hard detective bots use).
+- A "show possible Mr. X spots" toggle lets you see the live deduced location set, drawn as a **belief heatmap** — brighter/larger halos are the stations his ticket trail makes most likely.
 - New to the game? Hit **Play Tutorial** on the lobby screen for an interactive, guided first game.
 
 ## 🤖 Bots
@@ -118,7 +120,7 @@ The hard detectives measurably out-perform the previous logic (about +4–5 perc
 
 Transport lines carry a distinct **stroke pattern** in addition to their color — taxi solid, bus dashed, underground dash-dot, Thames ferry dotted — plus a legend showing pattern + color + label for each. This keeps the map readable under red-green colorblindness (the hardest case: bus/green vs. underground/red) without changing the colors players already know.
 
-Beyond color, the app now offers a **keyboard- and screen-reader-accessible way to play**: on your turn, every legal move is listed as a labeled button ("Move to station 45 by Taxi") in the turn panel, so you can move without hitting a pinpoint target on the SVG map. A polite `aria-live` region announces whose turn it is, how many moves are available, hints, and the final result; icon-only controls carry `aria-label`s. **Settings** (⚙ in the header) add a **reduce-motion** switch and a **high-contrast board** option (bolder station numbers and route strokes) alongside a sound-volume slider and bot-speed control.
+Beyond color, the app now offers a **keyboard- and screen-reader-accessible way to play**: on your turn, every legal move is listed as a labeled button ("Move to station 45 by Taxi") in the turn panel, so you can move without hitting a pinpoint target on the SVG map. A polite `aria-live` region announces whose turn it is, how many moves are available, hints, and the final result; icon-only controls carry `aria-label`s. **Settings** (⚙ in the header) add a **light/dark theme**, a **reduce-motion** switch, and a **high-contrast board** option (bolder station numbers and route strokes) alongside a sound-volume slider, an opt-in ambient-music toggle, and a bot-speed control.
 
 ## 🗺️ Map data
 

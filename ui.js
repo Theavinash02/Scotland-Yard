@@ -112,6 +112,7 @@ function render(){
   if(!G)return;
   updateMoveFeed();
   renderPieces();renderBanner();renderPlayers();renderLog();renderCtrls();renderHighlights();renderActivityFeed();renderTurnCard();
+  if(typeof musicUpdate==='function')musicUpdate();
 }
 function renderPieces(){
   var h='';
@@ -129,11 +130,15 @@ function renderPieces(){
        '<text y="3.6" text-anchor="middle" font-size="9" font-weight="700" fill="#0B0D10" class="st-num">X?</text></g>';
   }
   LAYER.pieces.innerHTML=h;
-  // possible set halos
+  // possible set — rendered as a belief heatmap (hotter/larger = more likely)
   var ph='';
   if(UI.showPs&&!G.winner){
-    possibleSet(G).forEach(function(s){
-      ph+='<circle class="psring" cx="'+POS[s].x+'" cy="'+POS[s].y+'" r="12"/>';
+    var belief=computeBelief(),maxW=0;
+    belief.forEach(function(w){if(w>maxW)maxW=w;});
+    if(maxW<=0)maxW=1;
+    belief.forEach(function(w,s){
+      var t=w/maxW,r=(10+7.5*t).toFixed(1),op=(0.16+0.5*t).toFixed(2);
+      ph+='<circle class="psheat" cx="'+POS[s].x+'" cy="'+POS[s].y+'" r="'+r+'" opacity="'+op+'"/>';
     });
   }
   LAYER.ps.innerHTML=ph;
@@ -784,6 +789,7 @@ function enterGame(){
   render();
 }
 function leaveToLobby(){
+  if(typeof musicStop==='function')musicStop();
   if(UI.botTimer){clearTimeout(UI.botTimer);UI.botTimer=null;}
   if(NET.code&&!NET.isHost)sendHost({t:'leave',pid:MYID}); // free my seats on the host
   tearDownPeer();
@@ -1042,6 +1048,7 @@ function showHistory(){
   showModal('<h2>Game history</h2>'+
     '<p class="tiny muted">Stored locally on this device only — nothing leaves your browser.</p>'+
     summary+
+    statsChartHtml(arr)+
     achievementsHtml(arr)+
     '<div class="histlist">'+(rows||'<p class="muted tiny" style="margin-top:10px">No games recorded yet. Play a game to see it here.</p>')+'</div>'+
     '<button class="btn ghost" id="mOK" style="margin-top:12px">Close</button>');
@@ -1221,7 +1228,7 @@ function checkResumable(){
    same plain game object: persisted settings (volume / motion / bot speed /
    contrast), a screen-reader live region + keyboard-accessible move list, a
    "next reveal" HUD, an AI-powered move hint, and an end-of-game debrief. */
-var SETTINGS={volume:1,reduceMotion:false,botSpeed:'normal',highContrast:false};
+var SETTINGS={volume:1,reduceMotion:false,botSpeed:'normal',highContrast:false,theme:'dark',music:false};
 function loadSettings(){
   try{
     var s=JSON.parse(localStorage.getItem('sy_settings')||'{}');
@@ -1229,6 +1236,8 @@ function loadSettings(){
     if(typeof s.reduceMotion==='boolean')SETTINGS.reduceMotion=s.reduceMotion;
     if(s.botSpeed==='slow'||s.botSpeed==='normal'||s.botSpeed==='fast')SETTINGS.botSpeed=s.botSpeed;
     if(typeof s.highContrast==='boolean')SETTINGS.highContrast=s.highContrast;
+    if(s.theme==='dark'||s.theme==='light')SETTINGS.theme=s.theme;
+    if(typeof s.music==='boolean')SETTINGS.music=s.music;
   }catch(e){}
   applySettings();
 }
@@ -1236,6 +1245,8 @@ function saveSettings(){try{localStorage.setItem('sy_settings',JSON.stringify(SE
 function applySettings(){
   document.body.classList.toggle('reduce-motion',SETTINGS.reduceMotion);
   document.body.classList.toggle('hc',SETTINGS.highContrast);
+  document.body.classList.toggle('theme-light',SETTINGS.theme==='light');
+  if(typeof musicUpdate==='function')musicUpdate();
 }
 function masterVol(){return SETTINGS.volume;}
 var BOT_DELAY={slow:1150,normal:700,fast:280};
@@ -1357,9 +1368,14 @@ function suggestMove(){
 function showSettings(){
   var volPct=Math.round(SETTINGS.volume*100);
   var seg=function(v,label){return '<button data-speed="'+v+'" class="'+(SETTINGS.botSpeed===v?'on':'')+'">'+label+'</button>';};
+  var thseg=function(v,label){return '<button data-theme="'+v+'" class="'+(SETTINGS.theme===v?'on':'')+'">'+label+'</button>';};
   showModal('<h2>Settings</h2>'+
+    '<div class="setrow"><div><div class="setlbl">Theme</div><div class="setsub">Night operations or a daytime parchment look.</div></div>'+
+      '<div class="setseg" id="setTheme">'+thseg('dark','Dark')+thseg('light','Light')+'</div></div>'+
     '<div class="setrow"><div><div class="setlbl">Sound volume</div><div class="setsub">Affects all game sound effects.</div></div>'+
       '<input id="setVol" type="range" min="0" max="100" value="'+volPct+'"></div>'+
+    '<div class="setrow"><div><div class="setlbl">Ambient music</div><div class="setsub">A soft synthesized undercurrent during play.</div></div>'+
+      '<label class="switch"><input id="setMusic" type="checkbox"'+(SETTINGS.music?' checked':'')+'><span class="track"></span></label></div>'+
     '<div class="setrow"><div><div class="setlbl">Bot move speed</div><div class="setsub">How long bots pause before moving.</div></div>'+
       '<div class="setseg" id="setSpeed">'+seg('slow','Slow')+seg('normal','Normal')+seg('fast','Fast')+'</div></div>'+
     '<div class="setrow"><div><div class="setlbl">Reduce motion</div><div class="setsub">Minimise animations across the app.</div></div>'+
@@ -1367,12 +1383,19 @@ function showSettings(){
     '<div class="setrow"><div><div class="setlbl">High-contrast board</div><div class="setsub">Bolder station numbers and routes.</div></div>'+
       '<label class="switch"><input id="setContrast" type="checkbox"'+(SETTINGS.highContrast?' checked':'')+'><span class="track"></span></label></div>'+
     '<button class="btn" id="mSetDone" style="margin-top:14px">Done</button>');
-  $('#setVol').oninput=function(){SETTINGS.volume=(+this.value)/100;saveSettings();};
-  $('#setVol').onchange=function(){sfx('click');};
+  var segWire=function(id,key,after){Array.prototype.forEach.call($(id).querySelectorAll('button'),function(b){
+    b.onclick=function(){SETTINGS[key]=b.dataset[key];saveSettings();applySettings();
+      Array.prototype.forEach.call($(id).querySelectorAll('button'),function(x){x.classList.toggle('on',x===b);});
+      if(after)after();};});};
+  segWire('#setTheme','theme');
+  // Bot speed writes SETTINGS.botSpeed (not a generic key), so wire it explicitly.
   Array.prototype.forEach.call($('#setSpeed').querySelectorAll('button'),function(b){
     b.onclick=function(){SETTINGS.botSpeed=b.dataset.speed;saveSettings();
       Array.prototype.forEach.call($('#setSpeed').querySelectorAll('button'),function(x){x.classList.toggle('on',x===b);});};
   });
+  $('#setVol').oninput=function(){SETTINGS.volume=(+this.value)/100;saveSettings();if(typeof musicSetVolume==='function')musicSetVolume();};
+  $('#setVol').onchange=function(){sfx('click');};
+  $('#setMusic').onchange=function(){SETTINGS.music=this.checked;saveSettings();applySettings();};
   $('#setMotion').onchange=function(){SETTINGS.reduceMotion=this.checked;applySettings();saveSettings();};
   $('#setContrast').onchange=function(){SETTINGS.highContrast=this.checked;applySettings();saveSettings();};
   $('#mSetDone').onclick=hideModal;
@@ -1448,6 +1471,83 @@ function achievementsHtml(arr){
   return '<div class="cardhead" style="margin-top:14px">Achievements <span class="tiny muted">'+gotN+' / '+ACHIEVEMENTS.length+'</span></div>'+
     '<div class="achgrid">'+chips+'</div>';
 }
+
+/* ---- Optional ambient music: a soft synthesized pad (open-fifth drone under a
+   slow filter sweep), opt-in via Settings. Gated on sound being on and a live
+   in-game screen; safely no-ops if the Web Audio context can't start. ---- */
+var MUSIC={nodes:null};
+function musicStart(){
+  if(MUSIC.nodes)return;
+  var ctx=actx();if(!ctx)return;
+  try{
+    var master=ctx.createGain();master.gain.value=0.0001;master.connect(ctx.destination);
+    var filt=ctx.createBiquadFilter();filt.type='lowpass';filt.frequency.value=560;filt.Q.value=0.7;filt.connect(master);
+    var oscs=[110,164.81,220].map(function(f,i){
+      var o=ctx.createOscillator();o.type=i===2?'triangle':'sine';o.frequency.value=f;
+      var g=ctx.createGain();g.gain.value=i===2?0.10:0.16;o.connect(g);g.connect(filt);o.start();return o;});
+    var lfo=ctx.createOscillator();lfo.frequency.value=0.045;var lg=ctx.createGain();lg.gain.value=160;
+    lfo.connect(lg);lg.connect(filt.frequency);lfo.start();
+    master.gain.exponentialRampToValueAtTime(Math.max(0.0001,0.05*masterVol()),ctx.currentTime+2.5);
+    MUSIC.nodes={ctx:ctx,master:master,oscs:oscs,lfo:lfo};
+  }catch(e){MUSIC.nodes=null;}
+}
+function musicStop(){
+  var n=MUSIC.nodes;if(!n)return;MUSIC.nodes=null;
+  try{
+    n.master.gain.cancelScheduledValues(n.ctx.currentTime);
+    n.master.gain.exponentialRampToValueAtTime(0.0001,n.ctx.currentTime+1.0);
+    setTimeout(function(){try{n.oscs.forEach(function(o){o.stop();});n.lfo.stop();}catch(e){}},1200);
+  }catch(e){}
+}
+function musicSetVolume(){
+  var n=MUSIC.nodes;if(!n)return;
+  try{n.master.gain.setTargetAtTime(Math.max(0.0001,0.05*masterVol()),n.ctx.currentTime,0.2);}catch(e){}
+}
+function musicUpdate(){
+  var want=!!(SETTINGS.music&&UI.soundOn&&G&&!G.winner&&!$('#screen-game').hidden);
+  if(want)musicStart();else musicStop();
+}
+
+/* Weighted belief over Mr. X's location for the possible-spots heatmap: the more
+   ways a station can be reached along his ticket log, the more colour it gets.
+   Same reveal/transition logic as possibleSet(), but keeping the mass instead of
+   collapsing to a flat set. */
+function computeBelief(){
+  var lastRv=-1,i;
+  for(i=0;i<G.log.length;i++)if(G.log[i].rv)lastRv=i;
+  var cur=new Map(),start;
+  if(lastRv>=0){cur.set(G.log[lastRv].st,1);start=lastRv+1;}
+  else{MRX_STARTS.forEach(function(s){cur.set(s,1/MRX_STARTS.length);});start=0;}
+  for(i=start;i<G.log.length;i++){
+    var tk=G.log[i].tk,nxt=new Map();
+    cur.forEach(function(wt,s){
+      var seen={},outs=[];
+      NBRS[s].forEach(function(e){
+        if(e.t==='f'&&tk!=='x')return;if(tk!=='x'&&e.t!==tk)return;
+        if(seen[e.to])return;seen[e.to]=1;outs.push(e.to);
+      });
+      if(!outs.length)return;var share=wt/outs.length;
+      outs.forEach(function(to){nxt.set(to,(nxt.get(to)||0)+share);});
+    });
+    cur=nxt;
+  }
+  G.dets.forEach(function(d){cur.delete(d.st);});
+  return cur;
+}
+
+// A compact inline-SVG timeline of recent results for the History screen.
+function statsChartHtml(arr){
+  if(!arr.length)return '';
+  var recent=arr.slice(0,24).reverse(),W=recent.length,bw=100/W;
+  var bars=recent.map(function(e,i){
+    var win=e.result==='win',col=win?'var(--bus)':'var(--tube)',h=win?20:11,y=24-h,x=(i*bw).toFixed(2);
+    return '<rect x="'+x+'" y="'+y+'" width="'+(bw*0.78).toFixed(2)+'" height="'+h+'" rx="0.8" fill="'+col+'" opacity="'+(e.role==='mrx'?0.6:1)+'">'+
+      '<title>'+(e.role==='mrx'?'Mr. X':'Detective')+' — '+(win?'win':'loss')+' (round '+e.round+')</title></rect>';
+  }).join('');
+  return '<div class="cardhead" style="margin-top:14px">Recent results <span class="tiny muted">oldest → newest</span></div>'+
+    '<svg class="statschart" viewBox="0 0 100 26" preserveAspectRatio="none" role="img" aria-label="Recent game results timeline">'+bars+'</svg>'+
+    '<div class="tiny muted" style="margin-top:3px">Green = win · red = loss · faded = played as Mr. X</div>';
+}
 function boot(){
   loadSettings();
   renderLocalSeats();
@@ -1483,6 +1583,7 @@ function boot(){
     $('#sndBtn').textContent=UI.soundOn?'🔊 Sound':'🔇 Muted';
     if(typeof introSetMuted==='function')introSetMuted(!UI.soundOn);
     if(UI.soundOn)sfx('click');
+    musicUpdate();
   };
   function enterMenu(){
     $('#hdr').hidden=false;

@@ -591,3 +591,23 @@ body.reduce-motion *{animation-duration:.001s!important;transition-duration:.001
 .ach .achemo{font-size:15px;line-height:1}
 .ach .achname{font-size:12.5px;font-weight:600;color:var(--ink)}
 .ach:not(.got) .achname{color:var(--muted)}
+
+/* Belief heatmap for the possible-locations overlay + history stats chart. */
+.psheat{fill:var(--tube);pointer-events:none}
+.statschart{width:100%;height:44px;display:block;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:3px}
+
+/* ---- Light ("daytime parchment") theme ---- */
+body.theme-light{
+  --bg:#E7E0CC; --panel:#F3EEDF; --panel2:#FBF8EF; --line:#D7CDB2;
+  --ink:#1E2833; --muted:#5C6774; --gold:#C8901A;
+  --blk:#2A2620;
+}
+body.theme-light #hdr{background:linear-gradient(180deg,#F3EEDF,#E7E0CC)}
+body.theme-light .badge{background:var(--panel2)}
+body.theme-light #banner{background:var(--panel)}
+body.theme-light .revtag{color:#fff}
+body.theme-light .movebtn,body.theme-light .revhud,body.theme-light .danger,
+body.theme-light .ach,body.theme-light .dcell,body.theme-light .statschart,
+body.theme-light .setseg button,body.theme-light .switch .track{background:var(--panel2)}
+body.theme-light .btn.ghost{background:var(--panel2)}
+body.theme-light #toast{background:#2A2620;color:#F3EEDF}
