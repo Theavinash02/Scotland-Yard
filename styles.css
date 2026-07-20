@@ -612,3 +612,28 @@ body.theme-light .ach,body.theme-light .dcell,body.theme-light .statschart,
 body.theme-light .setseg button,body.theme-light .switch .track{background:var(--panel2)}
 body.theme-light .btn.ghost{background:var(--panel2)}
 body.theme-light #toast{background:#2A2620;color:#F3EEDF}
+
+/* ============ collapsible side panel + tighter mobile chrome ============ */
+.side-toggle{position:absolute;top:50%;right:0;transform:translateY(-50%);z-index:6;
+  width:20px;height:56px;border-radius:8px 0 0 8px;background:var(--panel2);
+  border:1px solid var(--line);border-right:none;color:var(--muted);font-size:13px;
+  display:flex;align-items:center;justify-content:center;padding:0;line-height:1;
+  box-shadow:-4px 0 10px -6px rgba(0,0,0,.5)}
+.side-toggle:hover{color:var(--ink)}
+#screen-game.side-collapsed #side{display:none}
+
+/* Short landscape screens (phones) — reclaim the vertical space the header and
+   banner were eating so the board itself gets most of the viewport. */
+@media (orientation:landscape) and (max-height:560px){
+  #hdr{padding:4px 10px;gap:6px}
+  .roundel{width:22px;height:22px;border-width:4px}
+  .roundel span{height:6px;left:-7px;right:-7px}
+  .ttl h1{font-size:13px;letter-spacing:1px}
+  .hdr-right{gap:5px}
+  .hdr-right .ghostbtn{padding:5px 8px;font-size:11px;min-height:0}
+  #banner{padding:4px 11px}
+  #banner .r{font-size:10px}
+  #banner .w{font-size:12px}
+  .side-toggle{height:46px}
+  #side{width:230px}
+}
