@@ -1225,6 +1225,14 @@ function boot(){
   $('#chatIn').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); sendChatMessage(); } });
   $('#chatHeader').onclick=function(){ $('#chatPanel').classList.toggle('collapsed'); };
   $('#locateBtn').onclick=function(){sfx('click');focusCurrentTurn();};
+  $('#sideToggle').onclick=function(){
+    var collapsed=$('#screen-game').classList.toggle('side-collapsed');
+    var t=$('#sideToggle');
+    t.textContent=collapsed?'⟨':'⟩';
+    t.title=collapsed?'Show panel':'Hide panel';
+    t.setAttribute('aria-label',collapsed?'Show side panel':'Hide side panel');
+    sfx('click');
+  };
   $('#modal').addEventListener('click',function(e){if(e.target.id==='modal'&&G&&!G.winner&&!UI.privacy)hideModal();});
   document.addEventListener('keydown',function(e){
     if(e.key==='Escape'){var c=$('#chooser');if(c)c.hidden=true;}
