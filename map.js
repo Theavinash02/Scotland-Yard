@@ -63,9 +63,60 @@ function buildMap(){
     '<filter id="neonGlow" x="-30%" y="-30%" width="160%" height="160%">'+
       '<feGaussianBlur stdDeviation="2.1" result="b"/>'+
       '<feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>');
+  // Realism substrate (Aerial / Atlas / Blueprint modes). All inert until a
+  // board-<mode> class shows the relevant layers (styles.css). A single warm
+  // "city lights" turbulence filter fakes an aerial view of built-up London;
+  // tiled patterns give city-block texture and a blueprint grid cheaply.
+  defs.insertAdjacentHTML('beforeend',
+    '<filter id="cityLights" x="0" y="0" width="100%" height="100%">'+
+      '<feTurbulence type="fractalNoise" baseFrequency="0.42" numOctaves="2" seed="11" stitchTiles="stitch" result="n"/>'+
+      '<feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 11 -6.1" result="a"/>'+
+      '<feFlood flood-color="#FFD79A" result="c"/>'+
+      '<feComposite in="c" in2="a" operator="in"/></filter>'+
+    '<pattern id="blocksPat" width="30" height="30" patternUnits="userSpaceOnUse" patternTransform="rotate(9)">'+
+      '<rect x="3" y="3" width="10" height="7.5" rx="1" fill="#1B2A3A" opacity="0.5"/>'+
+      '<rect x="17" y="4" width="9.5" height="6.5" rx="1" fill="#1B2A3A" opacity="0.42"/>'+
+      '<rect x="5" y="16" width="7.5" height="10" rx="1" fill="#1B2A3A" opacity="0.5"/>'+
+      '<rect x="18" y="17" width="9" height="9" rx="1" fill="#1B2A3A" opacity="0.4"/></pattern>'+
+    '<pattern id="bpGrid" width="27" height="27" patternUnits="userSpaceOnUse">'+
+      '<path d="M27 0H0V27" fill="none" stroke="#4FD0E6" stroke-width="0.5" opacity="0.28"/>'+
+      '<path d="M13.5 0V27M0 13.5H27" fill="none" stroke="#4FD0E6" stroke-width="0.3" opacity="0.14"/></pattern>');
   function bigRect(attrs){var r=svgEl('rect');r.setAttribute('x',-400);r.setAttribute('y',-400);r.setAttribute('width',1800);r.setAttribute('height',MAP_H+800);for(var k in attrs)r.setAttribute(k,attrs[k]);svg.appendChild(r);return r;}
   bigRect({fill:'url(#paperG)','class':'bg-paper'});
   bigRect({fill:'url(#grain)',opacity:'0.12',style:'mix-blend-mode:multiply;pointer-events:none','class':'bg-grain'});
+  // Shared realism substrate: a procedural street mesh + tiled block/light/grid
+  // layers, all hidden by default (.d-layer) and revealed per board mode in CSS.
+  // Sits below the districts/river/game lines so it reads as ground, never
+  // competing with the playable network on top.
+  (function(){
+    function rr(seed){var x=Math.sin(seed*127.1+311.7)*43758.5453;return x-Math.floor(x);}
+    var ang=0.16,cy=MAP_H/2;
+    function rot(x,y){return {x:500+(x-500)*Math.cos(ang)-(y-cy)*Math.sin(ang), y:cy+(x-500)*Math.sin(ang)+(y-cy)*Math.cos(ang)};}
+    var rh='';
+    // near-vertical streets
+    for(var gx=-80;gx<=1080;gx+=50){
+      var pv=[];for(var gy=-60;gy<=MAP_H+60;gy+=MAP_H/4){pv.push(rot(gx+(rr(gx*3+gy)-0.5)*24,gy));}
+      rh+='<path d="'+catmullPath(pv)+'"/>';
+    }
+    // near-horizontal streets
+    for(var gy2=-60;gy2<=MAP_H+60;gy2+=48){
+      var ph=[];for(var gx2=-80;gx2<=1080;gx2+=250){ph.push(rot(gx2,gy2+(rr(gx2+gy2*3)-0.5)*24));}
+      rh+='<path d="'+catmullPath(ph)+'"/>';
+    }
+    // a few diagonal arterials to break up the grid
+    var arts='';
+    for(var a=0;a<7;a++){
+      var sx=rr(a*11)*1000,ex=rr(a*11+5)*1000;
+      arts+='<path class="road-art" d="'+catmullPath([rot(sx,-40),rot((sx+ex)/2+(rr(a)-0.5)*280,cy+(rr(a+2)-0.5)*220),rot(ex,MAP_H+40)])+'"/>';
+    }
+    var detail=svgEl('g');detail.setAttribute('id','L-detail');detail.setAttribute('style','pointer-events:none');
+    detail.innerHTML=
+      '<rect class="d-layer d-grid" x="-400" y="-400" width="1800" height="'+(MAP_H+800)+'" fill="url(#bpGrid)"/>'+
+      '<rect class="d-layer d-blocks" x="-400" y="-400" width="1800" height="'+(MAP_H+800)+'" fill="url(#blocksPat)"/>'+
+      '<rect class="d-layer d-lights" x="0" y="0" width="1000" height="'+MAP_H+'" filter="url(#cityLights)"/>'+
+      '<g class="d-layer d-roads">'+arts+rh+'</g>';
+    svg.appendChild(detail);
+  })();
   // districts & parks
   var deco=svgEl('g');deco.setAttribute('style','pointer-events:none');deco.setAttribute('class','map-deco');svg.appendChild(deco);
   var dh='';
@@ -100,6 +151,19 @@ function buildMap(){
     '<path id="thamesPath" d="'+rp+'" fill="none"/>'+
     '<text class="riverlabel"><textPath href="#thamesPath" startOffset="57%">RIVER  THAMES</textPath></text>';
   svg.appendChild(river);
+  // Bridges across the Thames (Atlas/Aerial modes) — sampled off the real river
+  // path so they sit square across the water. Hidden by default (.r-bridge).
+  (function(){
+    var tp=$('#thamesPath');
+    if(!tp||!tp.getTotalLength)return;
+    var TL=tp.getTotalLength(),bh='';
+    [0.30,0.44,0.57,0.70,0.83].forEach(function(f){
+      var pA=tp.getPointAtLength(TL*f),pB=tp.getPointAtLength(Math.min(TL,TL*f+2));
+      var a=Math.atan2(pB.y-pA.y,pB.x-pA.x)*180/Math.PI;
+      bh+='<g class="r-bridge" transform="translate('+r1(pA.x)+','+r1(pA.y)+') rotate('+r1(a+90)+')"><rect x="-19" y="-3.4" width="38" height="6.8" rx="1.4"/></g>';
+    });
+    river.insertAdjacentHTML('beforeend',bh);
+  })();
   // frame, compass, cartouche
   var orn=svgEl('g');orn.setAttribute('style','pointer-events:none');orn.setAttribute('class','map-orn');
   orn.innerHTML=
