@@ -150,8 +150,10 @@ The app is split into plain `<script>`-tag modules (no bundler, loaded in this o
 | `history.js` | Local (`localStorage`) per-device game history and room-wide shared-stats helpers. |
 | `persistence.js` | Mid-game save/resume (one local save slot, for both local and online games). |
 | `tutorial.js` | The driver.js-powered interactive first-time tutorial. |
+| `sound.js` | Runtime Web-Audio sound effects (no audio files). |
+| `enhancements.js` | Player-facing polish: settings, keyboard/screen-reader move list, reveal HUD, hints, undo, proximity readout, ambient music, belief heatmap, achievements, and the end-game debrief. |
 | `ambience.js` | Atmospheric background visuals/sound. |
-| `ui.js` | Game/UI state, sound effects, rendering, lobby/hot-seat/online-room flow, and boot. |
+| `ui.js` | Core game/UI state, rendering, move flow, lobby/hot-seat/online-room flow, and boot. |
 | `manifest.json`, `sw.js` | PWA scaffolding — install metadata and the offline service worker. |
 | `test/simulate.js` | Dependency-free headless harness — runs bot-vs-bot games to check engine invariants (across difficulties and game modes) and report difficulty balance. |
 | `test/ui/` | Playwright UI suite + a tiny static server, run against desktop and mobile-landscape viewports. |
