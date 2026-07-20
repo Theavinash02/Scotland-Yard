@@ -37,11 +37,11 @@ const DIFFS = ['easy', 'normal', 'hard'];
 
 // Play one full bot-vs-bot game. `onMove` (optional) is called after every ply
 // with (game) so the correctness suite can assert invariants mid-game.
-function playGame(ctx, mrxDiff, detDiff, nd, onMove) {
+function playGame(ctx, mrxDiff, detDiff, nd, onMove, variant) {
   const { newGame, startDouble, applyMrx, applyDet, botMrxPick, botDetPick } = ctx;
   const seats = [{ kind: 'bot', diff: mrxDiff }];
   for (let i = 0; i < nd; i++) seats.push({ kind: 'bot', diff: detDiff });
-  const g = newGame(seats);
+  const g = newGame(seats, variant);
   let guard = 0;
   while (!g.winner && guard++ < 3000) {
     if (g.turn === -1) {
@@ -78,11 +78,13 @@ function runBalance(ctx, mrxDiff, detDiff, nd, N) {
 
 function correctness(ctx, N) {
   const { possibleSet } = ctx;
+  const VARIANTS = ['classic', 'short', 'sneaky'];
   let games = 0, fails = 0;
   const fail = (msg) => { fails++; if (fails <= 20) console.error('  ✗', msg); };
   for (let t = 0; t < N; t++) {
     const nd = 3 + (t % 3);
     const mrxDiff = DIFFS[t % 3], detDiff = DIFFS[(t + 1) % 3];
+    const variant = VARIANTS[t % VARIANTS.length];
     const g = playGame(ctx, mrxDiff, detDiff, nd, (g) => {
       if (g.winner) return;
       if (!possibleSet(g).has(g.mrx.st)) fail(`possible-set missing true station ${g.mrx.st} (game ${t})`);
@@ -90,9 +92,16 @@ function correctness(ctx, N) {
       g.dets.forEach((d) => { if (occ[d.st]) fail(`two detectives on station ${d.st} (game ${t})`); occ[d.st] = 1; });
       g.dets.forEach((d) => { if (d.t < 0 || d.b < 0 || d.u < 0) fail(`negative detective ticket (game ${t})`); });
       if (g.mrx.black < 0 || g.mrx.dbl < 0) fail(`negative Mr. X resource (game ${t})`);
-    });
+    }, variant);
     games++;
     if (!g.winner) fail(`game ${t} did not terminate`);
+    // Variant rules must hold: log never exceeds the variant's round count, and
+    // reveal flags land exactly on the variant's reveal schedule.
+    if (g.log.length > g.maxRound) fail(`game ${t} exceeded maxRound ${g.maxRound}`);
+    g.log.forEach((e, i) => {
+      const shouldReveal = g.reveals.indexOf(i + 1) >= 0;
+      if (!!e.rv !== shouldReveal) fail(`game ${t} reveal flag wrong at round ${i + 1} (variant ${variant})`);
+    });
   }
   return { games, fails };
 }

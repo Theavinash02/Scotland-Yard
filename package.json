@@ -1,0 +1,16 @@
+{
+  "name": "scotland-yard",
+  "version": "1.0.0",
+  "description": "A browser-playable adaptation of the hidden-movement board game Scotland Yard.",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "test": "node test/simulate.js",
+    "test:sim": "node test/simulate.js",
+    "test:ui": "playwright test",
+    "test:all": "node test/simulate.js && playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.48.0"
+  }
+}

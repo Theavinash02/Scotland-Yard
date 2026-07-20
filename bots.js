@@ -85,7 +85,7 @@ function botDetPick(g,i,diff){
 // ---- Mr. X ----
 function psAfter(g,tk){
   var round=g.log.length+1;
-  if(REVEALS.indexOf(round)>=0)return 1;
+  if(gReveals(g).indexOf(round)>=0)return 1;
   var cur=possibleSet(g),nxt=new Set();
   cur.forEach(function(s){NBRS[s].forEach(function(e){
     if(e.t==='f'&&tk!=='x')return;
@@ -115,6 +115,6 @@ function botMrxPick(g,diff){
   moves.forEach(function(m){var s=scoreMrx(g,m,hard)+Math.random()*0.2;if(s>bs){bs=s;best=m;}});
   var mind=1e9;g.dets.forEach(function(d){var dd=DIST[best.to][d.st];if(dd<mind)mind=dd;});
   // Only hard Mr. X spends double-move cards, and only to break contact when cornered.
-  var useDbl=hard&&g.dblPending===0&&g.mrx.dbl>0&&g.log.length<MAX_ROUND-1&&mind<=1;
+  var useDbl=hard&&g.dblPending===0&&g.mrx.dbl>0&&g.log.length<gMaxRound(g)-1&&mind<=1;
   return {move:best,dbl:useDbl};
 }

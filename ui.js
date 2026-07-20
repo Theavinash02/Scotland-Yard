@@ -183,11 +183,11 @@ function renderBanner(){
   }
   var round=G.turn===-1?G.log.length+1:G.log.length;
   if(round<1)round=1;
-  var isRev=G.turn===-1&&REVEALS.indexOf(G.log.length+1)>=0;
+  var isRev=G.turn===-1&&gReveals(G).indexOf(G.log.length+1)>=0;
   var mine=iControlCurrent();
   var who=G.turn===-1?seatName(0):seatName(G.turn+1);
   var extra=G.dblPending>0?' — double move, hop '+(3-G.dblPending)+' of 2':'';
-  b.innerHTML='<div class="r">ROUND '+round+' / 24'+(isRev?'<span class="revtag">REVEAL ROUND</span>':'')+'</div>'+
+  b.innerHTML='<div class="r">ROUND '+round+' / '+gMaxRound(G)+(isRev?'<span class="revtag">REVEAL ROUND</span>':'')+'</div>'+
     '<div class="w'+(mine?' you':'')+'">'+who+(mine?' — your move':'')+extra+'</div>';
   var hint=$('#dblHint');
   if(G.dblPending>0&&mine){hint.hidden=false;hint.innerHTML='Double move: pick hop <b>'+(3-G.dblPending)+' of 2</b>';}
@@ -215,8 +215,8 @@ function renderPlayers(){
 var LOG_TK_LABEL={t:'T',b:'B',u:'U',x:'●'};
 function renderLog(){
   var h='';
-  for(var i=0;i<MAX_ROUND;i++){
-    var e=G.log[i],cls='lcell',val='',tkl='',isRev=REVEALS.indexOf(i+1)>=0;
+  for(var i=0;i<gMaxRound(G);i++){
+    var e=G.log[i],cls='lcell',val='',tkl='',isRev=gReveals(G).indexOf(i+1)>=0;
     if(isRev)cls+=' rv';
     if(e){
       cls+=' f-'+e.tk;
@@ -235,7 +235,7 @@ function stampLog(){
 function renderCtrls(){
   var db=$('#dblBtn');
   $('#dblN').textContent=G.mrx.dbl;
-  var can=!G.winner&&G.turn===-1&&iControlCurrent()&&G.mrx.dbl>0&&G.dblPending===0&&G.log.length<MAX_ROUND-1&&!UI.busy;
+  var can=!G.winner&&G.turn===-1&&iControlCurrent()&&G.mrx.dbl>0&&G.dblPending===0&&G.log.length<gMaxRound(G)-1&&!UI.busy;
   db.disabled=!can;
   db.style.display=(isNet()?G.seats[0].pid===MYID:G.seats[0].kind==='human')?'':'none';
   var ps=$('#psBtn');
@@ -478,6 +478,7 @@ function onGameOver(){
       role:meIsX?'mrx':'det',
       result:iWon?'win':'loss',
       round:G.log.length,
+      full:G.log.length>=gMaxRound(G),
       mode:isNet()?'online':'local',
       opponents:oppSeats.some(function(s){return s.kind==='human';})?'human':'bots',
       moveLog:G.moveLog||[]
@@ -509,7 +510,7 @@ function onGameOver(){
     (isNet()?'':'<button class="btn" id="mAgain">Rematch — same seats</button>')+
     '<button class="btn ghost" id="mLobby" style="margin-top:8px">Back to lobby</button>');
   var again=$('#mAgain');
-  if(again)again.onclick=function(){hideModal();startLocalGame(G.seats);};
+  if(again)again.onclick=function(){var seats=G.seats,v=G.variant;hideModal();startLocalGame(seats,v);};
   $('#mLobby').onclick=function(){hideModal();leaveToLobby();};
 }
 // ============ LOBBY / NET / BOOT ============
@@ -734,6 +735,7 @@ var localSeats=[
   {kind:'bot',diff:'hard'},
   {kind:'empty'}
 ];
+var selectedVariant='classic'; // rule preset for local/hot-seat games (see VARIANTS)
 function seatLabel(i){return i===0?'Mr. X':'Detective '+i;}
 function seatDotColor(i){return i===0?'#0B0D10':DCOL[(i-1)%5];}
 function renderLocalSeats(){
@@ -768,10 +770,10 @@ function buildGameSeats(cfg,nameForHumans){
   });
   return seats;
 }
-function startLocalGame(prebuilt){
+function startLocalGame(prebuilt,variant){
   var seats=prebuilt||buildGameSeats(localSeats,myName());
   if(seats.length<2){toast('You need at least one detective.');return;}
-  G=newGame(seats);
+  G=newGame(seats,variant||selectedVariant);
   UI.privacy=!prebuilt? (seats[0].kind==='human'&&seats.slice(1).some(function(s){return s.kind==='human';}))
                       : (G.seats[0].kind==='human'&&G.seats.slice(1).some(function(s){return s.kind==='human';}));
   UI.mrxViewing=false;UI.showPs=false;UI.busy=false;UI.moveFeed=[];UI.feedMv=-1;UI.undoStack=[];UI.hint=null;
@@ -1264,8 +1266,8 @@ function announce(msg){
 var TK_ICON={t:'🚕',b:'🚌',u:'🚇',x:'⚫'},TK_WORD={t:'Taxi',b:'Bus',u:'Underground',x:'Black ticket'};
 // The reveal round Mr. X's *next* move falls on, or null if none remain.
 function nextRevealRound(){
-  var up=(G?G.log.length:0)+1;
-  for(var i=0;i<REVEALS.length;i++)if(REVEALS[i]>=up)return REVEALS[i];
+  var up=(G?G.log.length:0)+1,rev=gReveals(G);
+  for(var i=0;i<rev.length;i++)if(rev[i]>=up)return rev[i];
   return null;
 }
 function movesForCurrent(){
@@ -1402,7 +1404,8 @@ function showSettings(){
 }
 // Extra end-of-game stats appended to the game-over modal (see onGameOver).
 function debriefHtml(){
-  var blackUsed=G.nd-G.mrx.black,dblUsed=2-G.mrx.dbl,reveals=0;
+  var cfg=resolveVariant(G.variant);
+  var blackUsed=(G.nd+(cfg.blackBonus||0))-G.mrx.black,dblUsed=cfg.dbl-G.mrx.dbl,reveals=0;
   G.log.forEach(function(e){if(e.rv)reveals++;});
   var gap=1e9;G.dets.forEach(function(d){var dd=DIST[G.mrx.st][d.st];if(dd<gap)gap=dd;});
   if(gap===1e9)gap='—';
@@ -1455,7 +1458,7 @@ var ACHIEVEMENTS=[
   {name:'First Collar',desc:'Win your first game.',emo:'🎉',test:function(a,s){return s.detWins+s.mrxWins>0;}},
   {name:'Double Agent',desc:'Win as both Mr. X and the detectives.',emo:'🎭',test:function(a,s){return s.mrxWins>0&&s.detWins>0;}},
   {name:'Dragnet',desc:'Win as the detectives in 8 rounds or fewer.',emo:'🚨',test:function(a){return a.some(function(e){return e.role==='det'&&e.result==='win'&&e.round<=8;});}},
-  {name:'Ghost of London',desc:'Win as Mr. X by surviving all 24 rounds.',emo:'👻',test:function(a){return a.some(function(e){return e.role==='mrx'&&e.result==='win'&&e.round>=MAX_ROUND;});}},
+  {name:'Ghost of London',desc:'Win as Mr. X by surviving to the final round.',emo:'👻',test:function(a){return a.some(function(e){return e.role==='mrx'&&e.result==='win'&&(e.full||e.round>=MAX_ROUND);});}},
   {name:'Table Manners',desc:'Play a game against other humans.',emo:'🧑‍🤝‍🧑',test:function(a){return a.some(function(e){return e.opponents==='human';});}},
   {name:'Veteran',desc:'Play 10 games.',emo:'🎖️',test:function(a,s){return s.games>=10;}},
   {name:'On a Roll',desc:'Win 3 games in a row.',emo:'🔥',test:function(a){var run=0;for(var i=0;i<a.length;i++){if(a[i].result==='win'){if(++run>=3)return true;}else run=0;}return false;}}
@@ -1551,6 +1554,17 @@ function statsChartHtml(arr){
 function boot(){
   loadSettings();
   renderLocalSeats();
+  // Game-mode (variant) picker for local/hot-seat games.
+  var vsel=$('#variantSel');
+  if(vsel){
+    Object.keys(VARIANTS).forEach(function(k){
+      var o=document.createElement('option');o.value=k;o.textContent=VARIANTS[k].name;vsel.appendChild(o);
+    });
+    vsel.value=selectedVariant;
+    var updDesc=function(){var d=$('#variantDesc');if(d)d.textContent=(VARIANTS[selectedVariant]||{}).desc||'';};
+    vsel.onchange=function(){selectedVariant=vsel.value;updDesc();sfx('click');};
+    updDesc();
+  }
   // tabs
   Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(t){
     t.onclick=function(){

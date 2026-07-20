@@ -35,6 +35,7 @@ This is an original fan implementation: it uses the real published station/conne
 - ⚙️ **Settings** — light/dark theme, sound-volume slider, opt-in ambient music, bot-speed control, reduce-motion switch, and a high-contrast board, all persisted locally.
 - 🔥 **Belief heatmap** — the "possible Mr. X spots" overlay is weighted: brighter, larger halos mark the stations his ticket trail makes most likely.
 - 📊 **Results timeline** — the history screen charts your recent wins/losses (by role) as a compact inline-SVG strip.
+- 🎲 **Game modes** — pick a rule preset for local games: **Classic** (24 rounds, five reveals), **Short chase** (a brisk 12-round game), or **Fugitive's edge** (only three reveals, with extra black tickets and double-moves).
 - 🔊 **Synthesized sound** — every effect is generated at runtime with the Web Audio API, no audio files.
 
 ## 📸 Screenshots
@@ -78,7 +79,7 @@ Online rooms are peer-to-peer (WebRTC via [PeerJS](https://peerjs.com)) — no b
 
 ## 🎮 How to play
 
-- **Setup:** the lobby lets you assign each of the 6 seats (Mr. X + up to 5 detectives) to a human or a bot (easy/normal/hard), or leave detective seats empty.
+- **Setup:** the lobby lets you assign each of the 6 seats (Mr. X + up to 5 detectives) to a human or a bot (easy/normal/hard), or leave detective seats empty, and pick a **game mode** (Classic / Short chase / Fugitive's edge) for local games.
 - **Mr. X** moves first each round, in secret — only the ticket type he plays (taxi/bus/underground/black) is shown to detectives. He must surface and reveal his true station on rounds **3, 8, 13, 18, and 24**.
 - **Detectives** move in turn order after Mr. X, always in the open, spending real tickets (10 taxi / 8 bus / 4 underground each, standard allocation). Two detectives can't share a station.
 - **Win conditions:** detectives win instantly if one lands on Mr. X's station, or if Mr. X ever has no legal move. Mr. X wins if the round log fills to 24 without being caught, or if every detective is stuck.
@@ -152,7 +153,10 @@ The app is split into plain `<script>`-tag modules (no bundler, loaded in this o
 | `ambience.js` | Atmospheric background visuals/sound. |
 | `ui.js` | Game/UI state, sound effects, rendering, lobby/hot-seat/online-room flow, and boot. |
 | `manifest.json`, `sw.js` | PWA scaffolding — install metadata and the offline service worker. |
-| `test/simulate.js` | Dependency-free headless harness — runs bot-vs-bot games to check engine invariants and report difficulty balance. |
+| `test/simulate.js` | Dependency-free headless harness — runs bot-vs-bot games to check engine invariants (across difficulties and game modes) and report difficulty balance. |
+| `test/ui/` | Playwright UI suite + a tiny static server, run against desktop and mobile-landscape viewports. |
+| `playwright.config.js`, `package.json` | UI-test config and npm scripts (`test:sim`, `test:ui`, `test:all`). |
+| `.github/workflows/ci.yml` | GitHub Actions CI — runs the engine sim and the UI suite on every push/PR. |
 
 ## ⚠️ Known limitations
 
@@ -164,7 +168,12 @@ The app is split into plain `<script>`-tag modules (no bundler, loaded in this o
 
 ## 🧪 Testing so far
 
-The rules engine and bots ship with a dependency-free headless harness — **`node test/simulate.js`** — that plays thousands of full bot-vs-bot games across every difficulty/detective-count combination. It asserts the engine invariants after every move (win conditions, ticket accounting, no two detectives on a station, and that the deduced possible-location set always contains Mr. X's true station), then prints a balance report of win rates by role and difficulty. Run `node test/simulate.js --balance 3000` for a higher-confidence balance sweep. UI-level checks (tap-to-move, pan/zoom, resume, online-room sync, spectator view) have been run via headless-browser smoke tests. None of this is a substitute for real playtesting — bug reports welcome.
+Two automated test layers ship with the repo and run in CI on every push/PR (see `.github/workflows/ci.yml`):
+
+- **Rules engine & bots** — a dependency-free headless harness, **`npm run test:sim`** (`node test/simulate.js`), plays thousands of full bot-vs-bot games across every difficulty / detective-count / game-mode combination. It asserts the engine invariants after every move (win conditions, ticket accounting, no two detectives on a station, the deduced possible-location set always contains Mr. X's true station, and each variant's round limit and reveal schedule), then prints a balance report of win rates by role and difficulty. `node test/simulate.js --balance 3000` runs a higher-confidence balance sweep.
+- **UI** — a [Playwright](https://playwright.dev) suite, **`npm run test:ui`** (`test/ui/*.spec.js`), drives the real app in a headless browser across **desktop and mobile-landscape** viewports: boot → lobby → start game, the full map rendering, the accessible move list / hint / reveal HUD, the belief heatmap, settings apply + persist, achievements and the results timeline, the game-mode picker, and that the page never scrolls horizontally.
+
+`npm run test:all` runs both. None of this is a substitute for real playtesting — bug reports welcome.
 
 ## License
 
