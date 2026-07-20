@@ -3,83 +3,6 @@ var UI={mrxViewing:false,privacy:false,showPs:false,busy:false,botTimer:null,pen
 var DCOL=['#2E6FD8','#7A3FB8','#0FA3A3','#D8621F','#C23A6B'];
 var TKCOL={t:'#DFAE1F',b:'#2F8A52',u:'#D23A3A',x:'#20242B',boat:'#3E6E8E'};
 
-/* ---------------- sound ---------------- */
-var ACTX=null;
-function actx(){
-  if(!UI.soundOn)return null;
-  try{
-    if(!ACTX)ACTX=new (window.AudioContext||window.webkitAudioContext)();
-    if(ACTX.state==='suspended')ACTX.resume();
-    return ACTX;
-  }catch(e){return null;}
-}
-function noiseBuf(ctx,sec){
-  var b=ctx.createBuffer(1,Math.floor(ctx.sampleRate*sec),ctx.sampleRate),d=b.getChannelData(0);
-  for(var i=0;i<d.length;i++)d[i]=Math.random()*2-1;
-  return b;
-}
-function nsrc(ctx,sec){var s=ctx.createBufferSource();s.buffer=noiseBuf(ctx,sec);return s;}
-function tone(ctx,type,f0,f1,t0,dur,peak,dest){
-  var o=ctx.createOscillator(),g=ctx.createGain();
-  o.type=type;o.frequency.setValueAtTime(f0,t0);
-  if(f1&&f1!==f0)o.frequency.exponentialRampToValueAtTime(f1,t0+dur);
-  g.gain.setValueAtTime(0.0001,t0);
-  g.gain.exponentialRampToValueAtTime(peak,t0+0.02);
-  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
-  o.connect(g);g.connect(dest);o.start(t0);o.stop(t0+dur+0.05);
-}
-function sfx(kind){
-  var ctx=actx();if(!ctx)return;
-  var t=ctx.currentTime,m=ctx.createGain();m.gain.value=0.5;m.connect(ctx.destination);
-  if(kind==='click'){tone(ctx,'sine',900,700,t,0.06,0.25,m);}
-  else if(kind==='deny'){tone(ctx,'square',180,140,t,0.12,0.18,m);}
-  else if(kind==='taxi'){
-    var n=nsrc(ctx,0.6),f=ctx.createBiquadFilter(),g=ctx.createGain();
-    f.type='bandpass';f.frequency.value=260;f.Q.value=1.2;
-    g.gain.setValueAtTime(0.28,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.6);
-    n.connect(f);f.connect(g);g.connect(m);n.start(t);
-    tone(ctx,'square',540,540,t+0.10,0.09,0.20,m);
-    tone(ctx,'square',640,640,t+0.24,0.11,0.20,m);
-  }else if(kind==='bus'){
-    tone(ctx,'sawtooth',68,88,t,0.85,0.30,m);
-    tone(ctx,'sawtooth',102,120,t,0.85,0.14,m);
-    var n=nsrc(ctx,0.25),f=ctx.createBiquadFilter(),g=ctx.createGain();
-    f.type='highpass';f.frequency.value=3200;
-    g.gain.setValueAtTime(0.0001,t+0.62);g.gain.exponentialRampToValueAtTime(0.22,t+0.68);
-    g.gain.exponentialRampToValueAtTime(0.001,t+0.9);
-    n.connect(f);f.connect(g);g.connect(m);n.start(t+0.6);
-  }else if(kind==='underground'){
-    var n=nsrc(ctx,1.1),f=ctx.createBiquadFilter(),g=ctx.createGain();
-    f.type='lowpass';f.frequency.setValueAtTime(110,t);f.frequency.exponentialRampToValueAtTime(220,t+0.5);
-    f.frequency.exponentialRampToValueAtTime(90,t+1.05);
-    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.5,t+0.25);
-    g.gain.exponentialRampToValueAtTime(0.001,t+1.05);
-    n.connect(f);f.connect(g);g.connect(m);n.start(t);
-    tone(ctx,'sine',820,380,t+0.1,0.7,0.05,m);
-  }else if(kind==='black'){
-    var n=nsrc(ctx,0.9),f=ctx.createBiquadFilter(),g=ctx.createGain();
-    f.type='lowpass';f.frequency.setValueAtTime(400,t);f.frequency.exponentialRampToValueAtTime(2400,t+0.7);
-    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.30,t+0.55);
-    g.gain.exponentialRampToValueAtTime(0.001,t+0.9);
-    n.connect(f);f.connect(g);g.connect(m);n.start(t);
-    tone(ctx,'triangle',196,185,t,0.7,0.12,m);
-  }else if(kind==='boat'){
-    tone(ctx,'square',98,98,t,0.75,0.22,m);
-    tone(ctx,'square',147,147,t,0.75,0.10,m);
-  }else if(kind==='reveal'){
-    tone(ctx,'sawtooth',220,220,t,0.55,0.14,m);
-    tone(ctx,'sawtooth',262,262,t,0.55,0.12,m);
-    tone(ctx,'sawtooth',311,311,t+0.05,0.55,0.12,m);
-  }else if(kind==='win'){
-    [523,659,784,1047].forEach(function(f,i){tone(ctx,'triangle',f,f,t+i*0.14,0.3,0.22,m);});
-  }else if(kind==='lose'){
-    [392,330,262,196].forEach(function(f,i){tone(ctx,'triangle',f,f,t+i*0.16,0.34,0.22,m);});
-  }
-}
-function sfxForTicket(tk,boat){
-  if(boat)return sfx('boat');
-  sfx(tk==='t'?'taxi':tk==='b'?'bus':tk==='u'?'underground':'black');
-}
 /* ---------------- perspective ---------------- */
 function currentSeat(){return G.turn===-1?G.seats[0]:G.seats[G.turn+1];}
 function isNet(){return !!NET.code;}
@@ -111,7 +34,8 @@ function seatName(idx){
 function render(){
   if(!G)return;
   updateMoveFeed();
-  renderPieces();renderBanner();renderPlayers();renderLog();renderCtrls();renderHighlights();renderActivityFeed();
+  renderPieces();renderBanner();renderPlayers();renderLog();renderCtrls();renderHighlights();renderActivityFeed();renderTurnCard();
+  if(typeof musicUpdate==='function')musicUpdate();
 }
 function renderPieces(){
   var h='';
@@ -129,11 +53,15 @@ function renderPieces(){
        '<text y="3.6" text-anchor="middle" font-size="9" font-weight="700" fill="#0B0D10" class="st-num">X?</text></g>';
   }
   LAYER.pieces.innerHTML=h;
-  // possible set halos
+  // possible set — rendered as a belief heatmap (hotter/larger = more likely)
   var ph='';
   if(UI.showPs&&!G.winner){
-    possibleSet(G).forEach(function(s){
-      ph+='<circle class="psring" cx="'+POS[s].x+'" cy="'+POS[s].y+'" r="12"/>';
+    var belief=computeBelief(),maxW=0;
+    belief.forEach(function(w){if(w>maxW)maxW=w;});
+    if(maxW<=0)maxW=1;
+    belief.forEach(function(w,s){
+      var t=w/maxW,r=(10+7.5*t).toFixed(1),op=(0.16+0.5*t).toFixed(2);
+      ph+='<circle class="psheat" cx="'+POS[s].x+'" cy="'+POS[s].y+'" r="'+r+'" opacity="'+op+'"/>';
     });
   }
   LAYER.ps.innerHTML=ph;
@@ -178,11 +106,11 @@ function renderBanner(){
   }
   var round=G.turn===-1?G.log.length+1:G.log.length;
   if(round<1)round=1;
-  var isRev=G.turn===-1&&REVEALS.indexOf(G.log.length+1)>=0;
+  var isRev=G.turn===-1&&gReveals(G).indexOf(G.log.length+1)>=0;
   var mine=iControlCurrent();
   var who=G.turn===-1?seatName(0):seatName(G.turn+1);
   var extra=G.dblPending>0?' — double move, hop '+(3-G.dblPending)+' of 2':'';
-  b.innerHTML='<div class="r">ROUND '+round+' / 24'+(isRev?'<span class="revtag">REVEAL ROUND</span>':'')+'</div>'+
+  b.innerHTML='<div class="r">ROUND '+round+' / '+gMaxRound(G)+(isRev?'<span class="revtag">REVEAL ROUND</span>':'')+'</div>'+
     '<div class="w'+(mine?' you':'')+'">'+who+(mine?' — your move':'')+extra+'</div>';
   var hint=$('#dblHint');
   if(G.dblPending>0&&mine){hint.hidden=false;hint.innerHTML='Double move: pick hop <b>'+(3-G.dblPending)+' of 2</b>';}
@@ -210,8 +138,8 @@ function renderPlayers(){
 var LOG_TK_LABEL={t:'T',b:'B',u:'U',x:'●'};
 function renderLog(){
   var h='';
-  for(var i=0;i<MAX_ROUND;i++){
-    var e=G.log[i],cls='lcell',val='',tkl='',isRev=REVEALS.indexOf(i+1)>=0;
+  for(var i=0;i<gMaxRound(G);i++){
+    var e=G.log[i],cls='lcell',val='',tkl='',isRev=gReveals(G).indexOf(i+1)>=0;
     if(isRev)cls+=' rv';
     if(e){
       cls+=' f-'+e.tk;
@@ -230,7 +158,7 @@ function stampLog(){
 function renderCtrls(){
   var db=$('#dblBtn');
   $('#dblN').textContent=G.mrx.dbl;
-  var can=!G.winner&&G.turn===-1&&iControlCurrent()&&G.mrx.dbl>0&&G.dblPending===0&&G.log.length<MAX_ROUND-1&&!UI.busy;
+  var can=!G.winner&&G.turn===-1&&iControlCurrent()&&G.mrx.dbl>0&&G.dblPending===0&&G.log.length<gMaxRound(G)-1&&!UI.busy;
   db.disabled=!can;
   db.style.display=(isNet()?G.seats[0].pid===MYID:G.seats[0].kind==='human')?'':'none';
   var ps=$('#psBtn');
@@ -346,6 +274,7 @@ async function commitMove(m){
   else await doDetMove(G.turn,m);
 }
 async function doMrxMove(m){
+  pushUndo();
   UI.busy=true;renderHighlights();
   var from=G.mrx.st;
   var visible=canSeeMrx();
@@ -359,6 +288,7 @@ async function doMrxMove(m){
   afterAnyMove(wasDbl);
 }
 async function doDetMove(i,m){
+  pushUndo();
   UI.busy=true;renderHighlights();
   var from=G.dets[i].st;
   await animateVehicle(from,m.to,m.tk);
@@ -425,7 +355,7 @@ function maybeBot(){
     UI.botTimer=null;
     await botAct();
     if(G&&!G.winner)maybeBot(); // G may have been cleared (leaveToLobby) while botAct() was in flight
-  },700);
+  },botDelayMs());
 }
 async function botAct(){
   if(!G||G.winner)return;
@@ -471,6 +401,7 @@ function onGameOver(){
       role:meIsX?'mrx':'det',
       result:iWon?'win':'loss',
       round:G.log.length,
+      full:G.log.length>=gMaxRound(G),
       mode:isNet()?'online':'local',
       opponents:oppSeats.some(function(s){return s.kind==='human';})?'human':'bots',
       moveLog:G.moveLog||[]
@@ -496,12 +427,13 @@ function onGameOver(){
   });
   showModal('<h2>'+(G.winner==='mrx'?'Mr. X vanished into the night':'Scotland Yard closes the net')+'</h2>'+
     '<p>'+G.reason+'</p>'+
+    debriefHtml()+
     '<div class="cardhead" style="margin-top:10px">Mr. X\'s full route</div>'+
     '<div class="routelist">'+(route||'<span class="muted tiny">He never moved.</span>')+'</div>'+
     (isNet()?'':'<button class="btn" id="mAgain">Rematch — same seats</button>')+
     '<button class="btn ghost" id="mLobby" style="margin-top:8px">Back to lobby</button>');
   var again=$('#mAgain');
-  if(again)again.onclick=function(){hideModal();startLocalGame(G.seats);};
+  if(again)again.onclick=function(){var seats=G.seats,v=G.variant;hideModal();startLocalGame(seats,v);};
   $('#mLobby').onclick=function(){hideModal();leaveToLobby();};
 }
 // ============ LOBBY / NET / BOOT ============
@@ -726,6 +658,7 @@ var localSeats=[
   {kind:'bot',diff:'hard'},
   {kind:'empty'}
 ];
+var selectedVariant='classic'; // rule preset for local/hot-seat games (see VARIANTS)
 function seatLabel(i){return i===0?'Mr. X':'Detective '+i;}
 function seatDotColor(i){return i===0?'#0B0D10':DCOL[(i-1)%5];}
 function renderLocalSeats(){
@@ -737,6 +670,7 @@ function renderLocalSeats(){
       '<select data-i="'+i+'">'+
       '<option value="human"'+(val==='human'?' selected':'')+'>Human (this device)</option>'+
       '<option value="bot-easy"'+(val==='bot-easy'?' selected':'')+'>Bot — easy</option>'+
+      '<option value="bot-normal"'+(val==='bot-normal'?' selected':'')+'>Bot — normal</option>'+
       '<option value="bot-hard"'+(val==='bot-hard'?' selected':'')+'>Bot — hard</option>'+
       (i>=2?'<option value="empty"'+(val==='empty'?' selected':'')+'>Empty seat</option>':'')+
       '</select></div>';
@@ -759,13 +693,13 @@ function buildGameSeats(cfg,nameForHumans){
   });
   return seats;
 }
-function startLocalGame(prebuilt){
+function startLocalGame(prebuilt,variant){
   var seats=prebuilt||buildGameSeats(localSeats,myName());
   if(seats.length<2){toast('You need at least one detective.');return;}
-  G=newGame(seats);
+  G=newGame(seats,variant||selectedVariant);
   UI.privacy=!prebuilt? (seats[0].kind==='human'&&seats.slice(1).some(function(s){return s.kind==='human';}))
                       : (G.seats[0].kind==='human'&&G.seats.slice(1).some(function(s){return s.kind==='human';}));
-  UI.mrxViewing=false;UI.showPs=false;UI.busy=false;UI.moveFeed=[];UI.feedMv=-1;
+  UI.mrxViewing=false;UI.showPs=false;UI.busy=false;UI.moveFeed=[];UI.feedMv=-1;UI.undoStack=[];UI.hint=null;
   persistLocalGame(G,{privacy:UI.privacy});
   enterGame();
   if(UI.privacy&&G.turn===-1&&G.seats[0].kind==='human'){askPassToMrx();}
@@ -780,11 +714,12 @@ function enterGame(){
   render();
 }
 function leaveToLobby(){
+  if(typeof musicStop==='function')musicStop();
   if(UI.botTimer){clearTimeout(UI.botTimer);UI.botTimer=null;}
   if(NET.code&&!NET.isHost)sendHost({t:'leave',pid:MYID}); // free my seats on the host
   tearDownPeer();
   NET.code=null;NET.isHost=false;NET.v=0;NET.room=null;NET.busy=false;NET.localChat=[];NET.spectating=false;
-  G=null;
+  G=null;UI.undoStack=[];UI.hint=null;
   $('#roomBadge').hidden=true;
   $('#screen-game').hidden=true;
   $('#screen-lobby').hidden=false;
@@ -813,6 +748,7 @@ function renderNetSeats(el,room,amHost){
       right='<select data-act="cfg" data-i="'+i+'">'+
         '<option value="open"'+(val==='open'?' selected':'')+'>Open — waiting for player</option>'+
         '<option value="bot-easy"'+(val==='bot-easy'?' selected':'')+'>Bot — easy</option>'+
+        '<option value="bot-normal"'+(val==='bot-normal'?' selected':'')+'>Bot — normal</option>'+
         '<option value="bot-hard"'+(val==='bot-hard'?' selected':'')+'>Bot — hard</option>'+
         (i>=2?'<option value="empty"'+(val==='empty'?' selected':'')+'>Empty seat</option>':'')+
         '</select>'+(s.kind==='open'?'<button class="claimbtn" data-act="claim" data-i="'+i+'">sit here</button>':'');
@@ -1037,6 +973,8 @@ function showHistory(){
   showModal('<h2>Game history</h2>'+
     '<p class="tiny muted">Stored locally on this device only — nothing leaves your browser.</p>'+
     summary+
+    statsChartHtml(arr)+
+    achievementsHtml(arr)+
     '<div class="histlist">'+(rows||'<p class="muted tiny" style="margin-top:10px">No games recorded yet. Play a game to see it here.</p>')+'</div>'+
     '<button class="btn ghost" id="mOK" style="margin-top:12px">Close</button>');
   $('#mOK').onclick=hideModal;
@@ -1211,7 +1149,19 @@ function checkResumable(){
 }
 /* ------- boot ------- */
 function boot(){
+  loadSettings();
   renderLocalSeats();
+  // Game-mode (variant) picker for local/hot-seat games.
+  var vsel=$('#variantSel');
+  if(vsel){
+    Object.keys(VARIANTS).forEach(function(k){
+      var o=document.createElement('option');o.value=k;o.textContent=VARIANTS[k].name;vsel.appendChild(o);
+    });
+    vsel.value=selectedVariant;
+    var updDesc=function(){var d=$('#variantDesc');if(d)d.textContent=(VARIANTS[selectedVariant]||{}).desc||'';};
+    vsel.onchange=function(){selectedVariant=vsel.value;updDesc();sfx('click');};
+    updDesc();
+  }
   // tabs
   Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(t){
     t.onclick=function(){
@@ -1236,6 +1186,7 @@ function boot(){
   $('#helpBtn').onclick=showRules;
   $('#demoBtn').onclick=showDemo;
   $('#historyBtn').onclick=showHistory;
+  $('#settingsBtn').onclick=function(){sfx('click');showSettings();};
   $('#howtoBtn').onclick=function(){sfx('click');if(typeof showHowToVideo==='function')showHowToVideo();};
   ensureRoomHistBtn();
   $('#sndBtn').onclick=function(){
@@ -1243,6 +1194,7 @@ function boot(){
     $('#sndBtn').textContent=UI.soundOn?'🔊 Sound':'🔇 Muted';
     if(typeof introSetMuted==='function')introSetMuted(!UI.soundOn);
     if(UI.soundOn)sfx('click');
+    musicUpdate();
   };
   function enterMenu(){
     $('#hdr').hidden=false;
@@ -1274,7 +1226,20 @@ function boot(){
   $('#chatHeader').onclick=function(){ $('#chatPanel').classList.toggle('collapsed'); };
   $('#locateBtn').onclick=function(){sfx('click');focusCurrentTurn();};
   $('#modal').addEventListener('click',function(e){if(e.target.id==='modal'&&G&&!G.winner&&!UI.privacy)hideModal();});
-  document.addEventListener('keydown',function(e){if(e.key==='Escape'){var c=$('#chooser');if(c)c.hidden=true;}});
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){var c=$('#chooser');if(c)c.hidden=true;}
+    // In-game keyboard shortcuts (ignored while typing, under a modal, or off-game).
+    var tag=((e.target&&e.target.tagName)||'').toLowerCase();
+    if(tag==='input'||tag==='textarea'||tag==='select')return;
+    if(e.metaKey||e.ctrlKey||e.altKey)return;
+    if(!G||$('#screen-game').hidden||!$('#modal').hidden)return;
+    var k=(e.key||'').toLowerCase();
+    if(k==='h'){if(canActNow()){e.preventDefault();suggestMove();}}
+    else if(k==='u'||k==='z'){if(canUndo()){e.preventDefault();doUndo();}}
+    else if(k==='p'){var pb=$('#psBtn');if(pb&&pb.offsetParent!==null){e.preventDefault();pb.click();}}
+    else if(k==='d'){var db=$('#dblBtn');if(db&&!db.disabled&&db.offsetParent!==null){e.preventDefault();db.click();}}
+    else if(k>='1'&&k<='9'){var btns=document.querySelectorAll('#movesList .movebtn');var b=btns[(+k)-1];if(b){e.preventDefault();b.click();}}
+  });
 }
 
 /* ---------------- phone rotate-to-landscape lock ----------------
