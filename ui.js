@@ -346,6 +346,7 @@ async function commitMove(m){
   else await doDetMove(G.turn,m);
 }
 async function doMrxMove(m){
+  pushUndo();
   UI.busy=true;renderHighlights();
   var from=G.mrx.st;
   var visible=canSeeMrx();
@@ -359,6 +360,7 @@ async function doMrxMove(m){
   afterAnyMove(wasDbl);
 }
 async function doDetMove(i,m){
+  pushUndo();
   UI.busy=true;renderHighlights();
   var from=G.dets[i].st;
   await animateVehicle(from,m.to,m.tk);
@@ -767,7 +769,7 @@ function startLocalGame(prebuilt){
   G=newGame(seats);
   UI.privacy=!prebuilt? (seats[0].kind==='human'&&seats.slice(1).some(function(s){return s.kind==='human';}))
                       : (G.seats[0].kind==='human'&&G.seats.slice(1).some(function(s){return s.kind==='human';}));
-  UI.mrxViewing=false;UI.showPs=false;UI.busy=false;UI.moveFeed=[];UI.feedMv=-1;
+  UI.mrxViewing=false;UI.showPs=false;UI.busy=false;UI.moveFeed=[];UI.feedMv=-1;UI.undoStack=[];UI.hint=null;
   persistLocalGame(G,{privacy:UI.privacy});
   enterGame();
   if(UI.privacy&&G.turn===-1&&G.seats[0].kind==='human'){askPassToMrx();}
@@ -786,7 +788,7 @@ function leaveToLobby(){
   if(NET.code&&!NET.isHost)sendHost({t:'leave',pid:MYID}); // free my seats on the host
   tearDownPeer();
   NET.code=null;NET.isHost=false;NET.v=0;NET.room=null;NET.busy=false;NET.localChat=[];NET.spectating=false;
-  G=null;
+  G=null;UI.undoStack=[];UI.hint=null;
   $('#roomBadge').hidden=true;
   $('#screen-game').hidden=true;
   $('#screen-lobby').hidden=false;
@@ -1040,6 +1042,7 @@ function showHistory(){
   showModal('<h2>Game history</h2>'+
     '<p class="tiny muted">Stored locally on this device only — nothing leaves your browser.</p>'+
     summary+
+    achievementsHtml(arr)+
     '<div class="histlist">'+(rows||'<p class="muted tiny" style="margin-top:10px">No games recorded yet. Play a game to see it here.</p>')+'</div>'+
     '<button class="btn ghost" id="mOK" style="margin-top:12px">Close</button>');
   $('#mOK').onclick=hideModal;
@@ -1281,6 +1284,7 @@ function renderTurnCard(){
   if(canActNow()){
     var moves=movesForCurrent();
     var suggest=(UI.hint&&UI.hint.mv===G.mv)?UI.hint:null;
+    h+=dangerHtml();
     h+='<div class="moveshead"><div class="cardhead" style="margin:0">Your moves</div><span class="tiny muted">'+moves.length+'</span></div>';
     h+='<div id="movesList" role="list" aria-label="Available moves">';
     moves.forEach(function(m,i){
@@ -1292,7 +1296,8 @@ function renderTurnCard(){
          '<span class="mvto">'+m.to+'</span></button>';
     });
     h+='</div>';
-    h+='<button id="hintBtn" class="btn ghost" style="margin-top:2px">💡 Suggest a move</button>';
+    h+='<div class="tcbtns"><button id="hintBtn" class="btn ghost">💡 Hint</button>'+
+       (canUndo()?'<button id="undoBtn" class="btn ghost">↶ Undo</button>':'')+'</div>';
   }else if(!G.winner){
     var who=G.turn===-1?seatName(0):seatName(G.turn+1);
     h+='<div class="tc-empty">Waiting for '+who+'…</div>';
@@ -1306,7 +1311,22 @@ function renderTurnCard(){
     });
   }
   var hb=$('#hintBtn');if(hb)hb.onclick=suggestMove;
+  var ub=$('#undoBtn');if(ub)ub.onclick=doUndo;
   announceTurn();
+}
+// A cheap proximity readout for the current human: how close the danger is.
+function dangerHtml(){
+  if(G.turn===-1){
+    var mind=1e9;G.dets.forEach(function(d){var dd=DIST[G.mrx.st][d.st];if(dd<mind)mind=dd;});
+    if(mind===1e9)return '';
+    var cls=mind<=2?' hot':'';
+    return '<div class="danger'+cls+'"><span class="dgn">'+mind+'</span> hop'+(mind===1?'':'s')+' to the nearest detective</div>';
+  }
+  var ps=possibleSet(G),me=G.dets[G.turn].st,best=1e9;
+  ps.forEach(function(s){var dd=DIST[me][s];if(dd<best)best=dd;});
+  if(best===1e9)return '<div class="danger">Mr. X\'s trail has gone cold</div>';
+  var close=best<=2;
+  return '<div class="danger'+(close?' hot':'')+'"><span class="dgn">'+(best===0?'0':'~'+best)+'</span> hop'+(best===1?'':'s')+' to the nearest suspect station</div>';
 }
 function announceTurn(){
   if(!G)return;
@@ -1367,6 +1387,66 @@ function debriefHtml(){
   return '<div class="cardhead" style="margin-top:12px">Match debrief</div>'+
     '<div class="debrief">'+cell(G.log.length,'Rounds played')+cell(reveals,'Reveals forced')+
     cell(blackUsed,'Black tickets used')+cell(gap,'Final gap to Mr. X')+'</div>';
+}
+
+/* ---- Undo (local games only): snapshot-based rewind to the human's last
+   decision point. Disabled online (no host authority to rewind) and in hot-seat
+   privacy games (a rewind could leak Mr. X's hidden move to a detective sharing
+   the device). A snapshot of the whole JSON-safe game object is pushed before
+   every move; undo restores the most recent one that sits on a human's turn. */
+function undoAllowed(){return !!G&&!isNet()&&!UI.privacy;}
+function pushUndo(){
+  if(!undoAllowed())return;
+  if(!UI.undoStack)UI.undoStack=[];
+  try{UI.undoStack.push(JSON.stringify(G));}catch(e){return;}
+  if(UI.undoStack.length>80)UI.undoStack.shift();
+}
+function isHumanDecision(snapStr){
+  var g;try{g=JSON.parse(snapStr);}catch(e){return false;}
+  if(g.winner||g.dblPending)return false;
+  var seat=g.turn===-1?g.seats[0]:g.seats[g.turn+1];
+  return !!(seat&&seat.kind==='human');
+}
+function canUndo(){
+  return undoAllowed()&&!UI.busy&&!!UI.undoStack&&UI.undoStack.some(isHumanDecision);
+}
+function doUndo(){
+  if(!undoAllowed()||UI.busy||!UI.undoStack)return;
+  var i=UI.undoStack.length-1;
+  while(i>=0&&!isHumanDecision(UI.undoStack[i]))i--;
+  if(i<0)return;
+  if(UI.botTimer){clearTimeout(UI.botTimer);UI.botTimer=null;}
+  try{G=JSON.parse(UI.undoStack[i]);}catch(e){return;}
+  UI.undoStack=UI.undoStack.slice(0,i);
+  UI.hint=null;UI.busy=false;
+  sfx('click');
+  persistLocalGame(G,{privacy:UI.privacy});
+  render();
+  toast('Move undone — your turn again.');
+  announce('Move undone. Your turn again.');
+}
+
+/* ---- Achievements: derived purely from the local game-history log, so they
+   need no extra tracking during play and stay in sync with what's recorded. */
+var ACHIEVEMENTS=[
+  {name:'First Collar',desc:'Win your first game.',emo:'🎉',test:function(a,s){return s.detWins+s.mrxWins>0;}},
+  {name:'Double Agent',desc:'Win as both Mr. X and the detectives.',emo:'🎭',test:function(a,s){return s.mrxWins>0&&s.detWins>0;}},
+  {name:'Dragnet',desc:'Win as the detectives in 8 rounds or fewer.',emo:'🚨',test:function(a){return a.some(function(e){return e.role==='det'&&e.result==='win'&&e.round<=8;});}},
+  {name:'Ghost of London',desc:'Win as Mr. X by surviving all 24 rounds.',emo:'👻',test:function(a){return a.some(function(e){return e.role==='mrx'&&e.result==='win'&&e.round>=MAX_ROUND;});}},
+  {name:'Table Manners',desc:'Play a game against other humans.',emo:'🧑‍🤝‍🧑',test:function(a){return a.some(function(e){return e.opponents==='human';});}},
+  {name:'Veteran',desc:'Play 10 games.',emo:'🎖️',test:function(a,s){return s.games>=10;}},
+  {name:'On a Roll',desc:'Win 3 games in a row.',emo:'🔥',test:function(a){var run=0;for(var i=0;i<a.length;i++){if(a[i].result==='win'){if(++run>=3)return true;}else run=0;}return false;}}
+];
+function achievementsHtml(arr){
+  var s=historySummary(arr);
+  var earned=ACHIEVEMENTS.map(function(A){return {A:A,got:!!A.test(arr,s)};});
+  var gotN=earned.filter(function(x){return x.got;}).length;
+  var chips=earned.map(function(x){
+    return '<div class="ach'+(x.got?' got':'')+'" title="'+escHtml(x.A.desc)+'">'+
+      '<span class="achemo">'+x.A.emo+'</span><span class="achname">'+escHtml(x.A.name)+'</span></div>';
+  }).join('');
+  return '<div class="cardhead" style="margin-top:14px">Achievements <span class="tiny muted">'+gotN+' / '+ACHIEVEMENTS.length+'</span></div>'+
+    '<div class="achgrid">'+chips+'</div>';
 }
 function boot(){
   loadSettings();
@@ -1434,7 +1514,20 @@ function boot(){
   $('#chatHeader').onclick=function(){ $('#chatPanel').classList.toggle('collapsed'); };
   $('#locateBtn').onclick=function(){sfx('click');focusCurrentTurn();};
   $('#modal').addEventListener('click',function(e){if(e.target.id==='modal'&&G&&!G.winner&&!UI.privacy)hideModal();});
-  document.addEventListener('keydown',function(e){if(e.key==='Escape'){var c=$('#chooser');if(c)c.hidden=true;}});
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){var c=$('#chooser');if(c)c.hidden=true;}
+    // In-game keyboard shortcuts (ignored while typing, under a modal, or off-game).
+    var tag=((e.target&&e.target.tagName)||'').toLowerCase();
+    if(tag==='input'||tag==='textarea'||tag==='select')return;
+    if(e.metaKey||e.ctrlKey||e.altKey)return;
+    if(!G||$('#screen-game').hidden||!$('#modal').hidden)return;
+    var k=(e.key||'').toLowerCase();
+    if(k==='h'){if(canActNow()){e.preventDefault();suggestMove();}}
+    else if(k==='u'||k==='z'){if(canUndo()){e.preventDefault();doUndo();}}
+    else if(k==='p'){var pb=$('#psBtn');if(pb&&pb.offsetParent!==null){e.preventDefault();pb.click();}}
+    else if(k==='d'){var db=$('#dblBtn');if(db&&!db.disabled&&db.offsetParent!==null){e.preventDefault();db.click();}}
+    else if(k>='1'&&k<='9'){var btns=document.querySelectorAll('#movesList .movebtn');var b=btns[(+k)-1];if(b){e.preventDefault();b.click();}}
+  });
 }
 
 /* ---------------- phone rotate-to-landscape lock ----------------

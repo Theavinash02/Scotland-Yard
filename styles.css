@@ -576,3 +576,18 @@ body.hc #L-edges path,body.hc #L-edges line{stroke-width:3px!important}
 /* Respect a user "reduce motion" preference chosen in Settings (in addition to
    the OS-level one the intro/map already honour). */
 body.reduce-motion *{animation-duration:.001s!important;transition-duration:.001s!important}
+
+/* Turn-card danger readout, undo/hint button row, and history achievements. */
+.danger{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:7px 10px;font-size:12.5px;color:var(--muted)}
+.danger .dgn{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;color:var(--ink)}
+.danger.hot{border-color:var(--tube);color:#f2b8b8}
+.danger.hot .dgn{color:var(--tube)}
+.tcbtns{display:flex;gap:8px;margin-top:2px}
+.tcbtns .btn{flex:1;margin-top:0;padding:9px 8px;font-size:14px}
+
+.achgrid{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
+.ach{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:5px 11px 5px 8px;opacity:.5;filter:grayscale(1)}
+.ach.got{opacity:1;filter:none;border-color:var(--gold)}
+.ach .achemo{font-size:15px;line-height:1}
+.ach .achname{font-size:12.5px;font-weight:600;color:var(--ink)}
+.ach:not(.got) .achname{color:var(--muted)}

@@ -26,6 +26,10 @@ This is an original fan implementation: it uses the real published station/conne
 - 📴 **Installable & offline-capable** — add it to your home screen; local and bot games keep working with no connection.
 - 🎓 **Guided tutorial** — an interactive, driver.js-powered walkthrough for first-time players.
 - 💡 **On-demand move hints** — stuck on your turn? "Suggest a move" runs the hard-bot logic on your own position and flashes the recommended move.
+- ↶ **Undo** — take back your move in solo/vs-bots games (disabled online and in hot-seat privacy games, where a rewind could leak Mr. X's hidden move).
+- ⌨️ **Keyboard shortcuts** — `1`–`9` play the nth listed move, `H` hint, `U` undo, `P` toggle possible spots, `D` double move.
+- 🏅 **Achievements** — unlock milestones (first win, win on both sides, an 8-round dragnet, a 24-round escape…) shown on the history screen.
+- 🎯 **Proximity readout** — the turn panel shows how many hops separate you from the nearest detective (as Mr. X) or the nearest suspect station (as a detective).
 - ⏱️ **Next-reveal HUD** — an always-visible countdown to the round Mr. X must next surface, so detectives can time the squeeze.
 - ⌨️ **Keyboard & screen-reader accessible** — play the whole move loop from a labeled move list with live turn/result announcements, no pinpoint tapping required.
 - ⚙️ **Settings** — sound-volume slider, bot-speed control, reduce-motion switch, and a high-contrast board, all persisted locally.
@@ -79,6 +83,7 @@ Online rooms are peer-to-peer (WebRTC via [PeerJS](https://peerjs.com)) — no b
 - **Black tickets** let Mr. X take any transport (including the Thames ferry) without revealing which one. **Double-move** cards let him take two hops in one round.
 - Tap/click a highlighted station to move; if it's reachable by more than one ticket type, a small chooser pops up. Drag to pan, scroll/pinch to zoom. Prefer the keyboard? Every legal move is also listed as a button in the **turn panel** — activate one to move.
 - Not sure what to do? Hit **💡 Suggest a move** for an AI recommendation, and watch the **next-reveal countdown** at the top of the turn panel to plan around Mr. X's forced surfacings.
+- **Keyboard shortcuts** during a game: number keys `1`–`9` play the nth move in the list, `H` for a hint, `U` (or `Z`) to undo in local games, `P` to toggle the possible-locations overlay, `D` to arm a double move. **Undo** and **Achievements** round out the extras — undo rewinds to your last decision in solo/vs-bots games; achievements track milestones on the History screen.
 - A "show possible Mr. X spots" toggle lets you see the live deduced location set (same logic the hard detective bots use).
 - New to the game? Hit **Play Tutorial** on the lobby screen for an interactive, guided first game.
 
