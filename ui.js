@@ -425,8 +425,16 @@ function onGameOver(){
   G.log.forEach(function(e,i){
     route+='<span class="tk '+e.tk+'" title="Round '+(i+1)+'">'+e.st+'</span>';
   });
-  showModal('<h2>'+(G.winner==='mrx'?'Mr. X vanished into the night':'Scotland Yard closes the net')+'</h2>'+
-    '<p>'+G.reason+'</p>'+
+  var goTitle=G.winner==='mrx'?'Mr. X vanished into the night':'Scotland Yard closes the net';
+  var goClass,goKick,goEmblem;
+  if(!iAmPlaying){goClass='neutral';goKick='Match over';goEmblem='🎬';}
+  else if(iWon){goClass='win';goKick='Victory';goEmblem='🏆';}
+  else{goClass='lose';goKick='Defeat';goEmblem='💀';}
+  showModal('<div class="goHero '+goClass+'">'+
+      '<div class="goEmblem">'+goEmblem+'</div>'+
+      '<div class="goKicker">'+goKick+'</div>'+
+      '<div class="goTitle">'+goTitle+'</div></div>'+
+    '<p style="text-align:center">'+G.reason+'</p>'+
     debriefHtml()+
     '<div class="cardhead" style="margin-top:10px">Mr. X\'s full route</div>'+
     '<div class="routelist">'+(route||'<span class="muted tiny">He never moved.</span>')+'</div>'+
