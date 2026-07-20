@@ -96,7 +96,8 @@ label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mute
    relative to this box rather than the game-state bar above it. */
 #maparea{position:relative;flex:1;min-height:0;isolation:isolate;background:
   radial-gradient(1200px 700px at 70% -10%, #1B2838 0%, var(--bg) 60%)}
-#map{position:relative;z-index:1;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#map{position:relative;z-index:1;width:100%;height:100%;display:block;touch-action:none;cursor:grab;
+  user-select:none;-webkit-user-select:none;-ms-user-select:none;-webkit-tap-highlight-color:transparent}
 #map.dragging{cursor:grabbing}
 #zoomctl{position:absolute;right:12px;bottom:14px;display:flex;flex-direction:column;gap:6px;z-index:5}
 #zoomctl button{width:38px;height:38px;border-radius:10px;background:rgba(23,33,47,.92);border:1px solid var(--line);color:var(--ink);font-size:19px}
