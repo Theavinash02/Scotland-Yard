@@ -630,3 +630,53 @@ body.theme-light .goHero.lose .goKicker{color:#B02a3a}
   .side-toggle{height:48px}
   #side{width:236px}
 }
+
+/* ==========================================================================
+   NIGHT "CHASE BOARD" map style (default). Purely additive overrides on the
+   parchment SVG, gated on body.board-night — so Day mode (the class absent)
+   leaves the original hand-drawn map byte-for-byte untouched, and switching
+   is an instant class toggle with no map rebuild. Class hooks (bg-paper,
+   e-*, st-*, map-*, r-*) are added in map.js and present in every mode.
+   ========================================================================== */
+body.board-night #maparea{background:radial-gradient(1200px 760px at 68% -12%,#14243D 0%,#070D18 66%)}
+/* board surface + texture */
+body.board-night #map .bg-paper{fill:url(#boardNightG)}
+body.board-night #map .bg-grain{display:none}
+body.board-night #map .bg-vig{fill:url(#vigNightG)}
+/* districts & parks: drop the daylight fills, keep the place-name labels */
+body.board-night #map .map-deco ellipse,
+body.board-night #map .map-deco circle{display:none}
+body.board-night #map .maplabel{fill:#5C7CA6;opacity:.5}
+body.board-night #map .parklabel{fill:#4F9070;opacity:.6}
+body.board-night #map .riverlabel{fill:#4FD8E6;opacity:.72}
+body.board-night #map .carto{fill:#93ADCF}
+/* River Thames → dark water with a cyan sheen */
+body.board-night #map .r-bank{display:none}
+body.board-night #map .r-fill{stroke:#0E2740}
+body.board-night #map .r-hi{stroke:#1C5C6E;opacity:.5}
+body.board-night #map .r-dash{stroke:#4FD8E6;opacity:.55}
+/* frame / compass / cartouche → dark recolor, dimmed */
+body.board-night #map .map-orn{opacity:.5}
+body.board-night #map .map-orn rect,
+body.board-night #map .map-orn circle{fill:#0C1A2E;stroke:#3B577B}
+body.board-night #map .map-orn path{fill:#5B7AA8}
+/* transit lines → neon bloom, each in its own colour (feGaussianBlur merge
+   preserves per-line colour, unlike a flat CSS drop-shadow) */
+body.board-night #L-edges{filter:url(#neonGlow)}
+body.board-night #map .ehalo{display:none}
+body.board-night #map .e{stroke-opacity:1}
+body.board-night #map .e-t{stroke:#FFD34D}
+body.board-night #map .e-b{stroke:#37E38C}
+body.board-night #map .e-u{stroke:#FF5A6A}
+body.board-night #map .e-f{stroke:#59E0EC}
+/* stations → dark lit nodes with glowing rings + legible numbers. The
+   [fill="#FDF9EE"] guard recolors only the light-filled rings, leaving the
+   no-fill inner ring (fill="none") transparent as intended. */
+body.board-night #L-stations{filter:drop-shadow(0 0 3px rgba(90,150,220,.35))}
+body.board-night #map .st-core{fill:#16273F;stroke:rgba(246,201,69,.5)}
+body.board-night #map .st-u,
+body.board-night #map .st-b[fill="#FDF9EE"]{fill:#0C1A2E}
+body.board-night #map .st-u{stroke:#FF5A6A}
+body.board-night #map .st-b{stroke:#37E38C}
+body.board-night #map .st-pip{fill:#16273F;stroke:#3B577B}
+body.board-night #map .st-lbl{fill:#EAF1FA;stroke:#0B1524;stroke-width:2.4px}

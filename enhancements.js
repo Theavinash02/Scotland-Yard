@@ -12,7 +12,7 @@
    same plain game object: persisted settings (volume / motion / bot speed /
    contrast), a screen-reader live region + keyboard-accessible move list, a
    "next reveal" HUD, an AI-powered move hint, and an end-of-game debrief. */
-var SETTINGS={volume:1,reduceMotion:false,botSpeed:'normal',highContrast:false,theme:'dark',music:false};
+var SETTINGS={volume:1,reduceMotion:false,botSpeed:'normal',highContrast:false,theme:'dark',music:false,board:'night'};
 function loadSettings(){
   try{
     var s=JSON.parse(localStorage.getItem('sy_settings')||'{}');
@@ -21,6 +21,7 @@ function loadSettings(){
     if(s.botSpeed==='slow'||s.botSpeed==='normal'||s.botSpeed==='fast')SETTINGS.botSpeed=s.botSpeed;
     if(typeof s.highContrast==='boolean')SETTINGS.highContrast=s.highContrast;
     if(s.theme==='dark'||s.theme==='light')SETTINGS.theme=s.theme;
+    if(s.board==='night'||s.board==='day')SETTINGS.board=s.board;
     if(typeof s.music==='boolean')SETTINGS.music=s.music;
   }catch(e){}
   applySettings();
@@ -30,6 +31,8 @@ function applySettings(){
   document.body.classList.toggle('reduce-motion',SETTINGS.reduceMotion);
   document.body.classList.toggle('hc',SETTINGS.highContrast);
   document.body.classList.toggle('theme-light',SETTINGS.theme==='light');
+  // Night is the default lit "chase" board; Day is the vintage parchment map.
+  document.body.classList.toggle('board-night',SETTINGS.board!=='day');
   if(typeof musicUpdate==='function')musicUpdate();
 }
 function masterVol(){return SETTINGS.volume;}
@@ -153,7 +156,10 @@ function showSettings(){
   var volPct=Math.round(SETTINGS.volume*100);
   var seg=function(v,label){return '<button data-speed="'+v+'" class="'+(SETTINGS.botSpeed===v?'on':'')+'">'+label+'</button>';};
   var thseg=function(v,label){return '<button data-theme="'+v+'" class="'+(SETTINGS.theme===v?'on':'')+'">'+label+'</button>';};
+  var bdseg=function(v,label){return '<button data-board="'+v+'" class="'+(SETTINGS.board===v?'on':'')+'">'+label+'</button>';};
   showModal('<h2>Settings</h2>'+
+    '<div class="setrow"><div><div class="setlbl">Board style</div><div class="setsub">Night — a lit neon chase board. Day — the vintage parchment map.</div></div>'+
+      '<div class="setseg" id="setBoard">'+bdseg('night','Night')+bdseg('day','Day')+'</div></div>'+
     '<div class="setrow"><div><div class="setlbl">Theme</div><div class="setsub">Night operations or a daytime parchment look.</div></div>'+
       '<div class="setseg" id="setTheme">'+thseg('dark','Dark')+thseg('light','Light')+'</div></div>'+
     '<div class="setrow"><div><div class="setlbl">Sound volume</div><div class="setsub">Affects all game sound effects.</div></div>'+
@@ -171,6 +177,7 @@ function showSettings(){
     b.onclick=function(){SETTINGS[key]=b.dataset[key];saveSettings();applySettings();
       Array.prototype.forEach.call($(id).querySelectorAll('button'),function(x){x.classList.toggle('on',x===b);});
       if(after)after();};});};
+  segWire('#setBoard','board');
   segWire('#setTheme','theme');
   // Bot speed writes SETTINGS.botSpeed (not a generic key), so wire it explicitly.
   Array.prototype.forEach.call($('#setSpeed').querySelectorAll('button'),function(b){
