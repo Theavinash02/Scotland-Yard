@@ -152,7 +152,6 @@ The app is split into plain `<script>`-tag modules (no bundler, loaded in this o
 | `tutorial.js` | The driver.js-powered interactive first-time tutorial. |
 | `sound.js` | Runtime Web-Audio sound effects (no audio files). |
 | `enhancements.js` | Player-facing polish: settings, keyboard/screen-reader move list, reveal HUD, hints, undo, proximity readout, ambient music, belief heatmap, achievements, and the end-game debrief. |
-| `ambience.js` | Atmospheric background visuals/sound. |
 | `ui.js` | Core game/UI state, rendering, move flow, lobby/hot-seat/online-room flow, and boot. |
 | `manifest.json`, `sw.js` | PWA scaffolding — install metadata and the offline service worker. |
 | `test/simulate.js` | Dependency-free headless harness — runs bot-vs-bot games to check engine invariants (across difficulties and game modes) and report difficulty balance. |

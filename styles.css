@@ -308,75 +308,9 @@ label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mute
   #logGrid{grid-template-columns:repeat(6,1fr)}
   .lcell .val{font-size:12px}
 }
-/* ambient sky overlay */
-#ambience{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden;mix-blend-mode:screen}
-#ambience .amb-cloud{
-  position:absolute;
-  left:0;
-  top:var(--top);
-  width:var(--w);
-  height:var(--h);
-  border-radius:999px;
-  background:
-    radial-gradient(ellipse 42% 60% at 28% 65%, rgba(255,255,255,var(--op)) 0%, rgba(255,255,255,0) 70%),
-    radial-gradient(ellipse 38% 58% at 52% 38%, rgba(255,255,255,var(--op)) 0%, rgba(255,255,255,0) 70%),
-    radial-gradient(ellipse 40% 55% at 76% 58%, rgba(255,255,255,var(--op)) 0%, rgba(255,255,255,0) 70%),
-    radial-gradient(ellipse 60% 75% at 50% 60%, rgba(112,132,158,var(--op2)) 0%, rgba(112,132,158,0) 80%);
-  filter:blur(7px) saturate(1.08);
-  transform:translate3d(-34vw,var(--y),0) scale(var(--scale));
-  animation:ambCloudDrift var(--dur) linear infinite, ambCloudPulse calc(var(--dur) * .28) ease-in-out infinite;
-  animation-delay:var(--delay);
-  will-change:transform;
-}
-@keyframes ambCloudDrift{
-  from{transform:translate3d(-34vw,var(--y),0) scale(var(--scale))}
-  to{transform:translate3d(138vw,calc(var(--y) + var(--bob)),0) scale(calc(var(--scale) * 1.03))}
-}
-@keyframes ambCloudPulse{
-  0%,100%{opacity:.92;filter:blur(7px) saturate(1.08)}
-  50%{opacity:1;filter:blur(8px) saturate(1.18)}
-}
-#ambience .amb-bird{
-  position:absolute;
-  left:0;
-  top:0;
-  transform:translate(-12vw,var(--y0)) rotate(var(--tilt)) scale(var(--scale));
-  opacity:0;
-  animation:ambBirdFly var(--dur) cubic-bezier(.45,0,.2,1) infinite;
-  animation-delay:var(--delay);
-  will-change:transform,opacity;
-}
-#ambience .amb-bird svg{display:block;filter:drop-shadow(0 2px 4px rgba(11,14,20,.35))}
-#ambience .amb-body{fill:rgba(28,35,45,.78)}
-#ambience .amb-tail{fill:rgba(20,25,32,.75)}
-#ambience .amb-beak{fill:#7F5B22}
-#ambience .amb-wing{
-  fill:none;
-  stroke:rgba(22,28,36,.78);
-  stroke-width:2.4;
-  stroke-linecap:round;
-  transform-box:fill-box;
-  transform-origin:center;
-  animation:ambWingFlap .36s ease-in-out infinite;
-}
-@keyframes ambBirdFly{
-  0%{transform:translate(-12vw,var(--y0)) rotate(calc(var(--tilt) * -1)) scale(var(--scale));opacity:0}
-  4%{opacity:.78}
-  16%{transform:translate(26vw,calc(var(--y0) - var(--arc))) rotate(calc(var(--tilt) * .35)) scale(var(--scale));opacity:.86}
-  34%{transform:translate(55vw,var(--y1)) rotate(calc(var(--tilt) * .7)) scale(var(--scale));opacity:.92}
-  52%{transform:translate(84vw,calc(var(--y2) + var(--arc))) rotate(calc(var(--tilt) * -.2)) scale(var(--scale));opacity:.9}
-  68%{opacity:.15}
-  100%{opacity:0;transform:translate(116vw,var(--y2)) rotate(calc(var(--tilt) * .8)) scale(var(--scale))}
-}
-@keyframes ambWingFlap{
-  0%,100%{transform:rotate(-8deg) scaleY(1)}
-  50%{transform:rotate(10deg) scaleY(.35)}
-}
-
 @media (prefers-reduced-motion:reduce){
   .hlring,.revtag{animation:none}
   #modalBox{animation:none}
-  #ambience .amb-cloud,#ambience .amb-bird,#ambience .amb-wing{animation:none}
 }
 
 /* room chat (online rooms only) */
