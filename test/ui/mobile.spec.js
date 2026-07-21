@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { bootToLobby, startLocal, hasHorizontalOverflow } = require('./helpers');
+const { bootToLobby, startLocal, hasHorizontalOverflow, revealPanel } = require('./helpers');
 
 // These assertions matter most on the mobile-landscape project, but are true
 // invariants on any viewport, so they run everywhere.
@@ -10,6 +10,7 @@ test('the new turn panel fits its column without clipping or page overflow', asy
     { kind: 'bot', diff: 'normal' }, { kind: 'empty' }, { kind: 'empty' }, { kind: 'empty' },
   ], { botSpeed: 'fast' });
   await page.waitForFunction(() => window.G && window.G.turn === -1);
+  await revealPanel(page);
 
   // Reveal HUD, move list, and hint button are all present and on-screen.
   await expect(page.locator('.revhud')).toBeVisible();

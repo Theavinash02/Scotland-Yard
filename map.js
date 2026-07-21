@@ -81,7 +81,10 @@ function buildMap(){
     '<pattern id="bpGrid" width="27" height="27" patternUnits="userSpaceOnUse">'+
       '<path d="M27 0H0V27" fill="none" stroke="#4FD0E6" stroke-width="0.5" opacity="0.28"/>'+
       '<path d="M13.5 0V27M0 13.5H27" fill="none" stroke="#4FD0E6" stroke-width="0.3" opacity="0.14"/></pattern>');
-  function bigRect(attrs){var r=svgEl('rect');r.setAttribute('x',-400);r.setAttribute('y',-400);r.setAttribute('width',1800);r.setAttribute('height',MAP_H+800);for(var k in attrs)r.setAttribute(k,attrs[k]);svg.appendChild(r);return r;}
+  // Oversized so the board surface (paper / night board / etc.) fills the whole
+  // viewport even when fillView() frames the map to a much wider aspect ratio —
+  // no flat "empty" margin ever shows outside the board on wide phone screens.
+  function bigRect(attrs){var r=svgEl('rect');r.setAttribute('x',-900);r.setAttribute('y',-560);r.setAttribute('width',2800);r.setAttribute('height',MAP_H+1120);for(var k in attrs)r.setAttribute(k,attrs[k]);svg.appendChild(r);return r;}
   bigRect({fill:'url(#paperG)','class':'bg-paper'});
   bigRect({fill:'url(#grain)',opacity:'0.12',style:'mix-blend-mode:multiply;pointer-events:none','class':'bg-grain'});
   // Shared realism substrate: a procedural street mesh + tiled block/light/grid
@@ -340,7 +343,23 @@ function initPanZoom(){
   svg.addEventListener('pointerup',up);svg.addEventListener('pointercancel',up);
   $('#zin').onclick=function(){zoomBy(0.8);};
   $('#zout').onclick=function(){zoomBy(1.25);};
-  $('#zfit').onclick=function(){VB={x:0,y:0,w:1000,h:MAP_H};setVB();};
+  $('#zfit').onclick=function(){fillView();};
+  // Re-frame to fill on orientation change (the main viewport-shape change on
+  // phones); a plain resize is left alone so it never fights a desktop user's pan.
+  window.addEventListener('orientationchange',function(){setTimeout(fillView,120);});
+}
+// Frame the whole station network so it stays fully visible AND the board fills
+// the viewport with no letterbox: expand the viewBox to the viewport's aspect
+// ratio around the map, so preserveAspectRatio="meet" lands edge-to-edge.
+function fillView(){
+  var a=$('#maparea');if(!a)return;
+  var r=a.getBoundingClientRect();
+  if(!r.width||!r.height){VB={x:0,y:0,w:1000,h:MAP_H};setVB();return;}
+  var arA=r.width/r.height,mapA=1000/MAP_H,vbw,vbh;
+  if(arA>=mapA){vbh=MAP_H;vbw=MAP_H*arA;}
+  else{vbw=1000;vbh=1000/arA;}
+  VB={x:(1000-vbw)/2,y:(MAP_H-vbh)/2,w:vbw,h:vbh};
+  setVB();
 }
 function zoomBy(k){
   var cx=VB.x+VB.w/2,cy=VB.y+VB.h/2;

@@ -720,6 +720,8 @@ function enterGame(){
   buildMap();
   VB={x:0,y:0,w:1000,h:MAP_H};setVB();
   render();
+  // Frame the board to fill the viewport once it's laid out (see fillView).
+  requestAnimationFrame(function(){fillView();if(window.syncSideToggle)syncSideToggle();});
 }
 function leaveToLobby(){
   if(typeof musicStop==='function')musicStop();
@@ -1233,14 +1235,39 @@ function boot(){
   $('#chatIn').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); sendChatMessage(); } });
   $('#chatHeader').onclick=function(){ $('#chatPanel').classList.toggle('collapsed'); };
   $('#locateBtn').onclick=function(){sfx('click');focusCurrentTurn();};
+  // On phones (short landscape) the panel is a slide-over drawer over a
+  // full-bleed map; on wider screens it stays docked and merely collapses.
+  function isDrawer(){return window.matchMedia('(orientation:landscape) and (max-height:600px)').matches;}
+  function syncSideToggle(){
+    var g=$('#screen-game'),t=$('#sideToggle');
+    var shown=isDrawer()?g.classList.contains('side-open'):!g.classList.contains('side-collapsed');
+    t.textContent=shown?'⟩':'⟨';
+    t.title=shown?'Hide panel':'Show panel';
+    t.setAttribute('aria-label',shown?'Hide side panel':'Show side panel');
+  }
+  window.syncSideToggle=syncSideToggle;
   $('#sideToggle').onclick=function(){
-    var collapsed=$('#screen-game').classList.toggle('side-collapsed');
-    var t=$('#sideToggle');
-    t.textContent=collapsed?'⟨':'⟩';
-    t.title=collapsed?'Show panel':'Hide panel';
-    t.setAttribute('aria-label',collapsed?'Show side panel':'Hide side panel');
+    var g=$('#screen-game');
+    if(isDrawer())g.classList.toggle('side-open');
+    else g.classList.toggle('side-collapsed');
+    syncSideToggle();
     sfx('click');
   };
+  // Tap the map (scrim) to dismiss the open drawer, capturing the tap so it
+  // doesn't also fall through to select a station.
+  document.addEventListener('pointerdown',function(e){
+    var g=$('#screen-game');
+    if(!g||g.hidden||!g.classList.contains('side-open'))return;
+    if(e.target.closest('#side')||e.target.closest('#sideToggle'))return;
+    g.classList.remove('side-open');syncSideToggle();
+    e.stopPropagation();e.preventDefault();
+  },true);
+  // Reset the drawer and re-sync the toggle when the viewport shape flips
+  // between drawer (phone) and docked (desktop) layouts.
+  window.addEventListener('orientationchange',function(){
+    var g=$('#screen-game');if(g)g.classList.remove('side-open');
+    setTimeout(syncSideToggle,140);
+  });
   $('#modal').addEventListener('click',function(e){if(e.target.id==='modal'&&G&&!G.winner&&!UI.privacy)hideModal();});
   document.addEventListener('keydown',function(e){
     if(e.key==='Escape'){var c=$('#chooser');if(c)c.hidden=true;}

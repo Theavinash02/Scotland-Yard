@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { bootToLobby, startLocal } = require('./helpers');
+const { bootToLobby, startLocal, isDrawerLayout, hasHorizontalOverflow } = require('./helpers');
 
 test('dragging to pan the map does not select the map labels', async ({ page }) => {
   await bootToLobby(page);
@@ -33,19 +33,28 @@ test('the side panel can be collapsed to give the map more room', async ({ page 
   const side = page.locator('#side');
   const mapWidth = () => page.locator('#mapwrap').evaluate((el) => el.getBoundingClientRect().width);
 
-  await expect(side).toBeVisible();
-  const widthOpen = await mapWidth();
+  if (await isDrawerLayout(page)) {
+    // Phone layout: the map is full-bleed and the panel is a slide-over drawer
+    // that starts closed. The toggle opens and closes it; the map stays full width.
+    await expect(side).toBeHidden();
+    await page.locator('#sideToggle').click();
+    await expect(side).toBeVisible();
+    expect(await hasHorizontalOverflow(page)).toBe(false);
+    await page.locator('#sideToggle').click();
+    await expect(side).toBeHidden();
+  } else {
+    // Docked layout: collapsing the panel gives the map more room.
+    await expect(side).toBeVisible();
+    const widthOpen = await mapWidth();
 
-  await page.locator('#sideToggle').click();
-  await expect(side).toBeHidden();
-  const widthCollapsed = await mapWidth();
-  expect(widthCollapsed, 'map gets wider when the panel is collapsed').toBeGreaterThan(widthOpen);
+    await page.locator('#sideToggle').click();
+    await expect(side).toBeHidden();
+    const widthCollapsed = await mapWidth();
+    expect(widthCollapsed, 'map gets wider when the panel is collapsed').toBeGreaterThan(widthOpen);
 
-  // No horizontal page overflow in the collapsed state either.
-  const overflow = await page.evaluate(() =>
-    document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
-  expect(overflow).toBe(false);
+    expect(await hasHorizontalOverflow(page)).toBe(false);
 
-  await page.locator('#sideToggle').click();
-  await expect(side).toBeVisible();
+    await page.locator('#sideToggle').click();
+    await expect(side).toBeVisible();
+  }
 });

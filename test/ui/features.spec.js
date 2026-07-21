@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { bootToLobby, startLocal, trackPageErrors } = require('./helpers');
+const { bootToLobby, startLocal, trackPageErrors, revealPanel } = require('./helpers');
 
 // Human plays Mr. X (turn -1), so the accessible move list and turn HUD are
 // available immediately without a hot-seat privacy handoff.
@@ -16,6 +16,7 @@ test('turn panel shows the reveal HUD and an accessible move list', async ({ pag
   const errors = trackPageErrors(page);
   await bootToLobby(page);
   await startAsMrX(page);
+  await revealPanel(page);
 
   await expect(page.locator('.revhud')).toBeVisible();
   await expect(page.locator('.revhud')).toContainText(/surfaces/i);
@@ -32,6 +33,7 @@ test('turn panel shows the reveal HUD and an accessible move list', async ({ pag
 test('hint suggests a legal move and committing via the list advances the turn', async ({ page }) => {
   await bootToLobby(page);
   await startAsMrX(page);
+  await revealPanel(page);
 
   await page.locator('#hintBtn').click();
   await expect(page.locator('.movebtn.suggest')).toHaveCount(1);
