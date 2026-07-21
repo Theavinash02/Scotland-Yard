@@ -45,4 +45,25 @@ async function hasHorizontalOverflow(page) {
     document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
 }
 
-module.exports = { bootToLobby, startLocal, trackPageErrors, hasHorizontalOverflow };
+// On phones (short landscape) the info panel is a slide-over drawer that starts
+// closed over a full-bleed map; on wider viewports it stays docked and visible.
+async function isDrawerLayout(page) {
+  return page.evaluate(() =>
+    matchMedia('(orientation:landscape) and (max-height:600px)').matches);
+}
+
+// Ensure the panel content (turn card, moves, actions) is on-screen regardless
+// of layout — opens the drawer first when in the phone drawer layout.
+async function revealPanel(page) {
+  if (await isDrawerLayout(page)) {
+    const open = await page.evaluate(() =>
+      document.getElementById('screen-game').classList.contains('side-open'));
+    if (!open) await page.locator('#sideToggle').click();
+    await page.waitForSelector('#screen-game.side-open');
+  }
+}
+
+module.exports = {
+  bootToLobby, startLocal, trackPageErrors, hasHorizontalOverflow,
+  isDrawerLayout, revealPanel,
+};

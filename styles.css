@@ -739,3 +739,29 @@ body.board-blueprint #map .parklabel,
 body.board-blueprint #map .carto{fill:#4FA9C0;opacity:.6}
 body.board-blueprint #map .riverlabel{fill:#7FE6F5}
 body.board-blueprint #map .map-orn path{fill:#4FA9C0}
+
+/* ==========================================================================
+   PHONES (short landscape): full-bleed map + slide-over info drawer.
+   The map fills the whole screen; the players/log/actions panel slides in
+   over it on demand instead of permanently occupying a third of the width.
+   fillView() (map.js) keeps the board itself edge-to-edge with no letterbox.
+   ========================================================================== */
+@media (orientation:landscape) and (max-height:600px){
+  /* #side leaves the flex flow (fixed), so #mapwrap fills the entire width. */
+  #side{position:fixed;top:0;right:0;height:100%;width:min(300px,84vw);max-height:none;
+    border-left:1px solid var(--line);border-top:none;
+    transform:translateX(101%);visibility:hidden;
+    transition:transform .26s cubic-bezier(.4,0,.2,1),visibility 0s .26s;
+    z-index:60;box-shadow:-20px 0 48px -14px rgba(0,0,0,.7)}
+  #screen-game.side-open #side{transform:translateX(0);visibility:visible;
+    transition:transform .26s cubic-bezier(.4,0,.2,1),visibility 0s}
+  /* dim scrim over the map while the drawer is open. pointer-events:none so it
+     never intercepts the toggle; outside-tap-to-close is handled in ui.js. */
+  #screen-game.side-open::after{content:"";position:fixed;inset:0;z-index:55;background:rgba(4,7,12,.5);pointer-events:none}
+  /* pull tab: fixed (not inside the isolated #maparea) so its z-index clears the
+     fixed scrim; larger touch target; rides the drawer's edge when open. */
+  .side-toggle{position:fixed;height:66px;width:26px;z-index:62;background:rgba(16,24,40,.94);color:var(--gold)}
+  #screen-game.side-open .side-toggle{right:min(300px,84vw)}
+  /* the docked-panel collapse rule doesn't apply in drawer mode */
+  #screen-game.side-collapsed #side{display:flex}
+}
