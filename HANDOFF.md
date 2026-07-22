@@ -3,7 +3,7 @@
 Companion to `PLAN.md` (the phased roadmap). This file is updated after every
 commit so any session/model can resume with zero context loss.
 
-_Last updated: 2026-07-22 (session 2), branch `claude/work-hhvy7e`. PRs #50–#53 merged (Phases 0–4). Map visual rework done on top._
+_Last updated: 2026-07-22 (session 3), branch `claude/work-hhvy7e`. PRs #50–#54 merged. New York full redesign done on top (see GRAPH-DESIGN.md)._
 
 ## What's done
 
@@ -66,6 +66,20 @@ _Last updated: 2026-07-22 (session 2), branch `claude/work-hhvy7e`. PRs #50–#5
   The six selectable board modes were retired for this one style. All
   deterministic (fixed seed), no SVG filters on large layers, base drawn
   once — pan/zoom stays a single viewBox write.
+- **New York full redesign: DONE** (user-requested; see `GRAPH-DESIGN.md`).
+  The graph now lives in a **mapdata registry** (`mapdata.js` + generated
+  `mapdata-ny.js`); the engine reads MAPDATA (new tuning hooks
+  dblBonus/blackBonus only — rules untouched). `tools/mapgen/newyork.js`
+  generates the 199-station NYC board (horizontal Manhattan grid, Hudson +
+  Jersey pocket top, East River + Brooklyn/Queens pockets bottom, Central
+  Park, 3 bridges, 5 ferry edges; taxi never crosses water). Tuned by
+  simulation: Agents 10/9/3 tickets, 1 sprint on NY — headline 4-agent
+  Phantom win 41.5% (normal) / 51.8% (hard), degenerate endings <2%, full
+  table in GRAPH-DESIGN.md. mapart.js is geo-driven (two named rivers,
+  ferry lanes per edge, Central Park, 14 NYC districts, bridge icons,
+  landmarks); New York is the default map, **Graywater fully playable via
+  ?map=graywater** (also `--map=` in the simulator). Tagline/cartouche
+  follow the active map.
 
 ## Verified
 

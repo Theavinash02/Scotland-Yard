@@ -1,18 +1,18 @@
-# 🕵️ Shadow Line — Hunt the Phantom Across Graywater
+# 🕵️ Shadow Line — Hunt the Phantom Across New York
 
-**SHADOW LINE** is a free, installable, browser-playable hidden-movement chase game. One player is **the Phantom**, slipping through the illustrated city of Graywater in secret; up to five **agents** have 24 rounds to run him down.
+**SHADOW LINE** is a free, installable, browser-playable hidden-movement chase game set in an illustrated night-time **New York**. One player is **the Phantom**, slipping through Manhattan, Brooklyn and beyond in secret; up to five **agents** have 24 rounds to run him down. (The original fictional **Graywater** board is still included — add `?map=graywater` to the URL.)
 
 Play solo against bots, hot-seat with friends on one device, or host/join a peer-to-peer online room — no account, no server, no install required (though you can install it).
 
 <p align="center">
-  <img src="screenshots/ingame-desktop.png" alt="In-game screenshot — the illustrated Graywater map with agents, the Phantom's travel log, and the players panel" width="820">
+  <img src="screenshots/ingame-desktop.png" alt="In-game screenshot — the illustrated New York map with agents, the Phantom's travel log, and the players panel" width="820">
 </p>
 
 ---
 
 ## ✨ Highlights
 
-- 🎨 **Hand-built illustrated map** — 199 stations, 449 taxi/bus/metro/ferry connections, rendered as SVG at runtime with parchment/night-map styling, with parchment-poster and neon night board styles.
+- 🎨 **Two illustrated boards** — a 199-station night-time **New York** (Manhattan grid, the Hudson and East River, Central Park, bridges and ferries) and the original fictional **Graywater**, both fully generated original art rendered as SVG at runtime.
 - 🤖 **Bots with real strategy** — three difficulty tiers (easy / normal / hard) for either role, from random-legal moves up to hard agents that anticipate and cover the Phantom's *next-round* escape routes as a coordinated team.
 - 🧑‍🤝‍🧑 **Three ways to play** — solo vs. bots, hot-seat on one device (with an automatic "pass the device" privacy handoff), or online rooms over WebRTC.
 - 📡 **Peer-to-peer online rooms** — share a 5-letter code, no backend server, with room chat and a live activity feed.
@@ -41,11 +41,11 @@ Play solo against bots, hot-seat with friends on one device, or host/join a peer
 <table>
 <tr>
 <td width="50%"><img src="screenshots/lobby-desktop.png" alt="Lobby screen: seat setup, transport legend, and rules"></td>
-<td width="50%"><img src="screenshots/ingame-desktop.png" alt="In-game screen: the Graywater board with the turn panel and travel log"></td>
+<td width="50%"><img src="screenshots/ingame-desktop.png" alt="In-game screen: the New York board with the turn panel and travel log"></td>
 </tr>
 <tr>
 <td align="center"><sub>Lobby — set up seats, or create/join an online room</sub></td>
-<td align="center"><sub>In-game — the Graywater board, turn panel, and travel log</sub></td>
+<td align="center"><sub>In-game — the New York board, turn panel, and travel log</sub></td>
 </tr>
 <tr>
 <td colspan="2"><img src="screenshots/ingame-mobile.png" alt="In-game screen on a phone-sized landscape viewport"></td>
@@ -69,7 +69,7 @@ Online rooms are peer-to-peer (WebRTC via [PeerJS](https://peerjs.com)) — no b
 
 - **Setup:** the lobby lets you assign each of the 6 seats (the Phantom + up to 5 agents) to a human or a bot (easy/normal/hard), or leave agent seats empty, and pick a **game mode** (Classic / Short chase / Fugitive's edge) for local games.
 - **The Phantom** moves first each round, in secret — only the ticket type he plays (taxi/bus/metro/shadow) is shown to agents. He must surface and reveal his true station on rounds **3, 8, 13, 18, and 24**.
-- **Agents** move in turn order after the Phantom, always in the open, spending real tickets (10 taxi / 8 bus / 4 metro each, standard allocation). Two agents can't share a station.
+- **Agents** move in turn order after the Phantom, always in the open, spending real tickets (per-board allocation — 10/9/3 taxi/bus/metro on New York, 10/8/4 on Graywater). Two agents can't share a station.
 - **Win conditions:** agents win instantly if one lands on the Phantom's station, or if the Phantom ever has no legal move. The Phantom wins if the round log fills to 24 without being caught, or if every agent is stuck.
 - **Shadow tickets** let the Phantom take any transport (including the river ferry) without revealing which one. **Sprint** cards let him take two hops in one round.
 - Tap/click a highlighted station to move; if it's reachable by more than one ticket type, a small chooser pops up. Drag to pan, scroll/pinch to zoom. Prefer the keyboard? Every legal move is also listed as a button in the **turn panel** — activate one to move.
@@ -117,7 +117,7 @@ Beyond color, the app now offers a **keyboard- and screen-reader-accessible way 
 
 ## 🗺️ Map data
 
-The city of Graywater is entirely original: its 199 stations and 449 taxi/bus/metro/ferry connections are produced by a deterministic, seeded map designer (`tools/mapgen/generate.js`) that lays out a planar taxi street mesh, a hub-based bus overlay, metro trunk lines, and a meandering river with a ferry line, then bakes the result into `engine.js`. The artwork — background, districts, parks, the river, station badges, and route styling — is likewise original, rendered as SVG at runtime (see `buildMap()` in `map.js`). Re-run the generator with a new seed for a different city, then re-check balance with `node test/simulate.js`.
+Both boards are entirely original and produced by deterministic, seeded map designers: **New York** by `tools/mapgen/newyork.js` (stylized Manhattan grid with the Hudson and East River, borough pockets, Central Park, three East River bridges, ferry-only Hudson crossings — design, balance targets, and the final simulated numbers are documented in `GRAPH-DESIGN.md`) and **Graywater** by `tools/mapgen/generate.js`. Each bakes its graph into the `mapdata` registry; the engine reads whichever map is active (`?map=` / localStorage `sy_map`). The artwork — land, water, districts, parks, streets, blocks, landmarks, station badges — is likewise original, generated at runtime by `mapart.js`. After regenerating a board, re-check balance with `node test/simulate.js --map=<key>`.
 
 ## 🛠️ Tech notes
 
