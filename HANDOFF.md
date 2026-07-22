@@ -59,9 +59,9 @@ feature work, not legal cleanup.
 
 ## Key files / decisions
 
-- `engine.js` — pure rules engine + **the placeholder station graph to replace**.
-- `bots.js` — graph-generic bot AI (should survive the map swap unchanged).
-- `map.js` — SVG board renderer; landmark labels/districts are Phase 1 work.
+- `engine.js` — pure rules engine + the baked Graywater graph (regenerate via `node tools/mapgen/generate.js --write`).
+- `bots.js` — graph-generic bot AI (survived the map swap unchanged).
+- `map.js` — SVG board renderer; river derived from ferry edges, original decor names.
 - `ui.js` — app state, lobby, hot-seat, PeerJS rooms, boot.
 - `enhancements.js` — settings/a11y/hints/achievements; `TK_ICON`/`TK_WORD`
   ticket naming lives here and in `engine.js` (`TK_NAME`) + `ui.js`
