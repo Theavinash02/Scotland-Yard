@@ -680,7 +680,7 @@ body.board-night #map .e-b,body.board-aerial #map .e-b{stroke:#37E38C}
 body.board-night #map .e-u,body.board-aerial #map .e-u{stroke:#FF5A6A}
 body.board-night #map .e-f,body.board-aerial #map .e-f{stroke:#59E0EC}
 
-/* ---- AERIAL: London from above at night — city lights, glowing roads, ---- */
+/* ---- AERIAL: The city from above at night — city lights, glowing roads, ---- */
 /*      dark parks and bridged river beneath the lit transit network.          */
 body.board-aerial #maparea{background:radial-gradient(1200px 820px at 60% -14%,#182B44 0%,#05090F 68%)}
 body.board-aerial #L-detail .d-lights{display:block;opacity:.85;mix-blend-mode:screen}
@@ -695,7 +695,7 @@ body.board-aerial #map .r-fill{stroke:#0A1E30}
 body.board-aerial #map .r-hi{stroke:#1E5468;opacity:.45}
 
 /* ---- ATLAS: a printed street map — road mesh, block shading, greenspaces ---- */
-/*      and a bridged Thames, over the parchment. (paper family, untouched base) */
+/*      and a bridged river, over the parchment. (paper family, untouched base) */
 body.board-atlas #L-detail .d-roads{display:block}
 body.board-atlas #map .d-roads path{stroke:#B4A585;stroke-width:.7;fill:none;opacity:.55}
 body.board-atlas #map .d-roads .road-art{stroke:#A08E64;stroke-width:1.6;opacity:.6}
