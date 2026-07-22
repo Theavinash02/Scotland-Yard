@@ -3,7 +3,7 @@
 Companion to `PLAN.md` (the phased roadmap). This file is updated after every
 commit so any session/model can resume with zero context loss.
 
-_Last updated: 2026-07-22 (session 1, later), branch `claude/work-hhvy7e`. PR #50 (Phase 0) merged._
+_Last updated: 2026-07-22 (session 2), branch `claude/work-hhvy7e`. PRs #50 (Phase 0) and #51 (Phase 1) merged._
 
 ## What's done
 
@@ -34,6 +34,17 @@ _Last updated: 2026-07-22 (session 1, later), branch `claude/work-hhvy7e`. PR #5
   magnifier-and-blip on midnight navy), header logo restyled away from the
   roundel, README screenshots regenerated from the new board, service-worker
   cache bumped to sy-v10.
+- **Phase 2 — hot-seat/tutorial/demo verification: DONE.** Headless playthrough
+  confirmed the handoff (both directions), full bot games to the debrief,
+  history/replay, and the demo are all clean on the Graywater board; added
+  `test/ui/hotseat.spec.js` covering the privacy handoff (26 UI tests now).
+- **Phase 3 — online resilience: DONE.** Clients auto-rejoin a lost host
+  (4 tries over ~10s, then a Try again / Back to lobby modal); deliberate
+  exits are flagged so teardown close events are ignored; the host converts
+  a seat abandoned mid-game to a hard bot after a ~75s grace period
+  (cancelled if the same pid re-hellos), so matches can't stall forever.
+  Both flows verified headless against a stubbed PeerJS. The host lobby now
+  states the room lives in the host tab.
 
 ## Verified
 
@@ -42,17 +53,13 @@ _Last updated: 2026-07-22 (session 1, later), branch `claude/work-hhvy7e`. PR #5
 
 ## What's NOT done yet (in phase order — see PLAN.md for detail)
 
-1. Phase 2 (next) — hot-seat pass-and-play polish: verify the handoff flow,
-   tutorial, and demo against the new Graywater board; optional per-seat
-   naming. Mostly verification + small fixes.
-2. Optional Phase 1 follow-ups (art polish, not blockers): tune the night
-   board's river prominence, consider more landmark art, iterate the map seed
-   if a nicer layout is wanted (regenerate + rebalance in one command).
-3. Phase 3 — PeerJS hardening (host migration/reconnect UX).
-4. Phase 4 — Firebase Auth (Google) + Firestore sync (greenfield — **no
+1. Phase 4 (next) — Firebase Auth (Google) + Firestore sync (greenfield — **no
    Firebase exists in the repo**, despite the original brief saying so).
-5. Phase 5 — ads (AdSense web / AdMob native) + remove-ads IAP + entitlement.
-6. Phase 6 — PWA audit, Capacitor Android/iOS, STORE-CHECKLIST.md.
+2. Phase 5 — ads (AdSense web / AdMob native) + remove-ads IAP + entitlement.
+3. Phase 6 — PWA audit, Capacitor Android/iOS, STORE-CHECKLIST.md.
+4. Optional polish backlog: night-board river prominence, more landmark art,
+   iterate the map seed if a nicer layout is wanted, live-network smoke test
+   of the new rejoin/takeover flows with two real browsers.
 
 All shipped IP is now original (name, map, art, icons); what remains is
 feature work, not legal cleanup.
@@ -83,10 +90,14 @@ feature work, not legal cleanup.
 
 ## NEXT SESSION PROMPT (paste to resume)
 
-> Read `PLAN.md` and `HANDOFF.md` in the repo root. Phases 0 and 1 are done
-> and merged: the game is SHADOW LINE with a fully original generated
-> Graywater board, icons, and screenshots. Start **Phase 2 (hot-seat polish)**
-> — play through the tutorial, demo, and hot-seat handoff on the new board
-> and fix any rough edges — then continue to **Phase 3 (PeerJS hardening)**
-> per PLAN.md. Work in small commits, keep `npm run test:all` green, and
-> update `HANDOFF.md` after every commit.
+> Read `PLAN.md` and `HANDOFF.md` in the repo root. Phases 0–3 are done and
+> merged (original SHADOW LINE brand + Graywater board, hot-seat verified,
+> online auto-rejoin + bot takeover of abandoned seats). Restart the branch
+> from main (`git fetch origin main && git checkout -B claude/work-hhvy7e
+> origin/main`), then start **Phase 4: Firebase** — add optional Google
+> sign-in (Firebase Auth) + Firestore sync of profile/history/achievements
+> and an `entitlements.noAds` flag, with placeholder config in a documented
+> `firebase-config.js`; the game must keep working logged-out/offline.
+> Work in small commits, keep `npm run test:all` green, update `HANDOFF.md`
+> after every commit, and open a draft PR when pushing (the user has
+> authorized merging once CI is green).
