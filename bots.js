@@ -1,19 +1,19 @@
 // ---------------- bots ----------------
 // Three difficulty tiers, for both roles:
 //   easy   — picks a random legal move.
-//   normal — a solid single-piece heuristic: detectives close on the deduced
-//            possible-location set; Mr. X keeps his distance from the detectives.
-//   hard   — anticipation + coordination: detectives cover the whole set of
-//            stations Mr. X could reach *next* round (a smart fugitive dodges the
+//   normal — a solid single-piece heuristic: agents close on the deduced
+//            possible-location set; the Phantom keeps his distance from the agents.
+//   hard   — anticipation + coordination: agents cover the whole set of
+//            stations the Phantom could reach *next* round (a smart fugitive dodges the
 //            single likeliest spot, so uniform containment beats chasing it),
-//            splitting the work so no two chase the same station; Mr. X reads two
-//            moves deep and spends double-moves to break contact.
+//            splitting the work so no two chase the same station; the Phantom reads two
+//            moves deep and spends sprints to break contact.
 //
 // All of this is pure logic over engine.js globals (NBRS, DIST, DEG, REVEALS,
 // MRX_STARTS, possibleSet, detMoves, mrxMoves, rnd) — no DOM access — so it can
 // be headlessly simulated (see the README's testing notes).
 
-// ---- detectives ----
+// ---- agents ----
 function normalDetPick(g,i,moves){
   var ps=Array.from(possibleSet(g));if(!ps.length)ps=MRX_STARTS.slice();
   var others=[];g.dets.forEach(function(d,j){if(j!==i)others.push(d.st);});
@@ -32,23 +32,23 @@ function normalDetPick(g,i,moves){
   return best;
 }
 
-// Hard detectives think one round ahead: they cover the set of stations Mr. X
+// Hard agents think one round ahead: they cover the set of stations the Phantom
 // could reach *next* round rather than where he might be now, since he has
-// already moved this turn. Each detective adds value only where it can reach a
+// already moved this turn. Each agent adds value only where it can reach a
 // suspect sooner than any teammate already can (a nearest-teammate baseline), so
 // the team fans out to cover different regions instead of clumping, while still
 // pouncing on any station he could occupy right now.
 function hardDetPick(g,i,moves){
   var now=Array.from(possibleSet(g));if(!now.length)now=MRX_STARTS.slice();
   var onNow={};now.forEach(function(n){onNow[n]=1;});
-  // The stations Mr. X could reach *next* round (any non-ferry ticket). Landing on
+  // The stations the Phantom could reach *next* round (any non-ferry ticket). Landing on
   // a current suspect can catch him now; but since he already moved this round,
   // the team should mostly be positioning to cover where he'll be next round.
   var nextSet={};now.forEach(function(s){NBRS[s].forEach(function(e){if(e.t!=='f')nextSet[e.to]=1;});});
   g.dets.forEach(function(d){delete nextSet[d.st];});
   var future=Object.keys(nextSet).map(Number);if(!future.length)future=now.slice();
   var otherPos=[];g.dets.forEach(function(d,j){if(j!==i)otherPos.push(d.st);});
-  // Nearest *other* detective to each future station — I add value only where I beat it.
+  // Nearest *other* agent to each future station — I add value only where I beat it.
   var bo=future.map(function(node){
     var b=1e9;otherPos.forEach(function(o){var dd=DIST[o][node];if(dd<b)b=dd;});return b;
   });
@@ -61,7 +61,7 @@ function hardDetPick(g,i,moves){
       if(bo[k]-d>0)gain+=(bo[k]-d); // marginal coverage of the next-round escape set
       if(d<=1)adj++;                // I'll be on/next-to this escape station
     }
-    // Cover the whole next-round escape set (a smart Mr. X evades the *likely* spot,
+    // Cover the whole next-round escape set (a smart the Phantom evades the *likely* spot,
     // so uniform containment beats chasing probability mass), grabbing the stations
     // no teammate is near, and close the distance so nobody idles.
     var s=1.2*gain-1.8*mind+0.5*adj;
@@ -82,7 +82,7 @@ function botDetPick(g,i,diff){
   return hardDetPick(g,i,moves);
 }
 
-// ---- Mr. X ----
+// ---- the Phantom ----
 function psAfter(g,tk){
   var round=g.log.length+1;
   if(gReveals(g).indexOf(round)>=0)return 1;
@@ -100,7 +100,7 @@ function scoreMrx(g,m,hard){
   if(mind===0)return -1e9;
   var s=3*mind+0.4*sum/g.nd+0.25*DEG[m.to]+0.6*Math.log(1+psAfter(g,m.tk));
   if(mind===1)s-=6;
-  if(hard&&mind===2)s-=1.2; // hard Mr. X also shies from two-away nets, not just adjacency
+  if(hard&&mind===2)s-=1.2; // hard the Phantom also shies from two-away nets, not just adjacency
   if(m.tk==='x'){
     var ferryOnly=!NBRS[g.mrx.st].some(function(e){return e.to===m.to&&e.t!=='f';});
     var justRevealed=g.log.length>0&&g.log[g.log.length-1].rv;
@@ -114,7 +114,7 @@ function botMrxPick(g,diff){
   var hard=diff==='hard',best=null,bs=-1e9;
   moves.forEach(function(m){var s=scoreMrx(g,m,hard)+Math.random()*0.2;if(s>bs){bs=s;best=m;}});
   var mind=1e9;g.dets.forEach(function(d){var dd=DIST[best.to][d.st];if(dd<mind)mind=dd;});
-  // Only hard Mr. X spends double-move cards, and only to break contact when cornered.
+  // Only hard the Phantom spends sprint cards, and only to break contact when cornered.
   var useDbl=hard&&g.dblPending===0&&g.mrx.dbl>0&&g.log.length<gMaxRound(g)-1&&mind<=1;
   return {move:best,dbl:useDbl};
 }

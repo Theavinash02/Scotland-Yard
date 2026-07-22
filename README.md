@@ -1,24 +1,24 @@
-# 🕵️ Scotland Yard — Night Chase Across London
+# 🕵️ Shadow Line — Hunt the Phantom Across Graywater
 
-A free, installable, browser-playable adaptation of the classic hidden-movement board game **Scotland Yard**. One player is **Mr. X**, slipping through an illustrated 199-station London map in secret; up to five **detectives** have 24 rounds to run him down.
+**SHADOW LINE** is a free, installable, browser-playable hidden-movement chase game. One player is **the Phantom**, slipping through the illustrated city of Graywater in secret; up to five **agents** have 24 rounds to run him down.
 
 Play solo against bots, hot-seat with friends on one device, or host/join a peer-to-peer online room — no account, no server, no install required (though you can install it).
 
-This is an original fan implementation: it uses the real published station/connection data and station numbering, but the map artwork, UI, and code are all original. It does not reproduce the official Ravensburger board art.
+> ⚠️ **Not yet release-ready:** the current board is still a placeholder station graph derived from a published dataset. It is being replaced with a fully original map (see `PLAN.md`, Phase 1) before any store/public release. All names, artwork, UI, and code are original.
 
 <p align="center">
-  <img src="screenshots/ingame-desktop.png" alt="In-game screenshot — the illustrated London map with detectives, Mr. X's travel log, and the players panel" width="820">
+  <img src="screenshots/ingame-desktop.png" alt="In-game screenshot — the illustrated Graywater map with agents, the Phantom's travel log, and the players panel" width="820">
 </p>
 
 ---
 
 ## ✨ Highlights
 
-- 🎨 **Hand-built illustrated map** — 199 stations, 467 taxi/bus/underground/ferry connections, rendered as SVG at runtime with parchment/night-map styling, not a scan of the real board.
-- 🤖 **Bots with real strategy** — three difficulty tiers (easy / normal / hard) for either role, from random-legal moves up to hard detectives that anticipate and cover Mr. X's *next-round* escape routes as a coordinated team.
+- 🎨 **Hand-built illustrated map** — 199 stations, 467 taxi/bus/metro/ferry connections, rendered as SVG at runtime with parchment/night-map styling, not a scan of the real board.
+- 🤖 **Bots with real strategy** — three difficulty tiers (easy / normal / hard) for either role, from random-legal moves up to hard agents that anticipate and cover the Phantom's *next-round* escape routes as a coordinated team.
 - 🧑‍🤝‍🧑 **Three ways to play** — solo vs. bots, hot-seat on one device (with an automatic "pass the device" privacy handoff), or online rooms over WebRTC.
 - 📡 **Peer-to-peer online rooms** — share a 5-letter code, no backend server, with room chat and a live activity feed.
-- 👁️ **Spectator mode** — watch a live online room without occupying a seat or seeing anything a detective couldn't.
+- 👁️ **Spectator mode** — watch a live online room without occupying a seat or seeing anything an agent couldn't.
 - 💾 **Resume where you left off** — refreshing mid-game (local or online) doesn't lose your progress.
 - 📜 **Game history & replay** — every finished game is logged locally with a win/loss summary, a step-through move replay, and a copyable text recap.
 - 🏆 **Shared room stats** — everyone in an online room sees the same list of recent results for that room.
@@ -26,16 +26,16 @@ This is an original fan implementation: it uses the real published station/conne
 - 📴 **Installable & offline-capable** — add it to your home screen; local and bot games keep working with no connection.
 - 🎓 **Guided tutorial** — an interactive, driver.js-powered walkthrough for first-time players.
 - 💡 **On-demand move hints** — stuck on your turn? "Suggest a move" runs the hard-bot logic on your own position and flashes the recommended move.
-- ↶ **Undo** — take back your move in solo/vs-bots games (disabled online and in hot-seat privacy games, where a rewind could leak Mr. X's hidden move).
-- ⌨️ **Keyboard shortcuts** — `1`–`9` play the nth listed move, `H` hint, `U` undo, `P` toggle possible spots, `D` double move.
+- ↶ **Undo** — take back your move in solo/vs-bots games (disabled online and in hot-seat privacy games, where a rewind could leak the Phantom's hidden move).
+- ⌨️ **Keyboard shortcuts** — `1`–`9` play the nth listed move, `H` hint, `U` undo, `P` toggle possible spots, `D` sprint.
 - 🏅 **Achievements** — unlock milestones (first win, win on both sides, an 8-round dragnet, a 24-round escape…) shown on the history screen.
-- 🎯 **Proximity readout** — the turn panel shows how many hops separate you from the nearest detective (as Mr. X) or the nearest suspect station (as a detective).
-- ⏱️ **Next-reveal HUD** — an always-visible countdown to the round Mr. X must next surface, so detectives can time the squeeze.
+- 🎯 **Proximity readout** — the turn panel shows how many hops separate you from the nearest agent (as the Phantom) or the nearest suspect station (as an agent).
+- ⏱️ **Next-reveal HUD** — an always-visible countdown to the round the Phantom must next surface, so agents can time the squeeze.
 - ⌨️ **Keyboard & screen-reader accessible** — play the whole move loop from a labeled move list with live turn/result announcements, no pinpoint tapping required.
 - ⚙️ **Settings** — light/dark theme, sound-volume slider, opt-in ambient music, bot-speed control, reduce-motion switch, and a high-contrast board, all persisted locally.
-- 🔥 **Belief heatmap** — the "possible Mr. X spots" overlay is weighted: brighter, larger halos mark the stations his ticket trail makes most likely.
+- 🔥 **Belief heatmap** — the "possible Phantom spots" overlay is weighted: brighter, larger halos mark the stations his ticket trail makes most likely.
 - 📊 **Results timeline** — the history screen charts your recent wins/losses (by role) as a compact inline-SVG strip.
-- 🎲 **Game modes** — pick a rule preset for local games: **Classic** (24 rounds, five reveals), **Short chase** (a brisk 12-round game), or **Fugitive's edge** (only three reveals, with extra black tickets and double-moves).
+- 🎲 **Game modes** — pick a rule preset for local games: **Classic** (24 rounds, five reveals), **Short chase** (a brisk 12-round game), or **Fugitive's edge** (only three reveals, with extra shadow tickets and sprints).
 - 🔊 **Synthesized sound** — every effect is generated at runtime with the Web Audio API, no audio files.
 
 ## 📸 Screenshots
@@ -79,53 +79,53 @@ Online rooms are peer-to-peer (WebRTC via [PeerJS](https://peerjs.com)) — no b
 
 ## 🎮 How to play
 
-- **Setup:** the lobby lets you assign each of the 6 seats (Mr. X + up to 5 detectives) to a human or a bot (easy/normal/hard), or leave detective seats empty, and pick a **game mode** (Classic / Short chase / Fugitive's edge) for local games.
-- **Mr. X** moves first each round, in secret — only the ticket type he plays (taxi/bus/underground/black) is shown to detectives. He must surface and reveal his true station on rounds **3, 8, 13, 18, and 24**.
-- **Detectives** move in turn order after Mr. X, always in the open, spending real tickets (10 taxi / 8 bus / 4 underground each, standard allocation). Two detectives can't share a station.
-- **Win conditions:** detectives win instantly if one lands on Mr. X's station, or if Mr. X ever has no legal move. Mr. X wins if the round log fills to 24 without being caught, or if every detective is stuck.
-- **Black tickets** let Mr. X take any transport (including the Thames ferry) without revealing which one. **Double-move** cards let him take two hops in one round.
+- **Setup:** the lobby lets you assign each of the 6 seats (the Phantom + up to 5 agents) to a human or a bot (easy/normal/hard), or leave agent seats empty, and pick a **game mode** (Classic / Short chase / Fugitive's edge) for local games.
+- **The Phantom** moves first each round, in secret — only the ticket type he plays (taxi/bus/metro/shadow) is shown to agents. He must surface and reveal his true station on rounds **3, 8, 13, 18, and 24**.
+- **Agents** move in turn order after the Phantom, always in the open, spending real tickets (10 taxi / 8 bus / 4 metro each, standard allocation). Two agents can't share a station.
+- **Win conditions:** agents win instantly if one lands on the Phantom's station, or if the Phantom ever has no legal move. The Phantom wins if the round log fills to 24 without being caught, or if every agent is stuck.
+- **Shadow tickets** let the Phantom take any transport (including the river ferry) without revealing which one. **Sprint** cards let him take two hops in one round.
 - Tap/click a highlighted station to move; if it's reachable by more than one ticket type, a small chooser pops up. Drag to pan, scroll/pinch to zoom. Prefer the keyboard? Every legal move is also listed as a button in the **turn panel** — activate one to move.
-- Not sure what to do? Hit **💡 Suggest a move** for an AI recommendation, and watch the **next-reveal countdown** at the top of the turn panel to plan around Mr. X's forced surfacings.
-- **Keyboard shortcuts** during a game: number keys `1`–`9` play the nth move in the list, `H` for a hint, `U` (or `Z`) to undo in local games, `P` to toggle the possible-locations overlay, `D` to arm a double move. **Undo** and **Achievements** round out the extras — undo rewinds to your last decision in solo/vs-bots games; achievements track milestones on the History screen.
-- A "show possible Mr. X spots" toggle lets you see the live deduced location set, drawn as a **belief heatmap** — brighter/larger halos are the stations his ticket trail makes most likely.
+- Not sure what to do? Hit **💡 Suggest a move** for an AI recommendation, and watch the **next-reveal countdown** at the top of the turn panel to plan around the Phantom's forced surfacings.
+- **Keyboard shortcuts** during a game: number keys `1`–`9` play the nth move in the list, `H` for a hint, `U` (or `Z`) to undo in local games, `P` to toggle the possible-locations overlay, `D` to arm a sprint. **Undo** and **Achievements** round out the extras — undo rewinds to your last decision in solo/vs-bots games; achievements track milestones on the History screen.
+- A "show possible Phantom spots" toggle lets you see the live deduced location set, drawn as a **belief heatmap** — brighter/larger halos are the stations his ticket trail makes most likely.
 - New to the game? Hit **Play Tutorial** on the lobby screen for an interactive, guided first game.
 
 ## 🤖 Bots
 
 Three difficulty tiers, for either role, so the challenge ramps smoothly from a first game to an expert one:
 
-- **Easy:** picks a random legal move (Mr. X avoids spending black tickets unless forced).
-- **Normal:** a solid single-piece heuristic — detectives track Mr. X's possible-location set from ticket types and reveal rounds and close on it while spreading across high-connectivity junctions; Mr. X keeps his distance from the nearest detective, avoids dead ends, and uses black tickets when a move is ferry-only.
+- **Easy:** picks a random legal move (the Phantom avoids spending shadow tickets unless forced).
+- **Normal:** a solid single-piece heuristic — agents track the Phantom's possible-location set from ticket types and reveal rounds and close on it while spreading across high-connectivity junctions; the Phantom keeps his distance from the nearest agent, avoids dead ends, and uses shadow tickets when a move is ferry-only.
 - **Hard:** adds anticipation and coordination on top of that.
-  - *Detectives* cover the whole set of stations Mr. X could reach **next** round, not just where he is now — because a skilled fugitive dodges the single likeliest spot, uniform containment beats chasing it. They split the work through a nearest-teammate baseline (each covers the suspects no one else is near) so they fan out instead of clumping, and still pounce on any direct catch.
-  - *Mr. X* reads two moves deep — shying away from stations that are one *or* two hops from a detective — and spends a double-move to break contact when cornered.
+  - *Agents* cover the whole set of stations the Phantom could reach **next** round, not just where he is now — because a skilled fugitive dodges the single likeliest spot, uniform containment beats chasing it. They split the work through a nearest-teammate baseline (each covers the suspects no one else is near) so they fan out instead of clumping, and still pounce on any direct catch.
+  - *the Phantom* reads two moves deep — shying away from stations that are one *or* two hops from an agent — and spends a sprint to break contact when cornered.
 
-The hard detectives measurably out-perform the previous logic (about +4–5 percentage points of win rate at every detective count in headless simulation), and both difficulty ladders are monotonic — see the [testing](#-testing-so-far) section for the reproducible numbers.
+The hard agents measurably out-perform the previous logic (about +4–5 percentage points of win rate at every agent count in headless simulation), and both difficulty ladders are monotonic — see the [testing](#-testing-so-far) section for the reproducible numbers.
 
 ## 🧑‍🤝‍🧑 Multiplayer
 
-- **Hot-seat:** multiple humans on one device. If any human plays a detective while a human also plays Mr. X, the app blanks Mr. X's position between turns and prompts a "pass the device" handoff so detectives can't see it.
+- **Hot-seat:** multiple humans on one device. If any human plays an agent while a human also plays the Phantom, the app blanks the Phantom's position between turns and prompts a "pass the device" handoff so agents can't see it.
 - **Online rooms:** the host creates a 5-letter room code; rooms are peer-to-peer over WebRTC (PeerJS), host-authoritative, with no backend server at all — the host's browser tab *is* the room. Clients connect directly, browser to browser. Any seat left "open" when the host starts becomes a hard bot.
   - **Room chat** with join/leave system notices and a live cross-player activity feed.
-  - **Spectator join:** watch a room live without claiming a seat — you see exactly what a detective would see (Mr. X hidden except on reveal rounds), and every move/ticket-chooser affordance is inert for you.
+  - **Spectator join:** watch a room live without claiming a seat — you see exactly what an agent would see (the Phantom hidden except on reveal rounds), and every move/ticket-chooser affordance is inert for you.
   - **Room history:** everyone connected to a room sees the same list of that room's recent results. This is visible to anyone with the room code — same trust model as the rest of online play, not private.
   - **Resume:** if your tab refreshes mid-game, the app remembers your room/identity and tries to reconnect — this only works if the host (or, for the host itself, its connection) is still reachable, since there's no server to fall back on.
 
 ## 💾 Persistence, history & replay
 
-- **Mid-game resume:** local, solo-vs-bots, and online games all persist to your browser's local storage after every move. Reload the page and you'll be offered "Resume game?" instead of losing progress. Hot-seat privacy is preserved — Mr. X's position never leaks on a resume.
+- **Mid-game resume:** local, solo-vs-bots, and online games all persist to your browser's local storage after every move. Reload the page and you'll be offered "Resume game?" instead of losing progress. Hot-seat privacy is preserved — the Phantom's position never leaks on a resume.
 - **Game history:** every finished game you played in is recorded locally (date, role, result, round, bots vs. humans), with a simple win-rate summary by role. Nothing leaves your browser.
-- **Replay:** open any past game's move-by-move replay — step forward/back or jump to any move — and copy a plain-text recap to share. Mr. X's hidden moves stay hidden in the replay unless they were actually revealed that round.
+- **Replay:** open any past game's move-by-move replay — step forward/back or jump to any move — and copy a plain-text recap to share. The Phantom's hidden moves stay hidden in the replay unless they were actually revealed that round.
 
 ## 🌈 Accessibility
 
-Transport lines carry a distinct **stroke pattern** in addition to their color — taxi solid, bus dashed, underground dash-dot, Thames ferry dotted — plus a legend showing pattern + color + label for each. This keeps the map readable under red-green colorblindness (the hardest case: bus/green vs. underground/red) without changing the colors players already know.
+Transport lines carry a distinct **stroke pattern** in addition to their color — taxi solid, bus dashed, metro dash-dot, river ferry dotted — plus a legend showing pattern + color + label for each. This keeps the map readable under red-green colorblindness (the hardest case: bus/green vs. metro/red) without changing the colors players already know.
 
 Beyond color, the app now offers a **keyboard- and screen-reader-accessible way to play**: on your turn, every legal move is listed as a labeled button ("Move to station 45 by Taxi") in the turn panel, so you can move without hitting a pinpoint target on the SVG map. A polite `aria-live` region announces whose turn it is, how many moves are available, hints, and the final result; icon-only controls carry `aria-label`s. **Settings** (⚙ in the header) add a **light/dark theme**, a **reduce-motion** switch, and a **high-contrast board** option (bolder station numbers and route strokes) alongside a sound-volume slider, an opt-in ambient-music toggle, and a bot-speed control.
 
 ## 🗺️ Map data
 
-Station positions and the 467 taxi/bus/underground/ferry connections come from a published open-source dataset matching the official station numbering (1–199). The map artwork itself — the illustrated parchment background, districts, parks, the Thames, station badges, and route styling — is original, built as an SVG rendered from that coordinate/connection data at runtime (see `buildMap()` in `map.js`).
+Station positions and the 467 taxi/bus/metro/ferry connections come from a published open-source dataset matching the official station numbering (1–199). The map artwork itself — the illustrated parchment background, districts, parks, the Thames, station badges, and route styling — is original, built as an SVG rendered from that coordinate/connection data at runtime (see `buildMap()` in `map.js`).
 
 ## 🛠️ Tech notes
 
@@ -145,7 +145,7 @@ The app is split into plain `<script>`-tag modules (no bundler, loaded in this o
 | `index.html` | Page layout/markup only. |
 | `styles.css` | All styling. |
 | `engine.js` | The station graph (positions/connections), distances, and the pure-function rules engine (`newGame`, `applyMrx`, `applyDet`, `possibleSet`, move generation). No DOM access. |
-| `bots.js` | The easy/hard bot pickers for Mr. X and the detectives, built on top of `engine.js`. No DOM access. |
+| `bots.js` | The easy/hard bot pickers for the Phantom and the agents, built on top of `engine.js`. No DOM access. |
 | `map.js` | SVG map construction, pan/zoom, and vehicle movement animation. |
 | `history.js` | Local (`localStorage`) per-device game history and room-wide shared-stats helpers. |
 | `persistence.js` | Mid-game save/resume (one local save slot, for both local and online games). |
@@ -163,7 +163,7 @@ The app is split into plain `<script>`-tag modules (no bundler, loaded in this o
 
 - **Online rooms are peer-to-peer with no backend.** The host's browser tab is the room — if it closes and doesn't come back, the room is gone for everyone still in it. Resume can reconnect a dropped tab, but only while the other side is still reachable.
 - **Anyone with the room code can join, spectate, or read that room's shared history** — there's no server-side authority. Treat online rooms as "good enough for friends," not cheat-proof.
-- **Mr. X's non-black ticket supply is treated as unlimited** in this digital version, rather than being recycled from tickets detectives spend (the tabletop mechanic). In practice the physical version almost never runs Mr. X out of taxi/bus/underground tickets either, so this shouldn't change how a game plays out, but it's a deliberate simplification worth knowing about.
+- **The Phantom's non-shadow ticket supply is treated as unlimited** in this digital version, rather than being recycled from tickets agents spend (the tabletop mechanic). In practice the physical version almost never runs the Phantom out of taxi/bus/metro tickets either, so this shouldn't change how a game plays out, but it's a deliberate simplification worth knowing about.
 - **Persistence/history/replay are per-device, local-storage only** — nothing syncs across devices or browsers, and clearing site data clears them.
 - Accessibility support covers the core move loop — a keyboard/screen-reader move list, live turn/result announcements, labeled controls, a reduce-motion switch, and a high-contrast board — but is not a full audit. Panning/zooming the SVG map is still pointer/touch only (you can move via the accessible list without it), and the tutorial/replay flows haven't been screen-reader tested.
 
@@ -171,7 +171,7 @@ The app is split into plain `<script>`-tag modules (no bundler, loaded in this o
 
 Two automated test layers ship with the repo and run in CI on every push/PR (see `.github/workflows/ci.yml`):
 
-- **Rules engine & bots** — a dependency-free headless harness, **`npm run test:sim`** (`node test/simulate.js`), plays thousands of full bot-vs-bot games across every difficulty / detective-count / game-mode combination. It asserts the engine invariants after every move (win conditions, ticket accounting, no two detectives on a station, the deduced possible-location set always contains Mr. X's true station, and each variant's round limit and reveal schedule), then prints a balance report of win rates by role and difficulty. `node test/simulate.js --balance 3000` runs a higher-confidence balance sweep.
+- **Rules engine & bots** — a dependency-free headless harness, **`npm run test:sim`** (`node test/simulate.js`), plays thousands of full bot-vs-bot games across every difficulty / agent-count / game-mode combination. It asserts the engine invariants after every move (win conditions, ticket accounting, no two agents on a station, the deduced possible-location set always contains the Phantom's true station, and each variant's round limit and reveal schedule), then prints a balance report of win rates by role and difficulty. `node test/simulate.js --balance 3000` runs a higher-confidence balance sweep.
 - **UI** — a [Playwright](https://playwright.dev) suite, **`npm run test:ui`** (`test/ui/*.spec.js`), drives the real app in a headless browser across **desktop and mobile-landscape** viewports: boot → lobby → start game, the full map rendering, the accessible move list / hint / reveal HUD, the belief heatmap, settings apply + persist, achievements and the results timeline, the game-mode picker, and that the page never scrolls horizontally.
 
 `npm run test:all` runs both. None of this is a substitute for real playtesting — bug reports welcome.

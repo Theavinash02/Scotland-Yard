@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * Headless simulation & correctness harness for the Scotland Yard rules engine
+ * Headless simulation & correctness harness for the Shadow Line rules engine
  * and bots. No dependencies, no build step — just `node test/simulate.js`.
  *
  * The browser code is plain <script>-tag globals (no module system), so we load
@@ -10,7 +10,7 @@
  * It does two things:
  *   1. Correctness — plays thousands of games across every difficulty pairing and
  *      asserts the engine invariants after every move (the deduced possible-set
- *      always contains Mr. X's true station, no two detectives share a station,
+ *      always contains the Phantom's true station, no two agents share a station,
  *      no negative ticket/resource counts, every game terminates).
  *   2. Balance — reports win rates so difficulty tuning stays honest: the ladder
  *      should be monotonic (easy < normal < hard) for each role.
@@ -89,9 +89,9 @@ function correctness(ctx, N) {
       if (g.winner) return;
       if (!possibleSet(g).has(g.mrx.st)) fail(`possible-set missing true station ${g.mrx.st} (game ${t})`);
       const occ = {};
-      g.dets.forEach((d) => { if (occ[d.st]) fail(`two detectives on station ${d.st} (game ${t})`); occ[d.st] = 1; });
-      g.dets.forEach((d) => { if (d.t < 0 || d.b < 0 || d.u < 0) fail(`negative detective ticket (game ${t})`); });
-      if (g.mrx.black < 0 || g.mrx.dbl < 0) fail(`negative Mr. X resource (game ${t})`);
+      g.dets.forEach((d) => { if (occ[d.st]) fail(`two agents on station ${d.st} (game ${t})`); occ[d.st] = 1; });
+      g.dets.forEach((d) => { if (d.t < 0 || d.b < 0 || d.u < 0) fail(`negative agent ticket (game ${t})`); });
+      if (g.mrx.black < 0 || g.mrx.dbl < 0) fail(`negative the Phantom resource (game ${t})`);
     }, variant);
     games++;
     if (!g.winner) fail(`game ${t} did not terminate`);
@@ -124,15 +124,15 @@ function main() {
   const N = balanceOnly ? numAt('--balance', 2000) : 600;
   const pct = (n, d) => (100 * n / d).toFixed(1).padStart(5) + '%';
   console.log(`Balance report (${N} games per cell):`);
-  console.log('  Detective win %, vs a fixed NORMAL Mr. X — should rise easy → normal → hard');
+  console.log('  Agent win %, vs a fixed NORMAL the Phantom — should rise easy → normal → hard');
   for (const nd of [3, 4, 5]) {
     const r = DIFFS.map((d) => runBalance(ctx, 'normal', d, nd, N));
-    console.log(`    ${nd} detectives   easy ${pct(r[0].detWins, N)}   normal ${pct(r[1].detWins, N)}   hard ${pct(r[2].detWins, N)}`);
+    console.log(`    ${nd} agents   easy ${pct(r[0].detWins, N)}   normal ${pct(r[1].detWins, N)}   hard ${pct(r[2].detWins, N)}`);
   }
-  console.log('  Mr. X win %, vs fixed NORMAL detectives — should rise easy → normal → hard');
+  console.log('  the Phantom win %, vs fixed NORMAL agents — should rise easy → normal → hard');
   for (const nd of [3, 4, 5]) {
     const r = DIFFS.map((d) => runBalance(ctx, d, 'normal', nd, N));
-    console.log(`    ${nd} detectives   easy ${pct(r[0].mrxWins, N)}   normal ${pct(r[1].mrxWins, N)}   hard ${pct(r[2].mrxWins, N)}`);
+    console.log(`    ${nd} agents   easy ${pct(r[0].mrxWins, N)}   normal ${pct(r[1].mrxWins, N)}   hard ${pct(r[2].mrxWins, N)}`);
   }
 
   process.exit(failed ? 1 : 0);

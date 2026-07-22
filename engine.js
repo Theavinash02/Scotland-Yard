@@ -9,15 +9,15 @@ const REVEALS=[3,8,13,18,24], MAX_ROUND=24;
 // saves (which predate these fields) still resume as a classic game.
 const VARIANTS={
   classic:{key:'classic',name:'Classic',rounds:24,reveals:[3,8,13,18,24],dbl:2,blackBonus:0,desc:'The standard chase — 24 rounds, five reveals.'},
-  short:{key:'short',name:'Short chase',rounds:12,reveals:[3,6,9,12],dbl:1,blackBonus:0,desc:'A brisk 12-round game: four reveals, one double-move.'},
-  sneaky:{key:'sneaky',name:"Fugitive's edge",rounds:24,reveals:[3,13,24],dbl:3,blackBonus:3,desc:'Only three reveals, with extra black tickets and double-moves — Mr. X is far harder to pin down.'}
+  short:{key:'short',name:'Short chase',rounds:12,reveals:[3,6,9,12],dbl:1,blackBonus:0,desc:'A brisk 12-round game: four reveals, one sprint.'},
+  sneaky:{key:'sneaky',name:"Fugitive's edge",rounds:24,reveals:[3,13,24],dbl:3,blackBonus:3,desc:'Only three reveals, with extra shadow tickets and sprints — the Phantom is far harder to pin down.'}
 };
 function resolveVariant(v){ if(v&&typeof v==='object')return v; return VARIANTS[v]||VARIANTS.classic; }
 function gReveals(g){return (g&&g.reveals)||REVEALS;}
 function gMaxRound(g){return (g&&g.maxRound)||MAX_ROUND;}
 const MRX_STARTS=[35,45,51,71,78,104,106,127,132,146,166,170,172];
 const DET_STARTS=[13,26,29,34,50,53,91,94,103,112,117,123,138,141,155,174,197,198];
-const TK_NAME={t:'Taxi',b:'Bus',u:'Underground',x:'Black',f:'Ferry'};
+const TK_NAME={t:'Taxi',b:'Bus',u:'Metro',x:'Shadow',f:'Ferry'};
 const POS={},NBRS={},DEG={},PAIRS=[];
 (function(){
   POS_RAW.split(';').forEach(function(s){var p=s.split(':'),xy=p[1].split(',');POS[+p[0]]={x:+xy[0],y:+xy[1]};});
@@ -96,18 +96,18 @@ function applyDet(g,i,m){
   var d=g.dets[i],from=d.st;
   d[m.tk]--;d.st=m.to;g.mv++;
   g.lastMove={who:i,from:from,to:m.to,tk:m.tk};
-  if(m.to===g.mrx.st){g.winner='dets';g.reason='Detective '+(i+1)+' caught Mr. X at station '+m.to+'.';return;}
+  if(m.to===g.mrx.st){g.winner='dets';g.reason='Agent '+(i+1)+' caught the Phantom at station '+m.to+'.';return;}
   g.turn=i+1;normalizeTurn(g);
 }
 function normalizeTurn(g){
   if(g.winner)return;
   while(g.turn>=0&&g.turn<g.nd&&detMoves(g,g.turn).length===0)g.turn++;
   if(g.turn<g.nd)return;
-  if(g.log.length>=gMaxRound(g)){g.winner='mrx';g.reason='The travel log is full — Mr. X slipped away after '+gMaxRound(g)+' rounds.';return;}
+  if(g.log.length>=gMaxRound(g)){g.winner='mrx';g.reason='The travel log is full — the Phantom slipped away after '+gMaxRound(g)+' rounds.';return;}
   g.turn=-1;
-  if(mrxMoves(g).length===0){g.winner='dets';g.reason='Mr. X is cornered with no legal move.';return;}
+  if(mrxMoves(g).length===0){g.winner='dets';g.reason='The Phantom is cornered with no legal move.';return;}
   var any=false;for(var i=0;i<g.nd;i++)if(detMoves(g,i).length>0){any=true;break;}
-  if(!any){g.winner='mrx';g.reason='Every detective is stuck — Mr. X walks free.';}
+  if(!any){g.winner='mrx';g.reason='Every agent is stuck — the Phantom walks free.';}
 }
 function possibleSet(g){
   var cur,start=0,lastRv=-1,i;

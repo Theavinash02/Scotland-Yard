@@ -1,4 +1,4 @@
-// Playwright config for the Scotland Yard UI smoke/regression suite.
+// Playwright config for the Shadow Line UI smoke/regression suite.
 // Runs the pure-Node engine simulation separately (see test/simulate.js); this
 // drives the real app in a headless browser to catch UI regressions.
 //

@@ -1,7 +1,7 @@
 {
-  "name": "Scotland Yard — Night Chase Across London",
-  "short_name": "Scotland Yard",
-  "description": "One fugitive. Up to five detectives. 24 rounds across 199 stations.",
+  "name": "Shadow Line — Hunt the Phantom Across Graywater",
+  "short_name": "Shadow Line",
+  "description": "One fugitive. Up to five agents. 24 rounds across 199 stations.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
