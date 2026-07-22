@@ -697,3 +697,11 @@ body.theme-light .goHero.lose .goKicker{color:#B02a3a}
 .acct-name{font-weight:600}
 .acct-sub{font-size:12px;color:var(--muted);flex:1;min-width:0}
 .acct .btn,.acct .ghostbtn{flex:none}
+
+/* ---- Graywater base city (mapart.js) ---- */
+#map .ma-st{fill:none;stroke:#26364E;stroke-width:1.1;stroke-linecap:round;opacity:.55}
+#map .ma-st-stub{stroke-width:0.9;opacity:.4}
+#map .ma-road{fill:none;stroke:#1C2735;stroke-linecap:round}
+#map .ma-road-edge{fill:none;stroke:#101823;stroke-linecap:round;opacity:.55}
+#map .ma-bridge{stroke:#2B3B52}
+#map .ma-blocks rect{fill:#182437;stroke:#0E1622;stroke-width:0.4;opacity:.85}

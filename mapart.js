@@ -287,6 +287,114 @@ function maBuildParks(g){
   g.insertAdjacentHTML('beforeend','<g class="ma-parks">'+h+'</g>');
 }
 
+/* ---- layer 5: streets — minor mesh + arterials; casings ride under routes ---- */
+function maNearPairs(maxD){
+  // near-neighbor station pairs NOT directly connected by a transport edge
+  var linked={};
+  PAIRS.forEach(function(p){linked[p.a+'_'+p.b]=1;});
+  var out=[],deg={};
+  for(var i=1;i<=199;i++){
+    for(var j=i+1;j<=199;j++){
+      var d=Math.hypot(POS[i].x-POS[j].x,POS[i].y-POS[j].y);
+      if(d<maxD&&!linked[i+'_'+j])out.push({a:i,b:j,d:d});
+    }
+  }
+  out.sort(function(x,y){return x.d-y.d;});
+  var keep=[];
+  out.forEach(function(p){
+    deg[p.a]=deg[p.a]||0;deg[p.b]=deg[p.b]||0;
+    if(deg[p.a]>=3||deg[p.b]>=3)return;
+    keep.push(p);deg[p.a]++;deg[p.b]++;
+  });
+  return keep;
+}
+function maJitterPath(ax,ay,bx,by,rr,amt){
+  var mx=(ax+bx)/2+(rr()*2-1)*amt,my=(ay+by)/2+(rr()*2-1)*amt;
+  return 'M '+maR1(ax)+' '+maR1(ay)+' Q '+maR1(mx)+' '+maR1(my)+' '+maR1(bx)+' '+maR1(by);
+}
+function maBuildStreets(g){
+  var rr=maRng(MA_SEED+4);
+  var h='';
+  // minor streets: joins between near stations that have no transport link,
+  // plus stubs poking outward from each station so blocks read as connected
+  maNearPairs(120).forEach(function(p){
+    if(maWaterDist((POS[p.a].x+POS[p.b].x)/2,(POS[p.a].y+POS[p.b].y)/2)<6)return;
+    h+='<path d="'+maJitterPath(POS[p.a].x,POS[p.a].y,POS[p.b].x,POS[p.b].y,rr,9)+'" class="ma-st"/>';
+  });
+  for(var i=1;i<=199;i++){
+    var n=1+(i%2);
+    for(var k=0;k<n;k++){
+      var ang=rr()*Math.PI*2,len=18+rr()*26;
+      var ex=POS[i].x+Math.cos(ang)*len,ey=POS[i].y+Math.sin(ang)*len;
+      if(maWaterDist(ex,ey)<8)continue;
+      h+='<path d="'+maJitterPath(POS[i].x,POS[i].y,ex,ey,rr,5)+'" class="ma-st ma-st-stub"/>';
+    }
+  }
+  g.insertAdjacentHTML('beforeend','<g class="ma-streets">'+h+'</g>');
+}
+function maBuildCasings(g){
+  // a dark asphalt bed under every transport edge, so the colored routes read
+  // as riding real roads; drawn above the water = the crossings become bridges
+  var h='';
+  PAIRS.forEach(function(p){
+    var land=p.types.filter(function(t){return t!=='f';});
+    if(!land.length)return;
+    var bow=edgeBow(p.a,p.b);
+    var q=quadPoint(POS[p.a],POS[p.b],bow,0,0);
+    var w=land.length*4.4+5.5;
+    var wet=maWaterDist((POS[p.a].x+POS[p.b].x)/2,(POS[p.a].y+POS[p.b].y)/2)<4;
+    h+='<path d="'+q.d+'" class="ma-road'+(wet?' ma-bridge':'')+'" stroke-width="'+maR1(w)+'"/>';
+    h+='<path d="'+q.d+'" class="ma-road-edge" stroke-width="'+maR1(w+1.6)+'"/>';
+  });
+  g.insertAdjacentHTML('beforeend','<g class="ma-casings">'+h+'</g>');
+}
+
+/* ---- layer 6: city blocks — building footprints with lit windows ---- */
+function maRoutePointsGrid(){
+  // coarse hash of sampled route/street positions for fast proximity tests
+  var cell=26,grid={};
+  var put=function(x,y){grid[Math.floor(x/cell)+'_'+Math.floor(y/cell)]=1;};
+  PAIRS.forEach(function(p){
+    for(var t=0;t<=1;t+=0.2){
+      put(POS[p.a].x+(POS[p.b].x-POS[p.a].x)*t,POS[p.a].y+(POS[p.b].y-POS[p.a].y)*t);
+    }
+  });
+  return {near:function(x,y){
+    var cx=Math.floor(x/cell),cy=Math.floor(y/cell);
+    for(var dx=-1;dx<=1;dx++)for(var dy=-1;dy<=1;dy++)if(grid[(cx+dx)+'_'+(cy+dy)])return true;
+    return false;
+  }};
+}
+function maBuildBlocks(g){
+  var rr=maRng(MA_SEED+5);
+  var routes=maRoutePointsGrid();
+  var h='',lit='';
+  var cx0=500,cy0=MAP_H*0.5;
+  for(var gy=44;gy<=MAP_H-36;gy+=27){
+    for(var gx=44;gx<=956;gx+=27){
+      var x=gx+(rr()*2-1)*8,y=gy+(rr()*2-1)*8;
+      if(maWaterDist(x,y)<10)continue;
+      var dSt=1e9,ang=0;
+      for(var i=1;i<=199;i++){
+        var dd=Math.hypot(POS[i].x-x,POS[i].y-y);
+        if(dd<dSt){dSt=dd;ang=Math.atan2(POS[i].y-y,POS[i].x-x);}
+      }
+      if(dSt<13)continue;              // keep station badges clear
+      var central=Math.hypot(x-cx0,y-cy0)<330;
+      if(!central&&rr()<0.45)continue; // sparser at the edges
+      var n=routes.near(x,y)?1:(1+Math.floor(rr()*2));
+      for(var b=0;b<n;b++){
+        var bx=x+(rr()*2-1)*7,by=y+(rr()*2-1)*7;
+        var w=maR1(3.5+rr()*6),d2=maR1(2.6+rr()*4.4);
+        var rot=maR1(ang*180/Math.PI+(rr()<0.5?0:90)+(rr()*2-1)*8);
+        h+='<rect x="'+maR1(-w/2)+'" y="'+maR1(-d2/2)+'" width="'+w+'" height="'+d2+'" rx="0.7" transform="translate('+maR1(bx)+','+maR1(by)+') rotate('+rot+')"/>';
+        if(central&&rr()<0.28)lit+='<circle cx="'+maR1(bx)+'" cy="'+maR1(by)+'" r="0.85" fill="#FFD79A" opacity="'+maR1(0.25+rr()*0.35)+'"/>';
+      }
+    }
+  }
+  g.insertAdjacentHTML('beforeend','<g class="ma-blocks">'+h+'</g><g class="ma-lit">'+lit+'</g>');
+}
+
 /* ---- entry point: called once from buildMap() ---- */
 function buildGraywaterBase(svg,defs){
   defs.insertAdjacentHTML('beforeend',maDefs());
@@ -297,6 +405,9 @@ function buildGraywaterBase(svg,defs){
   maBuildLand(base);
   maBuildDistricts(base);
   maBuildParks(base);
+  maBuildStreets(base);
+  maBuildBlocks(base);
   maBuildWater(base);
+  maBuildCasings(base);
   return base;
 }
