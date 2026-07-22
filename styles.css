@@ -632,113 +632,34 @@ body.theme-light .goHero.lose .goKicker{color:#B02a3a}
 }
 
 /* ==========================================================================
-   SELECTABLE MAP MODES. All purely additive overrides on the one parchment
-   SVG, gated on a body.board-<mode> class — Day (no rules) leaves the original
-   hand-drawn map byte-for-byte untouched, and every switch is an instant class
-   toggle with no map rebuild. Class hooks (bg-*, e-*, st-*, map-*, r-*, and
-   the #L-detail substrate) are added in map.js and present in every mode.
+   THE GRAYWATER BOARD — one illustrated night map (mapart.js draws the base;
+   these rules style the game layer above it).
    ========================================================================== */
-/* The realism substrate is hidden until a mode opts a layer in. */
-#L-detail .d-layer,#map .r-bridge{display:none}
-
-/* ---- Shared DARK base: night / aerial / blueprint ---- */
-body.board-dark #maparea{background:radial-gradient(1200px 760px at 68% -12%,#14243D 0%,#070D18 66%)}
-body.board-dark #map .bg-paper{fill:url(#boardNightG)}
-body.board-dark #map .bg-grain{display:none}
-body.board-dark #map .bg-vig{fill:url(#vigNightG)}
-/* daylight district fills + trees off; park grounds off (Aerial re-shows them dark) */
-body.board-dark #map .map-deco>ellipse,
-body.board-dark #map .map-deco g ellipse,
-body.board-dark #map .map-deco g circle{display:none}
-body.board-dark #map .maplabel{fill:#5C7CA6;opacity:.5}
-body.board-dark #map .parklabel{fill:#4F9070;opacity:.6}
-body.board-dark #map .riverlabel{fill:#4FD8E6;opacity:.72}
-body.board-dark #map .carto{fill:#93ADCF}
-body.board-dark #map .r-bank{display:none}
-body.board-dark #map .r-fill{stroke:#0E2740}
-body.board-dark #map .r-hi{stroke:#1C5C6E;opacity:.5}
-body.board-dark #map .r-dash{stroke:#4FD8E6;opacity:.55}
-body.board-dark #map .map-orn{opacity:.5}
-body.board-dark #map .map-orn rect,
-body.board-dark #map .map-orn circle{fill:#0C1A2E;stroke:#3B577B}
-body.board-dark #map .map-orn path{fill:#5B7AA8}
-body.board-dark #map .ehalo{display:none}
-body.board-dark #map .e{stroke-opacity:1}
-body.board-dark #L-stations{filter:drop-shadow(0 0 3px rgba(90,150,220,.35))}
-body.board-dark #map .st-core{fill:#16273F;stroke:rgba(246,201,69,.5)}
-body.board-dark #map .st-u,
-body.board-dark #map .st-b[fill="#FDF9EE"]{fill:#0C1A2E}
-body.board-dark #map .st-u{stroke:#FF5A6A}
-body.board-dark #map .st-b{stroke:#37E38C}
-body.board-dark #map .st-pip{fill:#16273F;stroke:#3B577B}
-body.board-dark #map .st-lbl{fill:#EAF1FA;stroke:#0B1524;stroke-width:2.4px}
-
-/* ---- NIGHT: neon chase board. Transit lines bloom in their own colours. ---- */
-body.board-night #L-edges,body.board-aerial #L-edges{filter:url(#neonGlow)}
-body.board-night #map .e-t,body.board-aerial #map .e-t{stroke:#FFD34D}
-body.board-night #map .e-b,body.board-aerial #map .e-b{stroke:#37E38C}
-body.board-night #map .e-u,body.board-aerial #map .e-u{stroke:#FF5A6A}
-body.board-night #map .e-f,body.board-aerial #map .e-f{stroke:#59E0EC}
-
-/* ---- AERIAL: The city from above at night — city lights, glowing roads, ---- */
-/*      dark parks and bridged river beneath the lit transit network.          */
-body.board-aerial #maparea{background:radial-gradient(1200px 820px at 60% -14%,#182B44 0%,#05090F 68%)}
-body.board-aerial #L-detail .d-lights{display:block;opacity:.85;mix-blend-mode:screen}
-body.board-aerial #L-detail .d-roads{display:block;filter:drop-shadow(0 0 1.4px rgba(130,185,240,.5))}
-body.board-aerial #map .d-roads path{stroke:#3F5F80;stroke-width:.75;fill:none;opacity:.5}
-body.board-aerial #map .d-roads .road-art{stroke:#6C9CC6;stroke-width:1.5;opacity:.55}
-/* re-show park grounds as dark cut-outs in the city glow */
-body.board-aerial #map .map-deco g ellipse{display:block;fill:#0A1522;opacity:.88;stroke:none}
-body.board-aerial #map .r-bridge{display:block}
-body.board-aerial #map .r-bridge rect{fill:#2A3B52}
-body.board-aerial #map .r-fill{stroke:#0A1E30}
-body.board-aerial #map .r-hi{stroke:#1E5468;opacity:.45}
-
-/* ---- ATLAS: a printed street map — road mesh, block shading, greenspaces ---- */
-/*      and a bridged river, over the parchment. (paper family, untouched base) */
-body.board-atlas #L-detail .d-roads{display:block}
-body.board-atlas #map .d-roads path{stroke:#B4A585;stroke-width:.7;fill:none;opacity:.55}
-body.board-atlas #map .d-roads .road-art{stroke:#A08E64;stroke-width:1.6;opacity:.6}
-body.board-atlas #L-detail .d-blocks{display:block;opacity:.55}
-body.board-atlas #map .r-bridge{display:block}
-body.board-atlas #map .r-bridge rect{fill:#D8BE86;stroke:#8A6A3A;stroke-width:.5}
-body.board-atlas #map .parklabel{font-weight:600}
-
-/* ---- TABLETOP: the parchment board sat on a lit wooden table (paper base) ---- */
-body.board-tabletop #maparea{background:
-  radial-gradient(140% 90% at 50% 8%, #7A5630 0%, #43301B 52%, #241609 100%)}
-/* soft top-light + edge falloff over the board, above the map, never blocking taps */
-body.board-tabletop #maparea::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:4;
-  background:
-    radial-gradient(120% 70% at 50% -6%, rgba(255,242,214,.20), transparent 46%),
-    radial-gradient(135% 130% at 50% 58%, transparent 52%, rgba(6,3,0,.6))}
-body.board-tabletop #map .map-orn rect,body.board-tabletop #map .map-orn circle{stroke-width:2.4}
-body.board-tabletop #L-pieces{filter:drop-shadow(0 5px 4px rgba(0,0,0,.55))}
-body.board-tabletop #L-stations{filter:drop-shadow(0 2.5px 2px rgba(60,45,20,.5))}
-
-/* ---- BLUEPRINT: tactical recon board — cyan grid + mono line-work (dark base) ---- */
-body.board-blueprint #maparea{background:radial-gradient(1200px 760px at 60% -12%,#123246 0%,#06131D 66%)}
-body.board-blueprint #map .bg-paper{fill:#0B2233}
-body.board-blueprint #L-detail .d-grid{display:block}
-body.board-blueprint #L-edges{filter:drop-shadow(0 0 1px rgba(90,215,234,.6))}
-body.board-blueprint #map .e{stroke:#5AD7EA}
-body.board-blueprint #map .e-u{stroke:#7FE6F5}
-body.board-blueprint #map .st-core,
-body.board-blueprint #map .st-u,
-body.board-blueprint #map .st-b[fill="#FDF9EE"],
-body.board-blueprint #map .st-pip{fill:#0B2233}
-body.board-blueprint #map .st-core{stroke:#5AD7EA}
-body.board-blueprint #map .st-u,body.board-blueprint #map .st-b{stroke:#5AD7EA}
-body.board-blueprint #map .st-pip{stroke:#357C90}
-body.board-blueprint #map .st-lbl{fill:#C6EFF7;stroke:#06131C}
-body.board-blueprint #map .r-fill{stroke:#0E3346}
-body.board-blueprint #map .r-hi{stroke:#2C6E86;opacity:.5}
-body.board-blueprint #map .r-dash{stroke:#5AD7EA;opacity:.5}
-body.board-blueprint #map .maplabel,
-body.board-blueprint #map .parklabel,
-body.board-blueprint #map .carto{fill:#4FA9C0;opacity:.6}
-body.board-blueprint #map .riverlabel{fill:#7FE6F5}
-body.board-blueprint #map .map-orn path{fill:#4FA9C0}
+#maparea{background:radial-gradient(1200px 760px at 68% -12%,#14243D 0%,#070D18 66%)}
+#map .e-t{stroke:#F5C844;stroke-opacity:.78}
+#map .e-b{stroke:#37E38C;stroke-opacity:.82}
+#map .e-u{stroke:#FF5A6A;stroke-opacity:.9}
+#map .e-f{stroke:#59E0EC;stroke-opacity:.85}
+#map .maplabel{fill:#5C7CA6;opacity:.5}
+#map .parklabel{fill:#4F9070;opacity:.6}
+#map .riverlabel{fill:#4FD8E6;opacity:.72}
+#map .carto{fill:#93ADCF}
+#map .r-bank{display:none}
+#map .r-fill{stroke:#0E2740}
+#map .r-hi{stroke:#1C5C6E;opacity:.5}
+#map .r-dash{stroke:#4FD8E6;opacity:.55}
+#map .r-bridge rect{fill:#2A3B52}
+#map .map-orn{opacity:.5}
+#map .map-orn rect,#map .map-orn circle{fill:#0C1A2E;stroke:#3B577B}
+#map .map-orn path{fill:#5B7AA8}
+#map .ehalo{display:none}
+#map .e{stroke-opacity:1}
+#map .st-halo{fill:#060B14;opacity:.55}
+#map .st-ring{fill:#0C1626;stroke-width:2.1}
+#map .st-core{fill:#101E33;stroke:#233854;stroke-width:.7}
+#map .st-ferry{fill:#59E0EC;stroke:#0B1524;stroke-width:.8}
+#map .st-lbl{fill:#EAF1FA;stroke:#0B1524;stroke-width:2.2px}
+#map .map-deco>ellipse,#map .map-deco g ellipse,#map .map-deco g circle{display:none}
 
 /* ==========================================================================
    PHONES (short landscape): full-bleed map + slide-over info drawer.
@@ -773,3 +694,13 @@ body.board-blueprint #map .map-orn path{fill:#4FA9C0}
 .acct-name{font-weight:600}
 .acct-sub{font-size:12px;color:var(--muted);flex:1;min-width:0}
 .acct .btn,.acct .ghostbtn{flex:none}
+
+/* ---- Graywater base city (mapart.js) ---- */
+#map .ma-st{fill:none;stroke:#26364E;stroke-width:1.1;stroke-linecap:round;opacity:.55}
+#map .ma-st-stub{stroke-width:0.9;opacity:.4}
+#map .ma-road{fill:none;stroke:#1C2735;stroke-linecap:round}
+#map .ma-road-edge{fill:none;stroke:#101823;stroke-linecap:round;opacity:.55}
+#map .ma-bridge{stroke:#2B3B52}
+#map .ma-blocks rect{fill:#182437;stroke:#0E1622;stroke-width:0.4;opacity:.85}
+#map .lmlabel{fill:#B9CBE2;font-family:'Oswald',sans-serif}
+#map .ma-lit{pointer-events:none}

@@ -85,105 +85,11 @@ function buildMap(){
   // viewport even when fillView() frames the map to a much wider aspect ratio —
   // no flat "empty" margin ever shows outside the board on wide phone screens.
   function bigRect(attrs){var r=svgEl('rect');r.setAttribute('x',-900);r.setAttribute('y',-560);r.setAttribute('width',2800);r.setAttribute('height',MAP_H+1120);for(var k in attrs)r.setAttribute(k,attrs[k]);svg.appendChild(r);return r;}
-  bigRect({fill:'url(#paperG)','class':'bg-paper'});
-  bigRect({fill:'url(#grain)',opacity:'0.12',style:'mix-blend-mode:multiply;pointer-events:none','class':'bg-grain'});
-  // Shared realism substrate: a procedural street mesh + tiled block/light/grid
-  // layers, all hidden by default (.d-layer) and revealed per board mode in CSS.
-  // Sits below the districts/river/game lines so it reads as ground, never
-  // competing with the playable network on top.
-  (function(){
-    function rr(seed){var x=Math.sin(seed*127.1+311.7)*43758.5453;return x-Math.floor(x);}
-    var ang=0.16,cy=MAP_H/2;
-    function rot(x,y){return {x:500+(x-500)*Math.cos(ang)-(y-cy)*Math.sin(ang), y:cy+(x-500)*Math.sin(ang)+(y-cy)*Math.cos(ang)};}
-    var rh='';
-    // near-vertical streets
-    for(var gx=-80;gx<=1080;gx+=50){
-      var pv=[];for(var gy=-60;gy<=MAP_H+60;gy+=MAP_H/4){pv.push(rot(gx+(rr(gx*3+gy)-0.5)*24,gy));}
-      rh+='<path d="'+catmullPath(pv)+'"/>';
-    }
-    // near-horizontal streets
-    for(var gy2=-60;gy2<=MAP_H+60;gy2+=48){
-      var ph=[];for(var gx2=-80;gx2<=1080;gx2+=250){ph.push(rot(gx2,gy2+(rr(gx2+gy2*3)-0.5)*24));}
-      rh+='<path d="'+catmullPath(ph)+'"/>';
-    }
-    // a few diagonal arterials to break up the grid
-    var arts='';
-    for(var a=0;a<7;a++){
-      var sx=rr(a*11)*1000,ex=rr(a*11+5)*1000;
-      arts+='<path class="road-art" d="'+catmullPath([rot(sx,-40),rot((sx+ex)/2+(rr(a)-0.5)*280,cy+(rr(a+2)-0.5)*220),rot(ex,MAP_H+40)])+'"/>';
-    }
-    var detail=svgEl('g');detail.setAttribute('id','L-detail');detail.setAttribute('style','pointer-events:none');
-    detail.innerHTML=
-      '<rect class="d-layer d-grid" x="-400" y="-400" width="1800" height="'+(MAP_H+800)+'" fill="url(#bpGrid)"/>'+
-      '<rect class="d-layer d-blocks" x="-400" y="-400" width="1800" height="'+(MAP_H+800)+'" fill="url(#blocksPat)"/>'+
-      '<rect class="d-layer d-lights" x="0" y="0" width="1000" height="'+MAP_H+'" filter="url(#cityLights)"/>'+
-      '<g class="d-layer d-roads">'+arts+rh+'</g>';
-    svg.appendChild(detail);
-  })();
-  // districts & parks
-  var deco=svgEl('g');deco.setAttribute('style','pointer-events:none');deco.setAttribute('class','map-deco');svg.appendChild(deco);
-  var dh='';
-  var tints=[[360,455,110,58,'#EDE2C6'],[630,600,104,54,'#E9E8D6'],[765,352,100,52,'#EDE2C6'],[810,175,92,50,'#E9E8D6'],[585,44,88,40,'#EDE2C6'],[450,224,70,40,'#E9E8D6']];
-  tints.forEach(function(t){dh+='<ellipse cx="'+t[0]+'" cy="'+t[1]+'" rx="'+t[2]+'" ry="'+t[3]+'" fill="'+t[4]+'" opacity="0.38"/>';});
-  var parks=[[180,405,64,40,-8,"ASHGROVE PARK"],[140,56,78,30,-4,"NORTHFIELD COMMON"],[900,672,60,38,6,"EASTMARSH GREEN"]];
-  var treeOff=[[-30,-10],[-12,9],[10,-14],[27,6],[-2,-22],[18,17],[-36,13],[36,-6]];
-  parks.forEach(function(p){
-    dh+='<g transform="translate('+p[0]+','+p[1]+') rotate('+p[4]+')">'+
-      '<ellipse rx="'+p[2]+'" ry="'+p[3]+'" fill="#CFE3B8" opacity="0.6"/>'+
-      '<ellipse rx="'+(p[2]-10)+'" ry="'+(p[3]-8)+'" fill="#D9EAC6" opacity="0.5"/>';
-    treeOff.forEach(function(o){
-      var tx=r1(o[0]*p[2]/64),ty=r1(o[1]*p[3]/40);
-      dh+='<circle cx="'+tx+'" cy="'+ty+'" r="3" fill="#A9C48F"/><circle cx="'+tx+'" cy="'+ty+'" r="1.1" fill="#8FB07A"/>';
-    });
-    dh+='<text class="parklabel" y="4" text-anchor="middle" font-size="10.5" letter-spacing="2.5">'+p[5]+'</text></g>';
-  });
-  var dlabels=[[360,459,'OLD QUAY',15],[630,604,'IRONVALE',14],[765,356,'THE EXCHANGE',14],[810,179,'NORTHGATE',13],[585,48,'HOLLOWBROOK',12],[450,228,'LANTERN ROW',11]];
-  dlabels.forEach(function(l){dh+='<text class="maplabel" x="'+l[0]+'" y="'+l[1]+'" text-anchor="middle" font-size="'+l[3]+'" letter-spacing="4">'+l[2]+'</text>';});
-  deco.innerHTML=dh;
-  // The river along the ferry line — the ferry stops are chained into a path
-  // by walking the f-type edges from one end, so the water always follows
-  // whatever ferry line the map data defines (no hardcoded station ids).
-  var fAdj={};
-  PAIRS.forEach(function(p){
-    if(p.types.indexOf('f')<0)return;
-    (fAdj[p.a]=fAdj[p.a]||[]).push(p.b);
-    (fAdj[p.b]=fAdj[p.b]||[]).push(p.a);
-  });
-  var fIds=Object.keys(fAdj).map(Number);
-  var head=fIds.filter(function(s){return fAdj[s].length===1;})[0]||fIds[0];
-  var chain=[head],prev=null;
-  while(chain.length<fIds.length){
-    var nxt=fAdj[chain[chain.length-1]].filter(function(s){return s!==prev;})[0];
-    if(nxt===undefined)break;
-    prev=chain[chain.length-1];chain.push(nxt);
-  }
-  var FP=chain.map(function(s){return POS[s];});
-  var L=FP.length;
-  var pre={x:FP[0].x+(FP[0].x-FP[1].x)*0.9,y:FP[0].y+(FP[0].y-FP[1].y)*0.9};
-  var post={x:FP[L-1].x+(FP[L-1].x-FP[L-2].x)*0.75,y:FP[L-1].y+(FP[L-1].y-FP[L-2].y)*0.75};
-  var rp=catmullPath([pre].concat(FP,[post]));
-  var river=svgEl('g');river.setAttribute('style','pointer-events:none');river.setAttribute('class','map-river');
-  river.innerHTML=
-    '<path class="r-bank" d="'+rp+'" fill="none" stroke="#C6B78E" stroke-width="31" stroke-linecap="round" opacity="0.8"/>'+
-    '<path class="r-fill" d="'+rp+'" fill="none" stroke="#A6C6DB" stroke-width="26" stroke-linecap="round"/>'+
-    '<path class="r-hi" d="'+rp+'" fill="none" stroke="#BFD9E8" stroke-width="17" stroke-linecap="round" opacity="0.75"/>'+
-    '<path class="r-dash" d="'+rp+'" fill="none" stroke="#7FA9C4" stroke-width="1.4" stroke-dasharray="12 16" opacity="0.55"/>'+
-    '<path id="thamesPath" d="'+rp+'" fill="none"/>'+
-    '<text class="riverlabel"><textPath href="#thamesPath" startOffset="57%">GRAYWATER  RIVER</textPath></text>';
-  svg.appendChild(river);
-  // Bridges across the river (Atlas/Aerial modes) — sampled off the real river
-  // path so they sit square across the water. Hidden by default (.r-bridge).
-  (function(){
-    var tp=$('#thamesPath');
-    if(!tp||!tp.getTotalLength)return;
-    var TL=tp.getTotalLength(),bh='';
-    [0.30,0.44,0.57,0.70,0.83].forEach(function(f){
-      var pA=tp.getPointAtLength(TL*f),pB=tp.getPointAtLength(Math.min(TL,TL*f+2));
-      var a=Math.atan2(pB.y-pA.y,pB.x-pA.x)*180/Math.PI;
-      bh+='<g class="r-bridge" transform="translate('+r1(pA.x)+','+r1(pA.y)+') rotate('+r1(a+90)+')"><rect x="-19" y="-3.4" width="38" height="6.8" rx="1.4"/></g>';
-    });
-    river.insertAdjacentHTML('beforeend',bh);
-  })();
+  // (The old procedural street-grid substrate is gone; mapart.js will draw
+  // the real illustrated base city here.)
+  // (districts, parks and their labels are drawn by mapart.js)
+  // The water, land and all base geography come from mapart.js:
+  buildGraywaterBase(svg,defs);
   // frame, compass, cartouche
   var orn=svgEl('g');orn.setAttribute('style','pointer-events:none');orn.setAttribute('class','map-orn');
   orn.innerHTML=
@@ -203,7 +109,7 @@ function buildMap(){
   svg.appendChild(orn);
   // functional layers
   ['edges','ps','hl','stations'].forEach(function(n){var g=svgEl('g');g.setAttribute('id','L-'+n);svg.appendChild(g);LAYER[n]=g;});
-  bigRect({fill:'url(#vigG)',style:'pointer-events:none'});
+  bigRect({fill:'url(#vigNightG)',style:'pointer-events:none','class':'bg-vig'});
   ['pieces','fx'].forEach(function(n){var g=svgEl('g');g.setAttribute('id','L-'+n);g.setAttribute('style','pointer-events:none');svg.appendChild(g);LAYER[n]=g;});
   // transport lines, gently curved with weight variation
   // Each type also gets a distinct stroke pattern (not just color) so the
@@ -217,7 +123,7 @@ function buildMap(){
     var types=p.types.slice().sort(function(a,b){return order[a]-order[b];});
     var bow=edgeBow(p.a,p.b);
     types.forEach(function(t,i){
-      lines.push({t:t,a:p.a,b:p.b,bow:bow,off:(i-(types.length-1)/2)*4.4});
+      lines.push({t:t,a:p.a,b:p.b,bow:bow,off:(i-(types.length-1)/2)*3.6});
     });
   });
   lines.sort(function(a,b){return order[a.t]-order[b.t];});
@@ -225,34 +131,27 @@ function buildMap(){
   lines.forEach(function(l){
     var q=quadPoint(POS[l.a],POS[l.b],l.bow,l.off,0);
     var hsh=hash2(l.a*7+order[l.t],l.b);
-    var w=l.t==='t'?(2.0+(hsh%5)*0.12):l.t==='b'?(3.3+(hsh%4)*0.15):l.t==='u'?4.7:3.0;
-    if(l.t==='u'||l.t==='b')eh+='<path class="ehalo" d="'+q.d+'" fill="none" stroke="#F6F1DF" stroke-width="'+r1(w+2.4)+'" stroke-linecap="round"/>';
-    eh+='<path class="e e-'+l.t+'" d="'+q.d+'" fill="none" stroke="'+col[l.t]+'" stroke-width="'+r1(w)+'" stroke-linecap="round" stroke-opacity="'+(l.t==='t'?0.92:0.95)+'"'+(dash[l.t]?' stroke-dasharray="'+dash[l.t]+'"':'')+'/>';
+    // thin lane markings riding the asphalt casings mapart draws beneath —
+    // hierarchy comes from the city now, not from fat glowing strokes
+    var w=l.t==='t'?(1.5+(hsh%5)*0.08):l.t==='b'?(2.1+(hsh%4)*0.1):l.t==='u'?2.8:2.0;
+    eh+='<path class="e e-'+l.t+'" d="'+q.d+'" fill="none" stroke="'+col[l.t]+'" stroke-width="'+r1(w)+'" stroke-linecap="round"'+(dash[l.t]?' stroke-dasharray="'+dash[l.t]+'"':'')+'/>';
   });
   LAYER.edges.innerHTML=eh;
-  LAYER.edges.setAttribute('filter','url(#eShadow)');
-  // stations: landmark markers with transport pips
-  var pipc={t:'#D9A61F',b:'#2F8A52',u:'#C22B2B',f:'#3E6E8E'};
+  // stations: ring-pin badges — ring color marks the best transport there
+  // (metro > bus > taxi); ferry stations carry a small cyan pip.
   for(var i=1;i<=199;i++){
     var hasU=false,hasB=false,hasF=false;
     NBRS[i].forEach(function(e){if(e.t==='u')hasU=true;if(e.t==='b')hasB=true;if(e.t==='f')hasF=true;});
-    var r=hasU?8.6:hasB?6.9:5.5;
+    var r=hasU?8.2:hasB?7.0:5.9;
+    var ring=hasU?'#FF5A6A':hasB?'#37E38C':'#F2C230';
     var g=svgEl('g');
-    g.setAttribute('class','stg');g.setAttribute('data-id',i);
+    g.setAttribute('class','stg'+(hasU?' st-metro':hasB?' st-bus':' st-taxi'));g.setAttribute('data-id',i);
     g.setAttribute('transform','translate('+POS[i].x+','+POS[i].y+')');
-    var h='';
-    if(hasU)h+='<circle class="st-u" r="'+r1(r+3.4)+'" fill="#FDF9EE" stroke="#C22B2B" stroke-width="2.4"/>';
-    if(hasB)h+='<circle class="st-b" r="'+r1(r+1.6)+'" fill="'+(hasU?'none':'#FDF9EE')+'" stroke="#2F8A52" stroke-width="1.7"/>';
-    h+='<circle class="st-core" r="'+r+'" fill="#FDFBF2" stroke="#4A4130" stroke-width="1.2"/>';
-    h+='<text class="st-num st-lbl" y="'+r1(r*0.40)+'" text-anchor="middle" font-size="'+(hasU?7.4:hasB?6.6:6)+'">'+i+'</text>';
-    var modes=['t'];if(hasB)modes.push('b');if(hasU)modes.push('u');if(hasF)modes.push('f');
-    if(modes.length>1){
-      var bw=modes.length*5.6+3.2,by=r1(r+(hasU?5.4:3.6));
-      h+='<rect class="st-pip" x="'+r1(-bw/2)+'" y="'+by+'" width="'+r1(bw)+'" height="5.6" rx="2.8" fill="#FDF9EE" stroke="#4A4130" stroke-width="0.7"/>';
-      modes.forEach(function(mm,k){
-        h+='<circle cx="'+r1(-bw/2+4.4+k*5.6)+'" cy="'+r1(by+2.8)+'" r="1.7" fill="'+pipc[mm]+'"/>';
-      });
-    }
+    var h='<circle class="st-halo" r="'+r1(r+3.2)+'"/>'+
+      '<circle class="st-ring" r="'+r+'" stroke="'+ring+'"/>'+
+      '<circle class="st-core" r="'+r1(r-1.9)+'"/>'+
+      '<text class="st-num st-lbl" y="'+r1(r*0.38)+'" text-anchor="middle" font-size="'+(hasU?6.8:hasB?6.2:5.6)+'">'+i+'</text>';
+    if(hasF)h+='<circle class="st-ferry" cx="'+r1(r*0.78)+'" cy="'+r1(r*0.78)+'" r="2"/>';
     g.innerHTML=h;
     // Taps/clicks are handled centrally by handleTap() in the pan/zoom layer,
     // which does proper drag-vs-tap detection and nearest-station hit-testing.

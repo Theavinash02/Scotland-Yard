@@ -3,7 +3,7 @@
 Companion to `PLAN.md` (the phased roadmap). This file is updated after every
 commit so any session/model can resume with zero context loss.
 
-_Last updated: 2026-07-22 (session 2), branch `claude/work-hhvy7e`. PRs #50–#52 merged (Phases 0–3)._
+_Last updated: 2026-07-22 (session 2), branch `claude/work-hhvy7e`. PRs #50–#53 merged (Phases 0–4). Map visual rework done on top._
 
 ## What's done
 
@@ -54,6 +54,18 @@ _Last updated: 2026-07-22 (session 2), branch `claude/work-hhvy7e`. PRs #50–#5
   replay logs stay device-local; lobby name now persisted locally too.
   Two Playwright specs cover dormant boot and stubbed sign-in/merge
   (suite now 30).
+- **Map visual rework: DONE** (user-requested detour; see
+  `MAP-REWORK-PLAN.md`). New `mapart.js` draws an illustrated Graywater
+  night city beneath the untouched station graph: land, river+harbor from
+  the ferry line, six district regions with integrated labels, computed
+  parks, a minor-street mesh, asphalt road casings under every route
+  (crossings read as bridges), seeded window-lit building blocks, and
+  original landmarks (Graywater Bridge, The Beacon, Grand Terminal, Old
+  Market Hall). Routes are thin lane markings now (no neon filter);
+  stations are ring-pin badges colored by best transport with a ferry pip.
+  The six selectable board modes were retired for this one style. All
+  deterministic (fixed seed), no SVG filters on large layers, base drawn
+  once — pan/zoom stays a single viewBox write.
 
 ## Verified
 
@@ -62,7 +74,8 @@ _Last updated: 2026-07-22 (session 2), branch `claude/work-hhvy7e`. PRs #50–#5
 
 ## What's NOT done yet (in phase order — see PLAN.md for detail)
 
-1. Phase 5 (next) — ads (AdSense web / AdMob native) + remove-ads IAP,
+1. Phase 5 (next — was about to start when the map rework was requested) —
+   ads (AdSense web / AdMob native) + remove-ads IAP,
    gated everywhere behind `cloudNoAds()` / a local purchase cache; all IDs
    in a documented `monetization-config.js` with placeholders.
 2. Phase 6 — PWA audit, Capacitor Android/iOS, STORE-CHECKLIST.md.

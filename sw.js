@@ -1,5 +1,5 @@
 // Bump this on every deploy so old caches get cleared out.
-var CACHE_VERSION = 'sy-v11';
+var CACHE_VERSION = 'sy-v12';
 var CORE_ASSETS = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ var CORE_ASSETS = [
   './engine.js',
   './bots.js',
   './map.js',
+  './mapart.js',
   './history.js',
   './persistence.js',
   './intro.js',
