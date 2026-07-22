@@ -702,3 +702,5 @@ body.theme-light .goHero.lose .goKicker{color:#B02a3a}
 #map .ma-road-edge{fill:none;stroke:#101823;stroke-linecap:round;opacity:.55}
 #map .ma-bridge{stroke:#2B3B52}
 #map .ma-blocks rect{fill:#182437;stroke:#0E1622;stroke-width:0.4;opacity:.85}
+#map .lmlabel{fill:#B9CBE2;font-family:'Oswald',sans-serif}
+#map .ma-lit{pointer-events:none}

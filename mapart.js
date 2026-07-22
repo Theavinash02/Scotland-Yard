@@ -395,6 +395,54 @@ function maBuildBlocks(g){
   g.insertAdjacentHTML('beforeend','<g class="ma-blocks">'+h+'</g><g class="ma-lit">'+lit+'</g>');
 }
 
+/* ---- layer 7: landmarks — original stylized icons + boxed labels ---- */
+function maLandmarkBox(x,y,nm,stroke){
+  var bw=nm.length*5.2+16;
+  return '<g transform="translate('+maR1(x)+','+maR1(y)+')">'+
+    '<rect x="'+maR1(-bw/2)+'" y="-7.5" width="'+maR1(bw)+'" height="14" rx="2.5" fill="#0B1524" opacity="0.85" stroke="'+stroke+'" stroke-width="0.8"/>'+
+    '<text class="lmlabel" y="3.2" text-anchor="middle" font-size="8" letter-spacing="1.4">'+nm+'</text></g>';
+}
+function maBuildLandmarks(g){
+  var h='',pts=maRiver();
+  // Graywater Bridge — the widest road crossing of the river
+  var bridge=null;
+  PAIRS.forEach(function(p){
+    if(p.types.indexOf('f')>=0)return;
+    var mx=(POS[p.a].x+POS[p.b].x)/2,my=(POS[p.a].y+POS[p.b].y)/2;
+    if(maWaterDist(mx,my)<0&&(!bridge||p.types.length>bridge.types.length))bridge={types:p.types,x:mx,y:my};
+  });
+  if(bridge)h+=maLandmarkBox(bridge.x,bridge.y+26,'GRAYWATER BRIDGE','#3E6E8E');
+  // The Beacon — a small lighthouse at the harbor mouth (downstream end)
+  if(pts){
+    var e=pts[pts.length-4];
+    var bx=maR1(Math.min(966,Math.max(34,e.x))),by=maR1(Math.min(MAP_H-40,Math.max(40,e.y-e.w-16)));
+    h+='<g transform="translate('+bx+','+by+')">'+
+      '<path d="M -3.2 8 L -1.8 -4 L 1.8 -4 L 3.2 8 Z" fill="#22344C" stroke="#101B2C" stroke-width="0.8"/>'+
+      '<path d="M -2.6 3.2 L 2.6 3.2 M -2.9 5.8 L 2.9 5.8" stroke="#101B2C" stroke-width="0.7"/>'+
+      '<rect x="-2.4" y="-7.4" width="4.8" height="3.6" rx="1" fill="#0E1A2B" stroke="#101B2C" stroke-width="0.7"/>'+
+      '<circle cy="-5.6" r="1.3" fill="#FFE9A6"/>'+
+      '<path d="M 2 -5.6 L 15 -9 L 15 -2.2 Z" fill="#FFE9A6" opacity="0.18"/>'+
+      maLandmarkBox(0,17,'THE BEACON','#8A7B54').slice(0)+
+      '</g>';
+  }
+  // Grand Terminal — the busiest metro interchange
+  var best=0,bd=-1;
+  for(var i=1;i<=199;i++){
+    var u=0;NBRS[i].forEach(function(e2){if(e2.t==='u')u++;});
+    if(u>bd){bd=u;best=i;}
+  }
+  if(bd>0)h+=maLandmarkBox(POS[best].x,POS[best].y-17,'GRAND TERMINAL','#FF5A6A');
+  // Old Market Hall — a busy bus hub away from the terminal
+  var mBest=0,mScore=-1;
+  for(var j=1;j<=199;j++){
+    var b2=0;NBRS[j].forEach(function(e3){if(e3.t==='b')b2++;});
+    var far=Math.hypot(POS[j].x-POS[best].x,POS[j].y-POS[best].y);
+    if(b2>=2&&b2*100+far>mScore){mScore=b2*100+far;mBest=j;}
+  }
+  if(mBest)h+=maLandmarkBox(POS[mBest].x,POS[mBest].y-16,'OLD MARKET HALL','#37E38C');
+  g.insertAdjacentHTML('beforeend','<g class="ma-landmarks" style="pointer-events:none">'+h+'</g>');
+}
+
 /* ---- entry point: called once from buildMap() ---- */
 function buildGraywaterBase(svg,defs){
   defs.insertAdjacentHTML('beforeend',maDefs());
@@ -409,5 +457,6 @@ function buildGraywaterBase(svg,defs){
   maBuildBlocks(base);
   maBuildWater(base);
   maBuildCasings(base);
+  maBuildLandmarks(base);
   return base;
 }
