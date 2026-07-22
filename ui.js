@@ -454,7 +454,7 @@ function onGameOver(){
 // NET.chat log (NOT NET.room), delivered over the same connections as
 // everything else, host-authoritative like seats/moves.
 var MYID=getStableClientId();
-var NET={code:null,isHost:false,v:0,busy:false,room:null,peer:null,conns:[],hostConn:null,joinTimer:null,chat:[],localChat:[],spectating:false,leaving:false};
+var NET={code:null,isHost:false,v:0,busy:false,room:null,peer:null,conns:[],hostConn:null,joinTimer:null,chat:[],localChat:[],spectating:false,leaving:false,graceTimers:{}};
 var PEER_PREFIX='syd-'; // namespace our ids on the public PeerJS broker
 function hasNet(){
   try{ return typeof Peer!=='undefined' && typeof RTCPeerConnection!=='undefined'; }
@@ -550,7 +550,8 @@ function hostHandleData(conn,msg){
   if(!msg||!NET.isHost||!NET.room)return;
   if(msg.t==='hello'){
     conn._pid=msg.pid; conn._name=msg.name||'Player'; // attributes this PeerJS conn to a player id, used below on disconnect and for chat
-    addSystemMsg(conn._name+' has joined the room');
+    if(NET.graceTimers[msg.pid]){ clearTimeout(NET.graceTimers[msg.pid]); delete NET.graceTimers[msg.pid]; addSystemMsg((msg.name||'A player')+' reconnected in time — their seat is safe'); }
+    else addSystemMsg(conn._name+' has joined the room');
     try{ conn.send({t:'room',room:NET.room}); }catch(e){}
   }else if(msg.t==='chat'){
     pushChatEntry('msg',msg.text,msg.name);
@@ -579,8 +580,35 @@ function hostAddConn(conn){
     var nm=(seat&&seat.name)||conn._name||'A player';
     freeSeatsOf(NET.room,conn._pid); refreshHostSeats(); broadcastRoom();
     addSystemMsg(nm+' has disconnected');
+    hostArmSeatTakeover(conn._pid,nm);
   });
   conn.on('error',function(){});
+}
+/* ---- host: bot takeover of an abandoned mid-game seat ----
+   A client refresh comes back within seconds (the client auto-rejoins and
+   re-hellos with the same stable pid, which cancels this). Only when a
+   player stays gone for the whole grace period does a hard bot take over
+   their game seat(s), so the match never stalls forever on a ghost. */
+var SEAT_TAKEOVER_MS=75000;
+function hostArmSeatTakeover(pid,nm){
+  if(!pid||!NET.isHost||!NET.room||NET.room.phase!=='playing')return;
+  if(!G||G.winner)return;
+  if(!G.seats.some(function(s){return s.kind==='human'&&s.pid===pid;}))return;
+  if(NET.graceTimers[pid])clearTimeout(NET.graceTimers[pid]);
+  addSystemMsg('If '+nm+" doesn't return in about a minute, a bot will take over their seat");
+  NET.graceTimers[pid]=setTimeout(function(){
+    delete NET.graceTimers[pid];
+    if(!NET.isHost||!NET.room||NET.room.phase!=='playing'||!G||G.winner)return;
+    if(NET.conns.some(function(c){return c._pid===pid;}))return; // they're back after all
+    var took=false;
+    G.seats.forEach(function(s){
+      if(s.kind==='human'&&s.pid===pid){ s.kind='bot'; s.diff='hard'; s.pid=null; took=true; }
+    });
+    if(!took)return;
+    addSystemMsg(nm+' never returned — a bot has taken over their seat');
+    NET.room.game=G; broadcastRoom(); if(UI.mapBuilt)render();
+    hostDriveBots();
+  },SEAT_TAKEOVER_MS);
 }
 /* ---- client: handle a message from the host ---- */
 function clientHandleData(msg){
@@ -759,6 +787,8 @@ function leaveToLobby(){
   if(UI.botTimer){clearTimeout(UI.botTimer);UI.botTimer=null;}
   if(NET.code&&!NET.isHost)sendHost({t:'leave',pid:MYID}); // free my seats on the host
   tearDownPeer();
+  for(var k in NET.graceTimers){clearTimeout(NET.graceTimers[k]);}
+  NET.graceTimers={};
   NET.code=null;NET.isHost=false;NET.v=0;NET.room=null;NET.busy=false;NET.localChat=[];NET.spectating=false;NET.leaving=false;
   G=null;UI.undoStack=[];UI.hint=null;
   $('#roomBadge').hidden=true;
