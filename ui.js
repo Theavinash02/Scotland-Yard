@@ -1197,7 +1197,6 @@ function boot(){
   $('#demoBtn').onclick=showDemo;
   $('#historyBtn').onclick=showHistory;
   $('#settingsBtn').onclick=function(){sfx('click');showSettings();};
-  $('#howtoBtn').onclick=function(){sfx('click');if(typeof showHowToVideo==='function')showHowToVideo();};
   ensureRoomHistBtn();
   $('#sndBtn').onclick=function(){
     UI.soundOn=!UI.soundOn;

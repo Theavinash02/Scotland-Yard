@@ -4,8 +4,6 @@
 
 Play solo against bots, hot-seat with friends on one device, or host/join a peer-to-peer online room — no account, no server, no install required (though you can install it).
 
-> ⚠️ **Not yet release-ready:** the current board is still a placeholder station graph derived from a published dataset. It is being replaced with a fully original map (see `PLAN.md`, Phase 1) before any store/public release. All names, artwork, UI, and code are original.
-
 <p align="center">
   <img src="screenshots/ingame-desktop.png" alt="In-game screenshot — the illustrated Graywater map with agents, the Phantom's travel log, and the players panel" width="820">
 </p>
@@ -14,7 +12,7 @@ Play solo against bots, hot-seat with friends on one device, or host/join a peer
 
 ## ✨ Highlights
 
-- 🎨 **Hand-built illustrated map** — 199 stations, 467 taxi/bus/metro/ferry connections, rendered as SVG at runtime with parchment/night-map styling, not a scan of the real board.
+- 🎨 **Hand-built illustrated map** — 199 stations, 449 taxi/bus/metro/ferry connections, rendered as SVG at runtime with parchment/night-map styling, with parchment-poster and neon night board styles.
 - 🤖 **Bots with real strategy** — three difficulty tiers (easy / normal / hard) for either role, from random-legal moves up to hard agents that anticipate and cover the Phantom's *next-round* escape routes as a coordinated team.
 - 🧑‍🤝‍🧑 **Three ways to play** — solo vs. bots, hot-seat on one device (with an automatic "pass the device" privacy handoff), or online rooms over WebRTC.
 - 📡 **Peer-to-peer online rooms** — share a 5-letter code, no backend server, with room chat and a live activity feed.
@@ -43,27 +41,17 @@ Play solo against bots, hot-seat with friends on one device, or host/join a peer
 <table>
 <tr>
 <td width="50%"><img src="screenshots/lobby-desktop.png" alt="Lobby screen: seat setup, transport legend, and rules"></td>
-<td width="50%"><img src="screenshots/online-room.png" alt="Online room lobby: room code, seat claiming, and chat"></td>
+<td width="50%"><img src="screenshots/ingame-desktop.png" alt="In-game screen: the Graywater board with the turn panel and travel log"></td>
 </tr>
 <tr>
 <td align="center"><sub>Lobby — set up seats, or create/join an online room</sub></td>
-<td align="center"><sub>Online room — share a code, no server needed</sub></td>
+<td align="center"><sub>In-game — the Graywater board, turn panel, and travel log</sub></td>
 </tr>
 <tr>
-<td width="50%"><img src="screenshots/history.png" alt="Game history screen with win-rate summary"></td>
-<td width="50%"><img src="screenshots/replay.png" alt="Replay screen stepping through a finished game's moves"></td>
+<td colspan="2"><img src="screenshots/ingame-mobile.png" alt="In-game screen on a phone-sized landscape viewport"></td>
 </tr>
 <tr>
-<td align="center"><sub>Game history — local win/loss record with a summary</sub></td>
-<td align="center"><sub>Replay — step through any finished game's moves</sub></td>
-</tr>
-<tr>
-<td width="50%"><img src="screenshots/lobby-mobile.png" alt="Lobby screen on a mobile-width viewport"></td>
-<td width="50%"><img src="screenshots/ingame-mobile.png" alt="In-game screen on a mobile-width viewport"></td>
-</tr>
-<tr>
-<td align="center"><sub>Mobile lobby</sub></td>
-<td align="center"><sub>Mobile in-game view</sub></td>
+<td colspan="2" align="center"><sub>Mobile (landscape) in-game view</sub></td>
 </tr>
 </table>
 
@@ -125,7 +113,7 @@ Beyond color, the app now offers a **keyboard- and screen-reader-accessible way 
 
 ## 🗺️ Map data
 
-Station positions and the 467 taxi/bus/metro/ferry connections come from a published open-source dataset matching the official station numbering (1–199). The map artwork itself — the illustrated parchment background, districts, parks, the Thames, station badges, and route styling — is original, built as an SVG rendered from that coordinate/connection data at runtime (see `buildMap()` in `map.js`).
+The city of Graywater is entirely original: its 199 stations and 449 taxi/bus/metro/ferry connections are produced by a deterministic, seeded map designer (`tools/mapgen/generate.js`) that lays out a planar taxi street mesh, a hub-based bus overlay, metro trunk lines, and a meandering river with a ferry line, then bakes the result into `engine.js`. The artwork — background, districts, parks, the river, station badges, and route styling — is likewise original, rendered as SVG at runtime (see `buildMap()` in `map.js`). Re-run the generator with a new seed for a different city, then re-check balance with `node test/simulate.js`.
 
 ## 🛠️ Tech notes
 
