@@ -704,3 +704,14 @@ body.theme-light .goHero.lose .goKicker{color:#B02a3a}
 #map .ma-blocks rect{fill:#182437;stroke:#0E1622;stroke-width:0.4;opacity:.85}
 #map .lmlabel{fill:#B9CBE2;font-family:'Oswald',sans-serif}
 #map .ma-lit{pointer-events:none}
+
+/* ---- ad break overlay (dormant until monetization is configured) ---- */
+#adBreak{position:fixed;inset:0;z-index:90;background:rgba(4,7,12,.82);display:flex;align-items:center;justify-content:center}
+#adBreak[hidden]{display:none}
+.adbreak-box{width:min(560px,92vw);background:#0F1826;border:1px solid var(--line2);border-radius:14px;padding:14px;box-shadow:0 24px 60px -20px rgba(0,0,0,.8)}
+.adbreak-head{font-size:13px;color:var(--muted);margin-bottom:10px}
+.adbreak-slot{position:relative;height:min(280px,40vh);border-radius:9px;overflow:hidden;background:#0A111C;border:1px solid var(--line2)}
+.adbreak-house{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--gold);letter-spacing:5px;font-weight:700;z-index:0}
+.adbreak-house span{color:var(--muted);letter-spacing:2.5px;font-size:11px;font-weight:400}
+.adbreak-slot ins{position:relative;z-index:1}
+.adbreak-row{display:flex;gap:10px;margin-top:12px;justify-content:space-between}

@@ -3,7 +3,7 @@
 Companion to `PLAN.md` (the phased roadmap). This file is updated after every
 commit so any session/model can resume with zero context loss.
 
-_Last updated: 2026-07-22 (session 3), branch `claude/work-hhvy7e`. PRs #50–#54 merged. New York full redesign done on top (see GRAPH-DESIGN.md)._
+_Last updated: 2026-07-22 (session 3), branch `claude/work-hhvy7e`. PRs #50–#55 merged. Phase 5 (monetization) done on top._
 
 ## What's done
 
@@ -80,6 +80,19 @@ _Last updated: 2026-07-22 (session 3), branch `claude/work-hhvy7e`. PRs #50–#5
   landmarks); New York is the default map, **Graywater fully playable via
   ?map=graywater** (also `--map=` in the simulator). Tagline/cartouche
   follow the active map.
+- **Phase 5 — monetization: DONE.** `monetization-config.js` (placeholders +
+  Google TEST AdMob ids; whole layer dormant until `enabled:true` and real
+  ids) + `ads.js`: interstitial break ONLY at lobby-return after a finished
+  game, frequency-capped, never mid-turn, always gated behind `adsRemoved()`
+  = `cloudNoAds()` OR local `sy_noads`. Web = lazy AdSense overlay with a
+  short gated close + house-ad fallback; native = AdMob interstitial via
+  Capacitor plugin (wired, plugin added in Phase 6). Remove-ads purchase
+  (`purchaseRemoveAds`) writes `entitlements.noAds` locally AND to Firestore
+  (follows the Google account); native uses a `Purchases` plugin, web shows a
+  sign-in-and-buy-in-app dialog. "Remove ads" entry added to Settings when
+  configured. `test/ui/ads.spec.js` covers dormant/break/cap/entitlement/
+  purchase (suite now 34). Also added `STORE-CHECKLIST.md` (every manual
+  publishing step) and `privacy-policy.html` (stub).
 
 ## Verified
 
@@ -88,11 +101,10 @@ _Last updated: 2026-07-22 (session 3), branch `claude/work-hhvy7e`. PRs #50–#5
 
 ## What's NOT done yet (in phase order — see PLAN.md for detail)
 
-1. Phase 5 (next — was about to start when the map rework was requested) —
-   ads (AdSense web / AdMob native) + remove-ads IAP,
-   gated everywhere behind `cloudNoAds()` / a local purchase cache; all IDs
-   in a documented `monetization-config.js` with placeholders.
-2. Phase 6 — PWA audit, Capacitor Android/iOS, STORE-CHECKLIST.md.
+1. Phase 6 (next, final) — PWA audit (manifest/icons/splash already original),
+   add the Capacitor project (`android/`/`ios/`, `com.<publisher>.shadowline`),
+   install the AdMob + billing plugins `ads.js` already calls, and work through
+   `STORE-CHECKLIST.md`. This is the one remaining code milestone.
 4. Optional polish backlog: night-board river prominence, more landmark art,
    iterate the map seed if a nicer layout is wanted, live-network smoke test
    of the new rejoin/takeover flows with two real browsers.
@@ -121,7 +133,7 @@ feature work, not legal cleanup.
 ## Config/secrets the owner still needs to supply (future phases)
 
 - Firebase project config -> paste into `firebase-config.js` (steps are
-  documented in that file). AdSense/AdMob IDs (Phase 5),
+  documented in that file). AdSense/AdMob IDs -> `monetization-config.js` (documented in-file + STORE-CHECKLIST.md),
   Play/App Store accounts + signing keys (Phase 6). Placeholders will live in
   documented config files when those phases land.
 
