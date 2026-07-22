@@ -85,12 +85,12 @@ prominently in README as "not shippable yet".)
 - New board start positions, re-tuned bot heuristics if needed (they are
   graph-generic already).
 
-### Phase 2 — Local multiplayer polish
+### Phase 2 — Local multiplayer polish — DONE
 Hot-seat pass-and-play already works; polish the handoff flow, per-seat naming,
 and verify the tutorial/demo against the new map. (Mostly verification, small
 fixes.)
 
-### Phase 3 — Online multiplayer hardening
+### Phase 3 — Online multiplayer hardening — DONE
 Keep PeerJS rooms; finish host-migration resilience, reconnect UX, and re-test
 spectators/chat against the renamed game. Document the "host tab is the server"
 limitation in-app.
