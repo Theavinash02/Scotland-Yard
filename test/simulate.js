@@ -28,6 +28,9 @@ const vm = require('vm');
 const ROOT = path.join(__dirname, '..');
 function loadEngine() {
   const ctx = vm.createContext({ Math, Array, Set, Map, console, window: {} });
+  const mapArg = process.argv.find((a) => a.startsWith('--map='));
+  if (mapArg) ctx.SIM_MAP = mapArg.split('=')[1];
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'mapdata.js'), 'utf8'), ctx, { filename: 'mapdata.js' });
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'engine.js'), 'utf8'), ctx, { filename: 'engine.js' });
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'bots.js'), 'utf8'), ctx, { filename: 'bots.js' });
   return ctx;

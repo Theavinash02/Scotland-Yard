@@ -1216,6 +1216,8 @@ function checkResumable(){
 }
 /* ------- boot ------- */
 function boot(){
+  // the active map (mapdata.js) owns the header tagline
+  try{ var sub=document.querySelector('.ttl .sub'); if(sub&&MAPDATA.tagline)sub.textContent=MAPDATA.tagline; }catch(e){}
   loadSettings();
   renderLocalSeats();
   // Game-mode (variant) picker for local/hot-seat games.
