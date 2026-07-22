@@ -65,7 +65,7 @@ function buildMap(){
       '<feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>');
   // Realism substrate (Aerial / Atlas / Blueprint modes). All inert until a
   // board-<mode> class shows the relevant layers (styles.css). A single warm
-  // "city lights" turbulence filter fakes an aerial view of built-up London;
+  // "city lights" turbulence filter fakes an aerial view of the built-up city;
   // tiled patterns give city-block texture and a blueprint grid cheaply.
   defs.insertAdjacentHTML('beforeend',
     '<filter id="cityLights" x="0" y="0" width="100%" height="100%">'+
@@ -125,7 +125,7 @@ function buildMap(){
   var dh='';
   var tints=[[360,455,110,58,'#EDE2C6'],[630,600,104,54,'#E9E8D6'],[765,352,100,52,'#EDE2C6'],[810,175,92,50,'#E9E8D6'],[585,44,88,40,'#EDE2C6'],[450,224,70,40,'#E9E8D6']];
   tints.forEach(function(t){dh+='<ellipse cx="'+t[0]+'" cy="'+t[1]+'" rx="'+t[2]+'" ry="'+t[3]+'" fill="'+t[4]+'" opacity="0.38"/>';});
-  var parks=[[180,405,64,40,-8,"HYDE PARK"],[140,56,78,30,-4,"REGENT'S PARK"],[900,672,60,38,6,"GREENWICH PARK"]];
+  var parks=[[180,405,64,40,-8,"ASHGROVE PARK"],[140,56,78,30,-4,"NORTHFIELD COMMON"],[900,672,60,38,6,"EASTMARSH GREEN"]];
   var treeOff=[[-30,-10],[-12,9],[10,-14],[27,6],[-2,-22],[18,17],[-36,13],[36,-6]];
   parks.forEach(function(p){
     dh+='<g transform="translate('+p[0]+','+p[1]+') rotate('+p[4]+')">'+
@@ -137,14 +137,31 @@ function buildMap(){
     });
     dh+='<text class="parklabel" y="4" text-anchor="middle" font-size="10.5" letter-spacing="2.5">'+p[5]+'</text></g>';
   });
-  var dlabels=[[360,459,'WESTMINSTER',15],[630,604,'SOUTHWARK',14],[765,356,'THE CITY',14],[810,179,'CAMDEN',13],[585,48,'MARYLEBONE',12],[450,228,'SOHO',11]];
+  var dlabels=[[360,459,'OLD QUAY',15],[630,604,'IRONVALE',14],[765,356,'THE EXCHANGE',14],[810,179,'NORTHGATE',13],[585,48,'HOLLOWBROOK',12],[450,228,'LANTERN ROW',11]];
   dlabels.forEach(function(l){dh+='<text class="maplabel" x="'+l[0]+'" y="'+l[1]+'" text-anchor="middle" font-size="'+l[3]+'" letter-spacing="4">'+l[2]+'</text>';});
   deco.innerHTML=dh;
-  // River Thames along the ferry line
-  var FP=[194,157,115,108].map(function(s){return POS[s];});
+  // The river along the ferry line — the ferry stops are chained into a path
+  // by walking the f-type edges from one end, so the water always follows
+  // whatever ferry line the map data defines (no hardcoded station ids).
+  var fAdj={};
+  PAIRS.forEach(function(p){
+    if(p.types.indexOf('f')<0)return;
+    (fAdj[p.a]=fAdj[p.a]||[]).push(p.b);
+    (fAdj[p.b]=fAdj[p.b]||[]).push(p.a);
+  });
+  var fIds=Object.keys(fAdj).map(Number);
+  var head=fIds.filter(function(s){return fAdj[s].length===1;})[0]||fIds[0];
+  var chain=[head],prev=null;
+  while(chain.length<fIds.length){
+    var nxt=fAdj[chain[chain.length-1]].filter(function(s){return s!==prev;})[0];
+    if(nxt===undefined)break;
+    prev=chain[chain.length-1];chain.push(nxt);
+  }
+  var FP=chain.map(function(s){return POS[s];});
+  var L=FP.length;
   var pre={x:FP[0].x+(FP[0].x-FP[1].x)*0.9,y:FP[0].y+(FP[0].y-FP[1].y)*0.9};
-  var post={x:FP[3].x+(FP[3].x-FP[2].x)*0.75,y:FP[3].y+(FP[3].y-FP[2].y)*0.75};
-  var rp=catmullPath([pre,FP[0],FP[1],FP[2],FP[3],post]);
+  var post={x:FP[L-1].x+(FP[L-1].x-FP[L-2].x)*0.75,y:FP[L-1].y+(FP[L-1].y-FP[L-2].y)*0.75};
+  var rp=catmullPath([pre].concat(FP,[post]));
   var river=svgEl('g');river.setAttribute('style','pointer-events:none');river.setAttribute('class','map-river');
   river.innerHTML=
     '<path class="r-bank" d="'+rp+'" fill="none" stroke="#C6B78E" stroke-width="31" stroke-linecap="round" opacity="0.8"/>'+
@@ -154,7 +171,7 @@ function buildMap(){
     '<path id="thamesPath" d="'+rp+'" fill="none"/>'+
     '<text class="riverlabel"><textPath href="#thamesPath" startOffset="57%">GRAYWATER  RIVER</textPath></text>';
   svg.appendChild(river);
-  // Bridges across the Thames (Atlas/Aerial modes) — sampled off the real river
+  // Bridges across the river (Atlas/Aerial modes) — sampled off the real river
   // path so they sit square across the water. Hidden by default (.r-bridge).
   (function(){
     var tp=$('#thamesPath');

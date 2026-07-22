@@ -65,13 +65,13 @@ churn every file and break saved games for no legal benefit.
 
 ## Phases
 
-### Phase 0 — IP-safe rename (no stack change) — IN PROGRESS
+### Phase 0 — IP-safe rename (no stack change) — DONE
 Rename every user-facing string, title, manifest, README, tutorial, and test
 comment to the SHADOW LINE scheme above. Repo stays fully playable; CI stays
 green. (The board itself is still the placeholder graph until Phase 1 — noted
 prominently in README as "not shippable yet".)
 
-### Phase 1 — One original map + game feel
+### Phase 1 — One original map + game feel — DONE (art polish can iterate)
 - Design an **original station graph** (~160–200 stations) for the fictional
   city: hand-shaped districts, a river with ferry line, metro trunk lines,
   bus arteries, taxi mesh. Built by a checked-in generator script
