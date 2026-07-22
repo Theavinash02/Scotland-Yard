@@ -95,7 +95,7 @@ Keep PeerJS rooms; finish host-migration resilience, reconnect UX, and re-test
 spectators/chat against the renamed game. Document the "host tab is the server"
 limitation in-app.
 
-### Phase 4 — Accounts + cross-device sync (Firebase)
+### Phase 4 — Accounts + cross-device sync (Firebase) — DONE
 - Add Firebase (Auth with Google sign-in + Firestore) as an **optional layer**:
   the game must keep working logged-out/offline.
 - Sync profile (display name), game history, achievements, and the

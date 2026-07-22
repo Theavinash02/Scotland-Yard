@@ -3,7 +3,7 @@
 Companion to `PLAN.md` (the phased roadmap). This file is updated after every
 commit so any session/model can resume with zero context loss.
 
-_Last updated: 2026-07-22 (session 2), branch `claude/work-hhvy7e`. PRs #50 (Phase 0) and #51 (Phase 1) merged._
+_Last updated: 2026-07-22 (session 2), branch `claude/work-hhvy7e`. PRs #50–#52 merged (Phases 0–3)._
 
 ## What's done
 
@@ -45,6 +45,15 @@ _Last updated: 2026-07-22 (session 2), branch `claude/work-hhvy7e`. PRs #50 (Pha
   (cancelled if the same pid re-hellos), so matches can't stall forever.
   Both flows verified headless against a stubbed PeerJS. The host lobby now
   states the room lives in the host tab.
+- **Phase 4 — optional Firebase account sync: DONE.** `firebase-config.js`
+  (documented placeholders; layer dormant until filled) + `cloud.js`:
+  lazy-loaded compat SDK, Google sign-in row in the lobby, Firestore
+  `users/{uid}` doc live-syncing name / history (achievements derive from
+  it) / `entitlements.noAds` (read synchronously via `cloudNoAds()` — this
+  is the Phase 5 ad gate). Local-first history merge by content key;
+  replay logs stay device-local; lobby name now persisted locally too.
+  Two Playwright specs cover dormant boot and stubbed sign-in/merge
+  (suite now 30).
 
 ## Verified
 
@@ -53,10 +62,10 @@ _Last updated: 2026-07-22 (session 2), branch `claude/work-hhvy7e`. PRs #50 (Pha
 
 ## What's NOT done yet (in phase order — see PLAN.md for detail)
 
-1. Phase 4 (next) — Firebase Auth (Google) + Firestore sync (greenfield — **no
-   Firebase exists in the repo**, despite the original brief saying so).
-2. Phase 5 — ads (AdSense web / AdMob native) + remove-ads IAP + entitlement.
-3. Phase 6 — PWA audit, Capacitor Android/iOS, STORE-CHECKLIST.md.
+1. Phase 5 (next) — ads (AdSense web / AdMob native) + remove-ads IAP,
+   gated everywhere behind `cloudNoAds()` / a local purchase cache; all IDs
+   in a documented `monetization-config.js` with placeholders.
+2. Phase 6 — PWA audit, Capacitor Android/iOS, STORE-CHECKLIST.md.
 4. Optional polish backlog: night-board river prominence, more landmark art,
    iterate the map seed if a nicer layout is wanted, live-network smoke test
    of the new rejoin/takeover flows with two real browsers.
@@ -84,20 +93,22 @@ feature work, not legal cleanup.
 
 ## Config/secrets the owner still needs to supply (future phases)
 
-- Firebase project config (Phase 4), AdSense/AdMob IDs (Phase 5),
+- Firebase project config -> paste into `firebase-config.js` (steps are
+  documented in that file). AdSense/AdMob IDs (Phase 5),
   Play/App Store accounts + signing keys (Phase 6). Placeholders will live in
   documented config files when those phases land.
 
 ## NEXT SESSION PROMPT (paste to resume)
 
-> Read `PLAN.md` and `HANDOFF.md` in the repo root. Phases 0–3 are done and
-> merged (original SHADOW LINE brand + Graywater board, hot-seat verified,
-> online auto-rejoin + bot takeover of abandoned seats). Restart the branch
-> from main (`git fetch origin main && git checkout -B claude/work-hhvy7e
-> origin/main`), then start **Phase 4: Firebase** — add optional Google
-> sign-in (Firebase Auth) + Firestore sync of profile/history/achievements
-> and an `entitlements.noAds` flag, with placeholder config in a documented
-> `firebase-config.js`; the game must keep working logged-out/offline.
-> Work in small commits, keep `npm run test:all` green, update `HANDOFF.md`
-> after every commit, and open a draft PR when pushing (the user has
-> authorized merging once CI is green).
+> Read `PLAN.md` and `HANDOFF.md` in the repo root. Phases 0–4 are done and
+> merged (original brand + board, hot-seat verified, online resilience,
+> optional Firebase sync with `cloudNoAds()` as the entitlement gate).
+> Restart the branch from main (`git fetch origin main && git checkout -B
+> claude/work-hhvy7e origin/main`), then start **Phase 5: monetization** —
+> an `ads.js` layer showing ads only at natural breaks (post-game debrief /
+> lobby return), always gated behind `cloudNoAds()` and a local purchase
+> cache; AdSense on web and AdMob via Capacitor on native; a remove-ads
+> purchase flow stub that sets `entitlements.noAds` in Firestore; all IDs
+> in a documented `monetization-config.js` with placeholders, dormant until
+> filled. Keep `npm run test:all` green, update `HANDOFF.md` per commit,
+> open a draft PR and merge when CI is green (pre-authorized).
