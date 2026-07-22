@@ -10,8 +10,8 @@
    (newGame() via startLocalGame(), same code path as a real local match)
    against hard-difficulty bots, then points driver.js at the actual
    elements a new player needs to understand:
-     - #logGrid            Mr. X's travel log and reveal rounds
-     - #playersCard        ticket counts / black tickets / double moves
+     - #logGrid            the Phantom's travel log and reveal rounds
+     - #playersCard        ticket counts / shadow tickets / sprints
      - .stg[data-id=...]   the learner's own piece on the live SVG map
      - #turnCard / #ctrlCard / #dblBtn  turn order and special controls
 
@@ -37,8 +37,8 @@ function tutorialChooser(){
   sfx('click');
   showModal('<h2>Play Tutorial</h2>'+
     '<p class="muted tiny" style="margin-bottom:12px">Pick a seat — each tour drops you into a live practice game against hard-difficulty bots and highlights exactly what to click.</p>'+
-    '<button class="btn big" id="tutDet">🔎 Detective Tutorial</button>'+
-    '<button class="btn ghost big" id="tutMrx" style="margin-top:8px">🕵️ Mr. X Tutorial</button>'+
+    '<button class="btn big" id="tutDet">🔎 Agent Tutorial</button>'+
+    '<button class="btn ghost big" id="tutMrx" style="margin-top:8px">🕵️ Phantom Tutorial</button>'+
     '<button class="btn ghost" id="tutCancel" style="margin-top:8px">Cancel</button>');
   $('#tutDet').onclick=function(){hideModal();startTutorial('det');};
   $('#tutMrx').onclick=function(){hideModal();startTutorial('mrx');};
@@ -62,30 +62,30 @@ function endTutorial(){
   if (G) leaveToLobby();
 }
 
-function detectiveSteps(){
-  var myStation = G.dets[0].st; // Detective 1 is always the learner's seat here
+function agentSteps(){
+  var myStation = G.dets[0].st; // Agent 1 is always the learner's seat here
   return [
-    {popover:{title:'Welcome, Detective', description:'You\'re seated as Detective 1 in a live practice game against hard-difficulty bots. This tour highlights the real board as you go — nothing here is a mockup.'}},
-    {element:'#turnCard', popover:{title:'Whose move is it', description:'This banner tracks the round out of 24 and whose turn it is. Mr. X always moves first each round, then detectives move in seat order.'}},
-    {element:'#logGrid', popover:{title:'Mr. X\'s travel log', description:'Every Mr. X move is logged here by ticket type, but his station stays hidden — except on the gold reveal rounds 3, 8, 13, 18 and 24, when he must surface and show his station.'}},
-    {element:'#playersCard', popover:{title:'Players & tickets', description:'Each detective starts with 10 taxi, 8 bus and 4 underground tickets (shown here per player). Moving spends one matching ticket — once a type runs out for you, it\'s gone for the rest of the game.'}},
-    {element:'.stg[data-id="'+myStation+'"]', popover:{title:'Your piece', description:'This is your detective, currently at station '+myStation+'. On your turn, every station you can reach glows on the map — tap one to move there.'}},
-    {element:'#mapwrap', popover:{title:'Picking a ticket', description:'If a glowing station is reachable by more than one transport, a small chooser pops up beside it so you can pick taxi, bus or underground before you move.'}},
-    {element:'#ctrlCard', popover:{title:'Show possible Mr. X spots', description:'"Show possible Mr. X spots" highlights every station still consistent with his revealed moves — a big help right after a reveal round.'}},
-    {element:'#leaveBtn', popover:{title:'You\'re ready', description:'That\'s the loop: read the log, spend the right ticket, and corner Mr. X before round 24. Click here (or Done below) to head back to the lobby and start a real game.'}}
+    {popover:{title:'Welcome, Agent', description:'You\'re seated as Agent 1 in a live practice game against hard-difficulty bots. This tour highlights the real board as you go — nothing here is a mockup.'}},
+    {element:'#turnCard', popover:{title:'Whose move is it', description:'This banner tracks the round out of 24 and whose turn it is. The Phantom always moves first each round, then agents move in seat order.'}},
+    {element:'#logGrid', popover:{title:'The Phantom\'s travel log', description:'Every the Phantom move is logged here by ticket type, but his station stays hidden — except on the gold reveal rounds 3, 8, 13, 18 and 24, when he must surface and show his station.'}},
+    {element:'#playersCard', popover:{title:'Players & tickets', description:'Each agent starts with 10 taxi, 8 bus and 4 metro tickets (shown here per player). Moving spends one matching ticket — once a type runs out for you, it\'s gone for the rest of the game.'}},
+    {element:'.stg[data-id="'+myStation+'"]', popover:{title:'Your piece', description:'This is your agent, currently at station '+myStation+'. On your turn, every station you can reach glows on the map — tap one to move there.'}},
+    {element:'#mapwrap', popover:{title:'Picking a ticket', description:'If a glowing station is reachable by more than one transport, a small chooser pops up beside it so you can pick taxi, bus or metro before you move.'}},
+    {element:'#ctrlCard', popover:{title:'Show possible Phantom spots', description:'"Show possible Phantom spots" highlights every station still consistent with his revealed moves — a big help right after a reveal round.'}},
+    {element:'#leaveBtn', popover:{title:'You\'re ready', description:'That\'s the loop: read the log, spend the right ticket, and corner the Phantom before round 24. Click here (or Done below) to head back to the lobby and start a real game.'}}
   ];
 }
 
 function mrxSteps(){
   var myStation = G.mrx.st;
   return [
-    {popover:{title:'Welcome, Mr. X', description:'You\'re seated as Mr. X in a live practice game — four hard-difficulty detective bots are hunting you. This tour highlights the real board as you go.'}},
-    {element:'#turnCard', popover:{title:'You move first, in secret', description:'Each round you move before the detectives, and only the ticket type you played is shown to them — never your station, unless it\'s a reveal round.'}},
+    {popover:{title:'Welcome, the Phantom', description:'You\'re seated as the Phantom in a live practice game — four hard-difficulty agent bots are hunting you. This tour highlights the real board as you go.'}},
+    {element:'#turnCard', popover:{title:'You move first, in secret', description:'Each round you move before the agents, and only the ticket type you played is shown to them — never your station, unless it\'s a reveal round.'}},
     {element:'#logGrid', popover:{title:'Reveal rounds', description:'Your route is logged by ticket type only. On rounds 3, 8, 13, 18 and 24 (marked in gold) you must surface and reveal your actual station.'}},
-    {element:'#playersCard', popover:{title:'Black tickets & double moves', description:'The ● count is your black tickets — they let you ride any transport, including the Thames ferry, without revealing which one you used. The 2× count is double-move cards: play one to move twice in a single round.'}},
-    {element:'.stg[data-id="'+myStation+'"]', popover:{title:'Your piece', description:'This is you, currently hidden at station '+myStation+'. Detectives only ever see this position on a reveal round.'}},
-    {element:'#dblBtn', popover:{title:'Double move', description:'Arm a double move here before picking your first station this round — you\'ll then choose two hops back-to-back, both logged as a single round, which is great for shaking off a close detective.'}},
-    {element:'#leaveBtn', popover:{title:'You\'re ready', description:'Stay hidden, spend black tickets wisely, and survive to round 24 to win. Click here (or Done below) to head back to the lobby and start a real game.'}}
+    {element:'#playersCard', popover:{title:'Shadow tickets & sprints', description:'The ● count is your shadow tickets — they let you ride any transport, including the river ferry, without revealing which one you used. The 2× count is sprint cards: play one to move twice in a single round.'}},
+    {element:'.stg[data-id="'+myStation+'"]', popover:{title:'Your piece', description:'This is you, currently hidden at station '+myStation+'. Agents only ever see this position on a reveal round.'}},
+    {element:'#dblBtn', popover:{title:'Sprint', description:'Arm a sprint here before picking your first station this round — you\'ll then choose two hops back-to-back, both logged as a single round, which is great for shaking off a close agent.'}},
+    {element:'#leaveBtn', popover:{title:'You\'re ready', description:'Stay hidden, spend shadow tickets wisely, and survive to round 24 to win. Click here (or Done below) to head back to the lobby and start a real game.'}}
   ];
 }
 
@@ -101,7 +101,7 @@ function startTutorial(role){
   // before driver.js measures element positions.
   setTimeout(function(){
     if (!G){ endTutorial(); return; } // user bailed out before the timer fired
-    var steps = role==='mrx' ? mrxSteps() : detectiveSteps();
+    var steps = role==='mrx' ? mrxSteps() : agentSteps();
     var d = window.driver.js.driver({
       showProgress: true,
       allowClose: true,

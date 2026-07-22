@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Scotland Yard — Night Chase Across London</title>
+<title>Shadow Line — Hunt the Phantom Across Graywater</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0F1722">
 <link rel="icon" href="icons/icon-192.png">
@@ -24,12 +24,12 @@
     </svg>
   </div>
   <div class="rotateTxt">Rotate your device</div>
-  <div class="rotateSub">Scotland Yard plays in landscape</div>
+  <div class="rotateSub">Shadow Line plays in landscape</div>
 </div>
 <div id="screen-intro">
   <video id="introVideo" playsinline webkit-playsinline disablepictureinpicture disableremoteplayback aria-hidden="true"></video>
   <div id="introGateTxt" aria-hidden="true">
-    <div class="introWordmark">SCOTLAND YARD</div>
+    <div class="introWordmark">SHADOW LINE</div>
     <div class="introTap">Tap, click, or press any key to begin</div>
   </div>
   <div id="introSkipTxt" aria-hidden="true" hidden>Skip ›</div>
@@ -37,7 +37,7 @@
 </div>
 <header id="hdr" hidden>
   <div class="roundel"><span></span></div>
-  <div class="ttl"><h1>SCOTLAND YARD</h1><div class="sub">night chase across london</div></div>
+  <div class="ttl"><h1>SHADOW LINE</h1><div class="sub">hunt across graywater</div></div>
   <div class="hdr-right">
     <span id="roomBadge" class="badge" hidden></span>
     <button id="sndBtn" class="ghostbtn" title="Toggle sound">🔊 Sound</button>
@@ -52,7 +52,7 @@
   <div class="lobbywrap">
     <div class="card hero">
       <h2>Set up a chase</h2>
-      <p class="muted">One fugitive. Up to five detectives. 24 rounds across 199 stations.</p>
+      <p class="muted">One fugitive. Up to five agents. 24 rounds across 199 stations.</p>
       <button id="tutorialBtn" class="btn ghost big" style="margin-bottom:14px">🎓 Play Tutorial</button>
       <button id="howtoBtn" class="btn ghost big" style="margin-bottom:14px">🎬 How to Play</button>
       <label>Your name <input id="nameIn" maxlength="14" placeholder="e.g. Avi"></label>
@@ -66,7 +66,7 @@
         <label>Game mode <select id="variantSel"></select></label>
         <p class="tiny muted" id="variantDesc" style="margin-top:-4px"></p>
         <button id="startLocal" class="btn big">Start game</button>
-        <p class="tiny muted" style="margin-top:8px">Multiple humans on this device play hot-seat — the app blanks Mr.&nbsp;X's position between turns.</p>
+        <p class="tiny muted" style="margin-top:8px">Multiple humans on this device play hot-seat — the app blanks the&nbsp;Phantom's position between turns.</p>
         <p class="tiny muted" id="offlineNote" style="margin-top:4px">📴 Works offline once loaded — installable, and local/bot games play with no connection. Online rooms below still need a live network.</p>
       </div>
       <div id="tab-host" class="tabpane" hidden>
@@ -100,12 +100,12 @@
       <div class="legend">
         <div class="legrow"><span class="legline leg-t"></span>Taxi — short hops, every station</div>
         <div class="legrow"><span class="legline leg-b"></span>Bus — mid-range routes</div>
-        <div class="legrow"><span class="legline leg-u"></span>Underground — fast, few stations</div>
-        <div class="legrow"><span class="legline leg-f"></span>Thames ferry — Mr.&nbsp;X only, black ticket</div>
+        <div class="legrow"><span class="legline leg-u"></span>Metro — fast, few stations</div>
+        <div class="legrow"><span class="legline leg-f"></span>river ferry — the&nbsp;Phantom only, shadow ticket</div>
       </div>
       <div class="rulebox">
-        <b>Mr. X</b> moves in secret; only the ticket he plays is public. He must surface on rounds <b>3, 8, 13, 18 and 24</b>. He carries <b>black tickets</b> (any transport, type concealed) and two <b>double-move</b> cards.<br><br>
-        <b>Detectives</b> start with 10 taxi, 8 bus and 4 underground tickets each, always move in the open, and win the instant one of them lands on Mr.&nbsp;X. If the log fills to round 24, the fugitive vanishes into the night — Mr.&nbsp;X wins.
+        <b>The Phantom</b> moves in secret; only the ticket he plays is public. He must surface on rounds <b>3, 8, 13, 18 and 24</b>. He carries <b>shadow tickets</b> (any transport, type concealed) and two <b>sprint</b> cards.<br><br>
+        <b>Agents</b> start with 10 taxi, 8 bus and 4 metro tickets each, always move in the open, and win the instant one of them lands on the&nbsp;Phantom. If the log fills to round 24, the fugitive vanishes into the night — the&nbsp;Phantom wins.
       </div>
     </div>
   </div>
@@ -130,12 +130,12 @@
   <aside id="side">
     <div id="turnCard" class="card"></div>
     <div class="card"><div class="cardhead">Players</div><div id="playersCard"></div></div>
-    <div class="card"><div class="cardhead">Mr. X travel log <span class="tiny muted">— gold = reveal</span></div><div id="logGrid"></div></div>
+    <div class="card"><div class="cardhead">Phantom travel log <span class="tiny muted">— gold = reveal</span></div><div id="logGrid"></div></div>
     <div class="card"><div class="cardhead">Activity feed</div><div id="activityFeed"></div></div>
     <div class="card" id="ctrlCard">
-      <button id="dblBtn" class="btn">Double move (×<span id="dblN">2</span> left)</button>
-      <button id="lastPosBtn" class="btn ghost" hidden>📍 Mr. X's last known position</button>
-      <button id="psBtn" class="btn ghost">Show possible Mr. X spots</button>
+      <button id="dblBtn" class="btn">Sprint (×<span id="dblN">2</span> left)</button>
+      <button id="lastPosBtn" class="btn ghost" hidden>📍 the Phantom's last known position</button>
+      <button id="psBtn" class="btn ghost">Show possible Phantom spots</button>
       <button id="leaveBtn" class="btn ghost">Leave game</button>
     </div>
   </aside>

@@ -152,7 +152,7 @@ function buildMap(){
     '<path class="r-hi" d="'+rp+'" fill="none" stroke="#BFD9E8" stroke-width="17" stroke-linecap="round" opacity="0.75"/>'+
     '<path class="r-dash" d="'+rp+'" fill="none" stroke="#7FA9C4" stroke-width="1.4" stroke-dasharray="12 16" opacity="0.55"/>'+
     '<path id="thamesPath" d="'+rp+'" fill="none"/>'+
-    '<text class="riverlabel"><textPath href="#thamesPath" startOffset="57%">RIVER  THAMES</textPath></text>';
+    '<text class="riverlabel"><textPath href="#thamesPath" startOffset="57%">GRAYWATER  RIVER</textPath></text>';
   svg.appendChild(river);
   // Bridges across the Thames (Atlas/Aerial modes) — sampled off the real river
   // path so they sit square across the water. Hidden by default (.r-bridge).
@@ -181,7 +181,7 @@ function buildMap(){
     '<g transform="translate(225,675)" opacity="0.95">'+
       '<rect x="-126" y="-23" width="252" height="46" rx="6" fill="#F8F4E6" stroke="#8A7B54" stroke-width="1.5"/>'+
       '<rect x="-120" y="-17" width="240" height="34" rx="4" fill="none" stroke="#8A7B54" stroke-width="0.6"/>'+
-      '<text class="carto" y="-2" text-anchor="middle" font-size="15" letter-spacing="6">LONDON</text>'+
+      '<text class="carto" y="-2" text-anchor="middle" font-size="15" letter-spacing="6">GRAYWATER</text>'+
       '<text class="carto" y="13" text-anchor="middle" font-size="7.5" letter-spacing="3" opacity="0.8">A CHASE IN 199 STATIONS</text></g>';
   svg.appendChild(orn);
   // functional layers
@@ -190,8 +190,8 @@ function buildMap(){
   ['pieces','fx'].forEach(function(n){var g=svgEl('g');g.setAttribute('id','L-'+n);g.setAttribute('style','pointer-events:none');svg.appendChild(g);LAYER[n]=g;});
   // transport lines, gently curved with weight variation
   // Each type also gets a distinct stroke pattern (not just color) so the
-  // taxi/bus/underground/ferry lines stay distinguishable under red-green
-  // colorblindness, which is exactly the bus(green)/underground(red) pair.
+  // taxi/bus/metro/ferry lines stay distinguishable under red-green
+  // colorblindness, which is exactly the bus(green)/metro(red) pair.
   var order={t:0,b:1,u:2,f:3};
   var col={t:'#DFAE1F',b:'#2F8A52',u:'#D23A3A',f:'#3E6E8E'};
   var dash={t:'',b:'10 6',u:'15 3 2 3',f:'0.1 6.5'};
@@ -494,7 +494,7 @@ function revealPing(st){
   LAYER.fx.appendChild(c);
   setTimeout(function(){c.remove();},3400);
 }
-function hiddenMoveFx(tk){ // Mr X moved in secret: sound of the ticket + stamped log cell
+function hiddenMoveFx(tk){ // the Phantom moved in secret: sound of the ticket + stamped log cell
   sfxForTicket(tk,false);
   return new Promise(function(res){setTimeout(res,500);});
 }

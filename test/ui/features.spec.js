@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const { bootToLobby, startLocal, trackPageErrors, revealPanel } = require('./helpers');
 
-// Human plays Mr. X (turn -1), so the accessible move list and turn HUD are
+// Human plays the Phantom (turn -1), so the accessible move list and turn HUD are
 // available immediately without a hot-seat privacy handoff.
 async function startAsMrX(page) {
   await startLocal(page, [

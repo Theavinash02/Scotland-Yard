@@ -6,7 +6,7 @@ test('boots to the lobby and starts a game with the full map rendered', async ({
   await bootToLobby(page);
   await expect(page.locator('#startLocal')).toBeVisible();
 
-  // Default-ish layout: Mr. X bot, one human detective, two bots.
+  // Default-ish layout: the Phantom bot, one human agent, two bots.
   await startLocal(page, [
     { kind: 'bot', diff: 'hard' }, { kind: 'human' },
     { kind: 'bot', diff: 'normal' }, { kind: 'bot', diff: 'normal' },

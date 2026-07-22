@@ -48,7 +48,7 @@ function sfx(kind){
     g.gain.setValueAtTime(0.0001,t+0.62);g.gain.exponentialRampToValueAtTime(0.22,t+0.68);
     g.gain.exponentialRampToValueAtTime(0.001,t+0.9);
     n.connect(f);f.connect(g);g.connect(m);n.start(t+0.6);
-  }else if(kind==='underground'){
+  }else if(kind==='metro'){
     var n=nsrc(ctx,1.1),f=ctx.createBiquadFilter(),g=ctx.createGain();
     f.type='lowpass';f.frequency.setValueAtTime(110,t);f.frequency.exponentialRampToValueAtTime(220,t+0.5);
     f.frequency.exponentialRampToValueAtTime(90,t+1.05);
@@ -78,5 +78,5 @@ function sfx(kind){
 }
 function sfxForTicket(tk,boat){
   if(boat)return sfx('boat');
-  sfx(tk==='t'?'taxi':tk==='b'?'bus':tk==='u'?'underground':'black');
+  sfx(tk==='t'?'taxi':tk==='b'?'bus':tk==='u'?'metro':'black');
 }

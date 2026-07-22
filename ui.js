@@ -14,9 +14,9 @@ function canSeeMrx(){
   var humans=G.seats.filter(function(s){return s.kind==='human';}).length;
   if(humans===0)return true;                    // spectating an all-bot game
   var humanX=G.seats[0].kind==='human';
-  if(humanX&&humanDetCount()===0)return true;   // solo human plays Mr X
+  if(humanX&&humanDetCount()===0)return true;   // solo human plays the Phantom
   if(humanX)return UI.mrxViewing;               // hot-seat privacy
-  return false;                                 // humans are detectives only
+  return false;                                 // humans are agents only
 }
 function iControlCurrent(){
   var s=currentSeat();
@@ -27,7 +27,7 @@ function iControlCurrent(){
 /* ---------------- rendering ---------------- */
 function seatName(idx){
   var s=G.seats[idx];
-  var base=idx===0?'Mr. X':'Detective '+idx;
+  var base=idx===0?'The Phantom':'Agent '+idx;
   if(s.kind==='bot')return base+' · bot ('+s.diff+')';
   return base+(s.name?' · '+s.name:'');
 }
@@ -101,7 +101,7 @@ function pieceTokenSvg(x,y,fill,accent,label,kind){
 function renderBanner(){
   var b=$('#banner');
   if(G.winner){
-    b.innerHTML='<div class="w">'+(G.winner==='mrx'?'Mr. X escaped':'Detectives win')+'</div><div class="r">'+G.reason+'</div>';
+    b.innerHTML='<div class="w">'+(G.winner==='mrx'?'The Phantom escaped':'Agents win')+'</div><div class="r">'+G.reason+'</div>';
     return;
   }
   var round=G.turn===-1?G.log.length+1:G.log.length;
@@ -109,17 +109,17 @@ function renderBanner(){
   var isRev=G.turn===-1&&gReveals(G).indexOf(G.log.length+1)>=0;
   var mine=iControlCurrent();
   var who=G.turn===-1?seatName(0):seatName(G.turn+1);
-  var extra=G.dblPending>0?' — double move, hop '+(3-G.dblPending)+' of 2':'';
+  var extra=G.dblPending>0?' — sprint, hop '+(3-G.dblPending)+' of 2':'';
   b.innerHTML='<div class="r">ROUND '+round+' / '+gMaxRound(G)+(isRev?'<span class="revtag">REVEAL ROUND</span>':'')+'</div>'+
     '<div class="w'+(mine?' you':'')+'">'+who+(mine?' — your move':'')+extra+'</div>';
   var hint=$('#dblHint');
-  if(G.dblPending>0&&mine){hint.hidden=false;hint.innerHTML='Double move: pick hop <b>'+(3-G.dblPending)+' of 2</b>';}
+  if(G.dblPending>0&&mine){hint.hidden=false;hint.innerHTML='Sprint: pick hop <b>'+(3-G.dblPending)+' of 2</b>';}
   else hint.hidden=true;
 }
 function tkChip(cls,txt){return '<span class="tk '+cls+'">'+txt+'</span>';}
 function renderPlayers(){
   var h='',cur=G.turn===-1?0:G.turn+1;
-  // Mr X row
+  // the Phantom row
   var xst=canSeeMrx()?G.mrx.st:(G.rev?G.rev+'?':'???');
   h+='<div class="prow'+(cur===0&&!G.winner?' on':'')+'">'+
      '<span class="dot" style="background:#0B0D10;border:2px solid #F2C230"></span>'+
@@ -163,10 +163,10 @@ function renderCtrls(){
   db.style.display=(isNet()?G.seats[0].pid===MYID:G.seats[0].kind==='human')?'':'none';
   var ps=$('#psBtn');
   var n=UI.showPs?possibleSet(G).size:null;
-  ps.textContent=UI.showPs?'Hide possible Mr. X spots ('+(n===null?'':n)+')':'Show possible Mr. X spots';
+  ps.textContent=UI.showPs?'Hide possible Phantom spots ('+(n===null?'':n)+')':'Show possible Phantom spots';
   var lp=$('#lastPosBtn');
   lp.hidden=canSeeMrx()||!G.rev;
-  if(!lp.hidden)lp.textContent='📍 Mr. X\'s last known position ('+G.rev+')';
+  if(!lp.hidden)lp.textContent='📍 the Phantom\'s last known position ('+G.rev+')';
 }
 function renderHighlights(){
   var h='';
@@ -191,7 +191,7 @@ function focusCurrentTurn(){
       var p=POS[G.mrx.st];
       focusStation(p.x,p.y);
     }else{
-      toast('Mr. X\'s position is hidden this round');
+      toast('The Phantom\'s position is hidden this round');
     }
   }else{
     var p=POS[G.dets[G.turn].st];
@@ -199,14 +199,14 @@ function focusCurrentTurn(){
   }
 }
 /* ---------------- activity feed ---------------- */
-var MOVE_TK_NAME={t:'taxi',b:'bus',u:'underground',x:'black'};
+var MOVE_TK_NAME={t:'taxi',b:'bus',u:'metro',x:'shadow'};
 function formatMoveFeedEntry(lm){
   var label=MOVE_TK_NAME[lm.tk]||lm.tk;
   if(lm.who==='mrx'){
     var vis=canSeeMrx()||lm.rv;
-    return vis?('Mr. X → station '+lm.to+' ('+label+')'):('Mr. X moved ('+label+')');
+    return vis?('The Phantom → station '+lm.to+' ('+label+')'):('The Phantom moved ('+label+')');
   }
-  return 'Detective '+(lm.who+1)+' → station '+lm.to+' ('+label+')';
+  return 'Agent '+(lm.who+1)+' → station '+lm.to+' ('+label+')';
 }
 function updateMoveFeed(){
   if(!UI.moveFeed)UI.moveFeed=[];
@@ -249,7 +249,7 @@ var chooserOpenedAt=0;
 function openChooser(moves,ev){
   chooserOpenedAt=Date.now();
   var ch=$('#chooser'),wrap=$('#maparea').getBoundingClientRect();
-  var names={t:'Taxi',b:'Bus',u:'Underground',x:'Black ticket'};
+  var names={t:'Taxi',b:'Bus',u:'Metro',x:'Shadow ticket'};
   var icons={t:'🚕',b:'🚌',u:'🚇',x:'⚫'};
   var h='<div class="chooserhead">Travel by</div>';
   moves.forEach(function(m,i){
@@ -302,7 +302,7 @@ function stampAndReveal(){
   var lm=G.lastMove;
   if(lm&&lm.who==='mrx'&&lm.rv){
     sfx('reveal');revealPing(lm.to);
-    toast('Mr. X surfaces at station '+lm.to+'!');
+    toast('The Phantom surfaces at station '+lm.to+'!');
   }
 }
 /* ---- per-move replay log, kept on the game object itself so it rides
@@ -316,9 +316,9 @@ function recordMove(){
   if(!G.moveLog)G.moveLog=[];
   var lm=G.lastMove,round=G.log.length;
   if(lm.who==='mrx'){
-    G.moveLog.push({round:round,actor:'mrx',label:'Mr. X',tk:lm.tk,to:lm.rv?lm.to:null});
+    G.moveLog.push({round:round,actor:'mrx',label:'The Phantom',tk:lm.tk,to:lm.rv?lm.to:null});
   }else{
-    G.moveLog.push({round:round,actor:'det'+lm.who,label:'Detective '+(lm.who+1),tk:lm.tk,to:lm.to});
+    G.moveLog.push({round:round,actor:'det'+lm.who,label:'Agent '+(lm.who+1),tk:lm.tk,to:lm.to});
   }
 }
 function afterAnyMove(){
@@ -336,12 +336,12 @@ function afterAnyMove(){
   maybeBot();
 }
 function askPassToMrx(){
-  showModal('<div class="handoff"><div class="handoff-icon">🕵️</div><h2>Pass the device to Mr. X</h2><p>Detectives, look away — Mr. X\'s position appears next.</p></div>'+
-    '<button class="btn" id="mOK">I\'m Mr. X — show the board</button>');
+  showModal('<div class="handoff"><div class="handoff-icon">🕵️</div><h2>Pass the device to the Phantom</h2><p>Agents, look away — the Phantom\'s position appears next.</p></div>'+
+    '<button class="btn" id="mOK">I\'m the Phantom — show the board</button>');
   $('#mOK').onclick=function(){hideModal();UI.mrxViewing=true;sfx('click');render();};
 }
 function askPassToDets(){
-  showModal('<div class="handoff"><div class="handoff-icon">🔎</div><h2>Hand the device back</h2><p>Mr. X\'s position is hidden again. Detectives, you\'re up.</p></div>'+
+  showModal('<div class="handoff"><div class="handoff-icon">🔎</div><h2>Hand the device back</h2><p>The Phantom\'s position is hidden again. Agents, you\'re up.</p></div>'+
     '<button class="btn" id="mOK">Continue</button>');
   $('#mOK').onclick=function(){hideModal();sfx('click');render();maybeBot();};
 }
@@ -362,14 +362,14 @@ async function botAct(){
   if(G.turn===-1){
     var p=botMrxPick(G,G.seats[0].diff);
     if(!p)return;
-    if(p.dbl&&startDouble(G)){toast('Mr. X plays a double move!');render();await wait(500);}
+    if(p.dbl&&startDouble(G)){toast('The Phantom plays a sprint!');render();await wait(500);}
     await doMrxMove(p.move);
     while(G&&!G.winner&&G.dblPending>0&&G.turn===-1){
       var p2=botMrxPick(G,G.seats[0].diff);
       if(!p2)break;
       await wait(350);
       await doMrxMove(p2.move);
-      if(!G)return; // left mid double-move
+      if(!G)return; // left mid sprint
     }
   }else{
     var m=botDetPick(G,G.turn,G.seats[G.turn+1].diff);
@@ -413,7 +413,7 @@ function onGameOver(){
       winner:G.winner,
       round:G.log.length,
       players:G.seats.map(function(s,i){
-        return {label:i===0?'Mr. X':'Detective '+i,
+        return {label:i===0?'The Phantom':'Agent '+i,
           name:s.kind==='human'?(s.name||'Player'):('Bot ('+(s.diff||'hard')+')'),
           kind:s.kind};
       })
@@ -425,7 +425,7 @@ function onGameOver(){
   G.log.forEach(function(e,i){
     route+='<span class="tk '+e.tk+'" title="Round '+(i+1)+'">'+e.st+'</span>';
   });
-  var goTitle=G.winner==='mrx'?'Mr. X vanished into the night':'Scotland Yard closes the net';
+  var goTitle=G.winner==='mrx'?'The Phantom vanished into the night':'Shadow Line closes the net';
   var goClass,goKick,goEmblem;
   if(!iAmPlaying){goClass='neutral';goKick='Match over';goEmblem='🎬';}
   else if(iWon){goClass='win';goKick='Victory';goEmblem='🏆';}
@@ -436,7 +436,7 @@ function onGameOver(){
       '<div class="goTitle">'+goTitle+'</div></div>'+
     '<p style="text-align:center">'+G.reason+'</p>'+
     debriefHtml()+
-    '<div class="cardhead" style="margin-top:10px">Mr. X\'s full route</div>'+
+    '<div class="cardhead" style="margin-top:10px">The Phantom\'s full route</div>'+
     '<div class="routelist">'+(route||'<span class="muted tiny">He never moved.</span>')+'</div>'+
     (isNet()?'':'<button class="btn" id="mAgain">Rematch — same seats</button>')+
     '<button class="btn ghost" id="mLobby" style="margin-top:8px">Back to lobby</button>');
@@ -659,7 +659,7 @@ function resumeAsClient(obj){
 }
 /* ------- local lobby seats ------- */
 var localSeats=[
-  {kind:'bot',diff:'hard'},          // Mr X
+  {kind:'bot',diff:'hard'},          // the Phantom
   {kind:'human'},                    // Det 1
   {kind:'bot',diff:'hard'},
   {kind:'bot',diff:'hard'},
@@ -667,7 +667,7 @@ var localSeats=[
   {kind:'empty'}
 ];
 var selectedVariant='classic'; // rule preset for local/hot-seat games (see VARIANTS)
-function seatLabel(i){return i===0?'Mr. X':'Detective '+i;}
+function seatLabel(i){return i===0?'The Phantom':'Agent '+i;}
 function seatDotColor(i){return i===0?'#0B0D10':DCOL[(i-1)%5];}
 function renderLocalSeats(){
   var h='';
@@ -703,7 +703,7 @@ function buildGameSeats(cfg,nameForHumans){
 }
 function startLocalGame(prebuilt,variant){
   var seats=prebuilt||buildGameSeats(localSeats,myName());
-  if(seats.length<2){toast('You need at least one detective.');return;}
+  if(seats.length<2){toast('You need at least one agent.');return;}
   G=newGame(seats,variant||selectedVariant);
   UI.privacy=!prebuilt? (seats[0].kind==='human'&&seats.slice(1).some(function(s){return s.kind==='human';}))
                       : (G.seats[0].kind==='human'&&G.seats.slice(1).some(function(s){return s.kind==='human';}));
@@ -866,7 +866,7 @@ function createRoomFlow(retries){
     settled=true;
     NET.peer=peer; NET.code=code; NET.isHost=true; NET.conns=[]; NET.v=0; NET.chat=[]; NET.localChat=[];
     NET.room={code:code,v:0,hostId:MYID,phase:'lobby',seats:defaultNetSeats()};
-    NET.room.seats[1]={kind:'human',pid:MYID,name:myName()}; // host defaults to Detective 1
+    NET.room.seats[1]={kind:'human',pid:MYID,name:myName()}; // host defaults to Agent 1
     peer.on('connection',function(conn){ hostAddConn(conn); });
     $('#createRoom').disabled=false; $('#createRoom').hidden=true;
     $('#hostLobby').hidden=false;
@@ -922,7 +922,7 @@ function joinRoomFlow(){
 }
 /* ---- spectating: watch a room live without occupying a seat or sending
    moves — a connected client that never claims a seat already gets exactly
-   the detective's read-only view for free (canSeeMrx()/iControlCurrent()
+   the agent's read-only view for free (canSeeMrx()/iControlCurrent()
    are both keyed off "does a seat's pid match mine", which is never true
    for a spectator), so this is mostly an explicit UI affordance for it. ---- */
 function setSpectating(v){
@@ -937,7 +937,7 @@ function startNetGame(){
   if(!NET.isHost||!NET.room)return;
   var cfg=NET.room.seats.map(function(s){return s.kind==='open'?{kind:'bot',diff:'hard'}:s;});
   var seats=buildGameSeats(cfg,'');
-  if(seats.length<2){toast('You need at least one detective.');return;}
+  if(seats.length<2){toast('You need at least one agent.');return;}
   var g=newGame(seats);
   NET.room.phase='playing'; NET.room.game=g;
   broadcastRoom();
@@ -946,11 +946,11 @@ function startNetGame(){
 /* ------- rules modal ------- */
 function showRules(){
   showModal('<h2>How to play</h2>'+
-  '<p><b>Mr. X</b> is hiding somewhere in London. Every round he moves first — in secret. Only the <b>ticket type</b> he plays is public. On rounds <b style="color:var(--gold)">3, 8, 13, 18 and 24</b> he must surface and show his station.</p>'+
-  '<p><b>Detectives</b> then each move once, spending a matching ticket (10 taxi, 8 bus, 4 underground; when they\'re gone, they\'re gone). Two detectives can\'t share a station. Land on Mr. X and the chase is over.</p>'+
-  '<p><b>Black tickets</b> let Mr. X ride anything — including the Thames ferry — without revealing the transport type. <b>Double-move</b> cards let him move twice in one round.</p>'+
+  '<p><b>The Phantom</b> is hiding somewhere in Graywater. Every round he moves first — in secret. Only the <b>ticket type</b> he plays is public. On rounds <b style="color:var(--gold)">3, 8, 13, 18 and 24</b> he must surface and show his station.</p>'+
+  '<p><b>Agents</b> then each move once, spending a matching ticket (10 taxi, 8 bus, 4 metro; when they\'re gone, they\'re gone). Two agents can\'t share a station. Land on the Phantom and the chase is over.</p>'+
+  '<p><b>Shadow tickets</b> let the Phantom ride anything — including the river ferry — without revealing the transport type. <b>Sprint</b> cards let him move twice in one round.</p>'+
   '<p>Click a highlighted station to move. If several transports reach it, pick your ticket. Drag to pan, scroll or pinch to zoom.</p>'+
-  '<p class="tiny">Digital adaptation note: Mr. X\'s taxi/bus/underground tickets are unlimited here (in the tabletop game he recycles the detectives\' spent tickets, which almost never runs dry).</p>'+
+  '<p class="tiny">Digital adaptation note: the Phantom\'s taxi/bus/metro tickets are unlimited here (in the tabletop game he recycles the agents\' spent tickets, which almost never runs dry).</p>'+
   '<button class="btn" id="mOK">Got it</button>');
   $('#mOK').onclick=hideModal;
 }
@@ -961,8 +961,8 @@ function showHistory(){
   var summary=arr.length?(
     '<div class="histsummary">'+
       '<div><b>'+s.games+'</b><span>games played</span></div>'+
-      '<div><b>'+historyPct(s.detWins,s.detGames)+'%</b><span>win rate as detective ('+s.detGames+')</span></div>'+
-      '<div><b>'+historyPct(s.mrxWins,s.mrxGames)+'%</b><span>win rate as Mr. X ('+s.mrxGames+')</span></div>'+
+      '<div><b>'+historyPct(s.detWins,s.detGames)+'%</b><span>win rate as agent ('+s.detGames+')</span></div>'+
+      '<div><b>'+historyPct(s.mrxWins,s.mrxGames)+'%</b><span>win rate as the Phantom ('+s.mrxGames+')</span></div>'+
     '</div>'
   ):'';
   var rows=arr.map(function(e,i){
@@ -970,7 +970,7 @@ function showHistory(){
     return '<div class="histrow histrow-'+e.result+'">'+
       '<div class="histrow-top">'+
         '<span class="histdate">'+d.toLocaleDateString()+'</span>'+
-        '<span class="histrole">'+(e.role==='mrx'?'Mr. X':'Detective')+'</span>'+
+        '<span class="histrole">'+(e.role==='mrx'?'The Phantom':'Agent')+'</span>'+
         '<span class="histresult">'+(e.result==='win'?'Win':'Loss')+'</span>'+
         '<span class="histround">round '+e.round+'</span>'+
       '</div>'+
@@ -996,8 +996,8 @@ function showHistory(){
 function replayExportText(e){
   var d=new Date(e.date);
   var lines=[
-    'Scotland Yard — game recap',
-    d.toLocaleDateString()+' · '+(e.role==='mrx'?'Mr. X':'Detective')+' · '+(e.result==='win'?'Win':'Loss')+
+    'Shadow Line — game recap',
+    d.toLocaleDateString()+' · '+(e.role==='mrx'?'The Phantom':'Agent')+' · '+(e.result==='win'?'Win':'Loss')+
       ' · ended round '+e.round+' · vs '+e.opponents+(e.mode==='online'?' (online)':''),
     ''
   ];
@@ -1058,7 +1058,7 @@ function showRoomHistory(){
     var plist=e.players.map(function(p){return escHtml(p.label+': '+p.name);}).join(' · ');
     return '<div class="roomhistrow roomhistrow-'+e.winner+'">'+
       '<span class="histdate">'+d.toLocaleDateString()+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'</span>'+
-      '<span class="histresult">'+(e.winner==='mrx'?'Mr. X escaped':'Detectives won')+'</span>'+
+      '<span class="histresult">'+(e.winner==='mrx'?'The Phantom escaped':'Agents won')+'</span>'+
       '<span class="histround">round '+e.round+'</span>'+
       '<div class="roomhistplayers tiny muted">'+plist+'</div>'+
     '</div>';
@@ -1071,27 +1071,27 @@ function showRoomHistory(){
 }
 /* ------- onboarding demo ------- */
 var DEMO_STEPS=[
-  {title:'Welcome to Scotland Yard',body:
-    '<p>Scotland Yard is a hidden-movement chase across London. One player is <b>Mr. X</b>, hiding and evading capture. Everyone else is a <b>detective</b>, working together to corner him.</p>'},
+  {title:'Welcome to Shadow Line',body:
+    '<p>Shadow Line is a hidden-movement chase across the city of Graywater. One player is <b>The Phantom</b>, hiding and evading capture. Everyone else is a <b>agent</b>, working together to corner him.</p>'},
   {title:'The map',body:
     '<p>Stations across the city are linked by four kinds of transport, each drawn in its own color on the map.</p>'+
     '<div class="demolegend">'+
       '<div class="demoleg-row"><svg width="26" height="10" aria-hidden="true"><rect width="26" height="10" rx="5" fill="'+TKCOL.t+'"/></svg><span>Taxi</span></div>'+
       '<div class="demoleg-row"><svg width="26" height="10" aria-hidden="true"><rect width="26" height="10" rx="5" fill="'+TKCOL.b+'"/></svg><span>Bus</span></div>'+
-      '<div class="demoleg-row"><svg width="26" height="10" aria-hidden="true"><rect width="26" height="10" rx="5" fill="'+TKCOL.u+'"/></svg><span>Underground</span></div>'+
-      '<div class="demoleg-row"><svg width="26" height="10" aria-hidden="true"><rect width="26" height="10" rx="5" fill="'+TKCOL.boat+'"/></svg><span>Ferry (Thames)</span></div>'+
+      '<div class="demoleg-row"><svg width="26" height="10" aria-hidden="true"><rect width="26" height="10" rx="5" fill="'+TKCOL.u+'"/></svg><span>Metro</span></div>'+
+      '<div class="demoleg-row"><svg width="26" height="10" aria-hidden="true"><rect width="26" height="10" rx="5" fill="'+TKCOL.boat+'"/></svg><span>Ferry (river)</span></div>'+
     '</div>'},
-  {title:'How detectives move',body:
-    '<p>Detectives move by spending a ticket that matches the transport they take — taxi, bus, or underground. Each detective starts with <b>10 taxi, 8 bus and 4 underground</b> tickets; once they\'re gone, they\'re gone.</p>'+
-    '<p>Two detectives can never share the same station.</p>'},
-  {title:'Mr. X\'s concealment',body:
-    '<p>Mr. X moves first each round, in secret — only the <b>ticket type</b> he plays is shown, never his station. On rounds <b style="color:var(--gold)">3, 8, 13, 18 and 24</b> he must surface and reveal exactly where he is.</p>'+
-    '<p><b>Black tickets</b> let him ride anything — including the Thames ferry — without revealing which transport he used. <b>Double-move</b> cards let him move twice in a single round.</p>'},
+  {title:'How agents move',body:
+    '<p>Agents move by spending a ticket that matches the transport they take — taxi, bus, or metro. Each agent starts with <b>10 taxi, 8 bus and 4 metro</b> tickets; once they\'re gone, they\'re gone.</p>'+
+    '<p>Two agents can never share the same station.</p>'},
+  {title:'The Phantom\'s concealment',body:
+    '<p>The Phantom moves first each round, in secret — only the <b>ticket type</b> he plays is shown, never his station. On rounds <b style="color:var(--gold)">3, 8, 13, 18 and 24</b> he must surface and reveal exactly where he is.</p>'+
+    '<p><b>Shadow tickets</b> let him ride anything — including the river ferry — without revealing which transport he used. <b>Sprint</b> cards let him move twice in a single round.</p>'},
   {title:'Making a move',body:
     '<p>When it\'s your turn, click a highlighted station to move there. If more than one transport reaches it, you\'ll be asked which ticket to spend.</p>'+
     '<p>Drag to pan the map; scroll or pinch to zoom.</p>'},
   {title:'Winning the game',body:
-    '<p>Detectives win the moment one of them lands on Mr. X\'s station. Mr. X wins by evading capture for long enough to slip away.</p>'+
+    '<p>Agents win the moment one of them lands on the Phantom\'s station. The Phantom wins by evading capture for long enough to slip away.</p>'+
     '<p class="tiny muted">You can revisit the full rules any time with the <b>Rules</b> button.</p>'}
 ];
 var demoIdx=0;
@@ -1124,7 +1124,7 @@ function checkResumable(){
   if(!obj)return false;
   if(obj.kind==='local'){
     var g=obj.game;
-    var role=g.seats[0].kind==='human'?'Mr. X':'a detective';
+    var role=g.seats[0].kind==='human'?'The Phantom':'an agent';
     showModal('<h2>Resume your game?</h2>'+
       '<p>You have an in-progress local game — round '+(g.log.length+1)+' of 24, playing as <b>'+role+'</b>.</p>'+
       '<button class="btn" id="mResume">Resume game</button>'+
@@ -1219,7 +1219,7 @@ function boot(){
     else enterMenu();
   }catch(e){enterMenu();}
   $('#dblBtn').onclick=function(){
-    if(startDouble(G)){sfx('click');toast('Double move armed — two hops this round.');render();}
+    if(startDouble(G)){sfx('click');toast('Sprint armed — two hops this round.');render();}
   };
   $('#psBtn').onclick=function(){UI.showPs=!UI.showPs;sfx('click');render();};
   $('#lastPosBtn').onclick=function(){
@@ -1228,7 +1228,7 @@ function boot(){
     var p=POS[G.rev];
     focusStation(p.x,p.y);
     revealPing(G.rev);
-    toast('Mr. X was last seen at station '+G.rev+'.');
+    toast('The Phantom was last seen at station '+G.rev+'.');
   };
   $('#leaveBtn').onclick=function(){sfx('click');leaveToLobby();};
   $('#chatSend').onclick=sendChatMessage;

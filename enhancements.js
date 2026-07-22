@@ -56,8 +56,8 @@ function announce(msg){
   var el=$('#srLive');if(el)el.textContent=msg;
 }
 
-var TK_ICON={t:'🚕',b:'🚌',u:'🚇',x:'⚫'},TK_WORD={t:'Taxi',b:'Bus',u:'Underground',x:'Black ticket'};
-// The reveal round Mr. X's *next* move falls on, or null if none remain.
+var TK_ICON={t:'🚕',b:'🚌',u:'🚇',x:'⚫'},TK_WORD={t:'Taxi',b:'Bus',u:'Metro',x:'Shadow ticket'};
+// The reveal round the Phantom's *next* move falls on, or null if none remain.
 function nextRevealRound(){
   var up=(G?G.log.length:0)+1,rev=gReveals(G);
   for(var i=0;i<rev.length;i++)if(rev[i]>=up)return rev[i];
@@ -79,9 +79,9 @@ function renderTurnCard(){
   if(!G.winner){
     var up=G.log.length+1,nr=nextRevealRound(),until=nr===null?null:nr-up;
     if(until===0){
-      h+='<div class="revhud now"><span class="revnum">!</span><span class="revlbl"><b>Mr. X surfaces</b> on this round ('+nr+')</span></div>';
+      h+='<div class="revhud now"><span class="revnum">!</span><span class="revlbl"><b>The Phantom surfaces</b> on this round ('+nr+')</span></div>';
     }else if(until!==null){
-      h+='<div class="revhud"><span class="revnum">'+until+'</span><span class="revlbl">round'+(until===1?'':'s')+' until <b>Mr. X surfaces</b> (round '+nr+')</span></div>';
+      h+='<div class="revhud"><span class="revnum">'+until+'</span><span class="revlbl">round'+(until===1?'':'s')+' until <b>The Phantom surfaces</b> (round '+nr+')</span></div>';
     }else{
       h+='<div class="revhud"><span class="revnum">✓</span><span class="revlbl">No reveals left — the final stretch</span></div>';
     }
@@ -126,23 +126,23 @@ function dangerHtml(){
     var mind=1e9;G.dets.forEach(function(d){var dd=DIST[G.mrx.st][d.st];if(dd<mind)mind=dd;});
     if(mind===1e9)return '';
     var cls=mind<=2?' hot':'';
-    return '<div class="danger'+cls+'"><span class="dgn">'+mind+'</span> hop'+(mind===1?'':'s')+' to the nearest detective</div>';
+    return '<div class="danger'+cls+'"><span class="dgn">'+mind+'</span> hop'+(mind===1?'':'s')+' to the nearest agent</div>';
   }
   var ps=possibleSet(G),me=G.dets[G.turn].st,best=1e9;
   ps.forEach(function(s){var dd=DIST[me][s];if(dd<best)best=dd;});
-  if(best===1e9)return '<div class="danger">Mr. X\'s trail has gone cold</div>';
+  if(best===1e9)return '<div class="danger">The Phantom\'s trail has gone cold</div>';
   var close=best<=2;
   return '<div class="danger'+(close?' hot':'')+'"><span class="dgn">'+(best===0?'0':'~'+best)+'</span> hop'+(best===1?'':'s')+' to the nearest suspect station</div>';
 }
 function announceTurn(){
   if(!G)return;
-  if(G.winner){announce((G.winner==='mrx'?'Mr. X escaped. ':'Detectives win. ')+G.reason);return;}
+  if(G.winner){announce((G.winner==='mrx'?'The Phantom escaped. ':'Agents win. ')+G.reason);return;}
   var round=G.turn===-1?G.log.length+1:G.log.length;if(round<1)round=1;
   if(canActNow()){
     var n=movesForCurrent().length;
-    announce('Round '+round+'. Your move'+(G.turn===-1?' as Mr. X':' as Detective '+(G.turn+1))+'. '+n+' move'+(n===1?'':'s')+' available.');
+    announce('Round '+round+'. Your move'+(G.turn===-1?' as the Phantom':' as Agent '+(G.turn+1))+'. '+n+' move'+(n===1?'':'s')+' available.');
   }else{
-    var who=G.turn===-1?'Mr. X':'Detective '+(G.turn+1);
+    var who=G.turn===-1?'The Phantom':'Agent '+(G.turn+1);
     announce('Round '+round+'. '+who+' to move.');
   }
 }
@@ -209,12 +209,12 @@ function debriefHtml(){
   function cell(v,l){return '<div class="dcell"><div class="dval">'+v+'</div><div class="dlbl">'+l+'</div></div>';}
   return '<div class="cardhead" style="margin-top:12px">Match debrief</div>'+
     '<div class="debrief">'+cell(G.log.length,'Rounds played')+cell(reveals,'Reveals forced')+
-    cell(blackUsed,'Black tickets used')+cell(gap,'Final gap to Mr. X')+'</div>';
+    cell(blackUsed,'Shadow tickets used')+cell(gap,'Final gap to the Phantom')+'</div>';
 }
 
 /* ---- Undo (local games only): snapshot-based rewind to the human's last
    decision point. Disabled online (no host authority to rewind) and in hot-seat
-   privacy games (a rewind could leak Mr. X's hidden move to a detective sharing
+   privacy games (a rewind could leak the Phantom's hidden move to an agent sharing
    the device). A snapshot of the whole JSON-safe game object is pushed before
    every move; undo restores the most recent one that sits on a human's turn. */
 function undoAllowed(){return !!G&&!isNet()&&!UI.privacy;}
@@ -253,9 +253,9 @@ function doUndo(){
    need no extra tracking during play and stay in sync with what's recorded. */
 var ACHIEVEMENTS=[
   {name:'First Collar',desc:'Win your first game.',emo:'🎉',test:function(a,s){return s.detWins+s.mrxWins>0;}},
-  {name:'Double Agent',desc:'Win as both Mr. X and the detectives.',emo:'🎭',test:function(a,s){return s.mrxWins>0&&s.detWins>0;}},
-  {name:'Dragnet',desc:'Win as the detectives in 8 rounds or fewer.',emo:'🚨',test:function(a){return a.some(function(e){return e.role==='det'&&e.result==='win'&&e.round<=8;});}},
-  {name:'Ghost of London',desc:'Win as Mr. X by surviving to the final round.',emo:'👻',test:function(a){return a.some(function(e){return e.role==='mrx'&&e.result==='win'&&(e.full||e.round>=MAX_ROUND);});}},
+  {name:'Double Agent',desc:'Win as both the Phantom and the agents.',emo:'🎭',test:function(a,s){return s.mrxWins>0&&s.detWins>0;}},
+  {name:'Dragnet',desc:'Win as the agents in 8 rounds or fewer.',emo:'🚨',test:function(a){return a.some(function(e){return e.role==='det'&&e.result==='win'&&e.round<=8;});}},
+  {name:'Ghost of Graywater',desc:'Win as the Phantom by surviving to the final round.',emo:'👻',test:function(a){return a.some(function(e){return e.role==='mrx'&&e.result==='win'&&(e.full||e.round>=MAX_ROUND);});}},
   {name:'Table Manners',desc:'Play a game against other humans.',emo:'🧑‍🤝‍🧑',test:function(a){return a.some(function(e){return e.opponents==='human';});}},
   {name:'Veteran',desc:'Play 10 games.',emo:'🎖️',test:function(a,s){return s.games>=10;}},
   {name:'On a Roll',desc:'Win 3 games in a row.',emo:'🔥',test:function(a){var run=0;for(var i=0;i<a.length;i++){if(a[i].result==='win'){if(++run>=3)return true;}else run=0;}return false;}}
@@ -308,7 +308,7 @@ function musicUpdate(){
   if(want)musicStart();else musicStop();
 }
 
-/* Weighted belief over Mr. X's location for the possible-spots heatmap: the more
+/* Weighted belief over the Phantom's location for the possible-spots heatmap: the more
    ways a station can be reached along his ticket log, the more colour it gets.
    Same reveal/transition logic as possibleSet(), but keeping the mass instead of
    collapsing to a flat set. */
@@ -342,9 +342,9 @@ function statsChartHtml(arr){
   var bars=recent.map(function(e,i){
     var win=e.result==='win',col=win?'var(--bus)':'var(--tube)',h=win?20:11,y=24-h,x=(i*bw).toFixed(2);
     return '<rect x="'+x+'" y="'+y+'" width="'+(bw*0.78).toFixed(2)+'" height="'+h+'" rx="0.8" fill="'+col+'" opacity="'+(e.role==='mrx'?0.6:1)+'">'+
-      '<title>'+(e.role==='mrx'?'Mr. X':'Detective')+' — '+(win?'win':'loss')+' (round '+e.round+')</title></rect>';
+      '<title>'+(e.role==='mrx'?'The Phantom':'Agent')+' — '+(win?'win':'loss')+' (round '+e.round+')</title></rect>';
   }).join('');
   return '<div class="cardhead" style="margin-top:14px">Recent results <span class="tiny muted">oldest → newest</span></div>'+
     '<svg class="statschart" viewBox="0 0 100 26" preserveAspectRatio="none" role="img" aria-label="Recent game results timeline">'+bars+'</svg>'+
-    '<div class="tiny muted" style="margin-top:3px">Green = win · red = loss · faded = played as Mr. X</div>';
+    '<div class="tiny muted" style="margin-top:3px">Green = win · red = loss · faded = played as the Phantom</div>';
 }

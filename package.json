@@ -1,7 +1,7 @@
 {
-  "name": "scotland-yard",
+  "name": "shadow-line",
   "version": "1.0.0",
-  "description": "A browser-playable adaptation of the hidden-movement board game Scotland Yard.",
+  "description": "Shadow Line — an original hidden-movement chase game: one hidden Phantom vs. a team of Agents across the city of Graywater.",
   "license": "MIT",
   "private": true,
   "scripts": {
@@ -11,6 +11,6 @@
     "test:all": "node test/simulate.js && playwright test"
   },
   "devDependencies": {
-    "@playwright/test": "1.48.0"
+    "@playwright/test": "1.56.0"
   }
 }
