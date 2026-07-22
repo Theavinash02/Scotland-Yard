@@ -636,11 +636,10 @@ body.theme-light .goHero.lose .goKicker{color:#B02a3a}
    these rules style the game layer above it).
    ========================================================================== */
 #maparea{background:radial-gradient(1200px 760px at 68% -12%,#14243D 0%,#070D18 66%)}
-#L-edges{filter:url(#neonGlow)}
-#map .e-t{stroke:#FFD34D}
-#map .e-b{stroke:#37E38C}
-#map .e-u{stroke:#FF5A6A}
-#map .e-f{stroke:#59E0EC}
+#map .e-t{stroke:#F5C844;stroke-opacity:.78}
+#map .e-b{stroke:#37E38C;stroke-opacity:.82}
+#map .e-u{stroke:#FF5A6A;stroke-opacity:.9}
+#map .e-f{stroke:#59E0EC;stroke-opacity:.85}
 #map .maplabel{fill:#5C7CA6;opacity:.5}
 #map .parklabel{fill:#4F9070;opacity:.6}
 #map .riverlabel{fill:#4FD8E6;opacity:.72}
@@ -655,13 +654,11 @@ body.theme-light .goHero.lose .goKicker{color:#B02a3a}
 #map .map-orn path{fill:#5B7AA8}
 #map .ehalo{display:none}
 #map .e{stroke-opacity:1}
-#L-stations{filter:drop-shadow(0 0 3px rgba(90,150,220,.35))}
-#map .st-core{fill:#16273F;stroke:rgba(246,201,69,.5)}
-#map .st-u,#map .st-b[fill="#FDF9EE"]{fill:#0C1A2E}
-#map .st-u{stroke:#FF5A6A}
-#map .st-b{stroke:#37E38C}
-#map .st-pip{fill:#16273F;stroke:#3B577B}
-#map .st-lbl{fill:#EAF1FA;stroke:#0B1524;stroke-width:2.4px}
+#map .st-halo{fill:#060B14;opacity:.55}
+#map .st-ring{fill:#0C1626;stroke-width:2.1}
+#map .st-core{fill:#101E33;stroke:#233854;stroke-width:.7}
+#map .st-ferry{fill:#59E0EC;stroke:#0B1524;stroke-width:.8}
+#map .st-lbl{fill:#EAF1FA;stroke:#0B1524;stroke-width:2.2px}
 #map .map-deco>ellipse,#map .map-deco g ellipse,#map .map-deco g circle{display:none}
 
 /* ==========================================================================

@@ -123,7 +123,7 @@ function buildMap(){
     var types=p.types.slice().sort(function(a,b){return order[a]-order[b];});
     var bow=edgeBow(p.a,p.b);
     types.forEach(function(t,i){
-      lines.push({t:t,a:p.a,b:p.b,bow:bow,off:(i-(types.length-1)/2)*4.4});
+      lines.push({t:t,a:p.a,b:p.b,bow:bow,off:(i-(types.length-1)/2)*3.6});
     });
   });
   lines.sort(function(a,b){return order[a.t]-order[b.t];});
@@ -131,34 +131,27 @@ function buildMap(){
   lines.forEach(function(l){
     var q=quadPoint(POS[l.a],POS[l.b],l.bow,l.off,0);
     var hsh=hash2(l.a*7+order[l.t],l.b);
-    var w=l.t==='t'?(2.0+(hsh%5)*0.12):l.t==='b'?(3.3+(hsh%4)*0.15):l.t==='u'?4.7:3.0;
-    if(l.t==='u'||l.t==='b')eh+='<path class="ehalo" d="'+q.d+'" fill="none" stroke="#F6F1DF" stroke-width="'+r1(w+2.4)+'" stroke-linecap="round"/>';
-    eh+='<path class="e e-'+l.t+'" d="'+q.d+'" fill="none" stroke="'+col[l.t]+'" stroke-width="'+r1(w)+'" stroke-linecap="round" stroke-opacity="'+(l.t==='t'?0.92:0.95)+'"'+(dash[l.t]?' stroke-dasharray="'+dash[l.t]+'"':'')+'/>';
+    // thin lane markings riding the asphalt casings mapart draws beneath —
+    // hierarchy comes from the city now, not from fat glowing strokes
+    var w=l.t==='t'?(1.5+(hsh%5)*0.08):l.t==='b'?(2.1+(hsh%4)*0.1):l.t==='u'?2.8:2.0;
+    eh+='<path class="e e-'+l.t+'" d="'+q.d+'" fill="none" stroke="'+col[l.t]+'" stroke-width="'+r1(w)+'" stroke-linecap="round"'+(dash[l.t]?' stroke-dasharray="'+dash[l.t]+'"':'')+'/>';
   });
   LAYER.edges.innerHTML=eh;
-  LAYER.edges.setAttribute('filter','url(#eShadow)');
-  // stations: landmark markers with transport pips
-  var pipc={t:'#D9A61F',b:'#2F8A52',u:'#C22B2B',f:'#3E6E8E'};
+  // stations: ring-pin badges — ring color marks the best transport there
+  // (metro > bus > taxi); ferry stations carry a small cyan pip.
   for(var i=1;i<=199;i++){
     var hasU=false,hasB=false,hasF=false;
     NBRS[i].forEach(function(e){if(e.t==='u')hasU=true;if(e.t==='b')hasB=true;if(e.t==='f')hasF=true;});
-    var r=hasU?8.6:hasB?6.9:5.5;
+    var r=hasU?8.2:hasB?7.0:5.9;
+    var ring=hasU?'#FF5A6A':hasB?'#37E38C':'#F2C230';
     var g=svgEl('g');
-    g.setAttribute('class','stg');g.setAttribute('data-id',i);
+    g.setAttribute('class','stg'+(hasU?' st-metro':hasB?' st-bus':' st-taxi'));g.setAttribute('data-id',i);
     g.setAttribute('transform','translate('+POS[i].x+','+POS[i].y+')');
-    var h='';
-    if(hasU)h+='<circle class="st-u" r="'+r1(r+3.4)+'" fill="#FDF9EE" stroke="#C22B2B" stroke-width="2.4"/>';
-    if(hasB)h+='<circle class="st-b" r="'+r1(r+1.6)+'" fill="'+(hasU?'none':'#FDF9EE')+'" stroke="#2F8A52" stroke-width="1.7"/>';
-    h+='<circle class="st-core" r="'+r+'" fill="#FDFBF2" stroke="#4A4130" stroke-width="1.2"/>';
-    h+='<text class="st-num st-lbl" y="'+r1(r*0.40)+'" text-anchor="middle" font-size="'+(hasU?7.4:hasB?6.6:6)+'">'+i+'</text>';
-    var modes=['t'];if(hasB)modes.push('b');if(hasU)modes.push('u');if(hasF)modes.push('f');
-    if(modes.length>1){
-      var bw=modes.length*5.6+3.2,by=r1(r+(hasU?5.4:3.6));
-      h+='<rect class="st-pip" x="'+r1(-bw/2)+'" y="'+by+'" width="'+r1(bw)+'" height="5.6" rx="2.8" fill="#FDF9EE" stroke="#4A4130" stroke-width="0.7"/>';
-      modes.forEach(function(mm,k){
-        h+='<circle cx="'+r1(-bw/2+4.4+k*5.6)+'" cy="'+r1(by+2.8)+'" r="1.7" fill="'+pipc[mm]+'"/>';
-      });
-    }
+    var h='<circle class="st-halo" r="'+r1(r+3.2)+'"/>'+
+      '<circle class="st-ring" r="'+r+'" stroke="'+ring+'"/>'+
+      '<circle class="st-core" r="'+r1(r-1.9)+'"/>'+
+      '<text class="st-num st-lbl" y="'+r1(r*0.38)+'" text-anchor="middle" font-size="'+(hasU?6.8:hasB?6.2:5.6)+'">'+i+'</text>';
+    if(hasF)h+='<circle class="st-ferry" cx="'+r1(r*0.78)+'" cy="'+r1(r*0.78)+'" r="2"/>';
     g.innerHTML=h;
     // Taps/clicks are handled centrally by handleTap() in the pan/zoom layer,
     // which does proper drag-vs-tap detection and nearest-station hit-testing.
