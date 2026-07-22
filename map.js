@@ -85,73 +85,11 @@ function buildMap(){
   // viewport even when fillView() frames the map to a much wider aspect ratio —
   // no flat "empty" margin ever shows outside the board on wide phone screens.
   function bigRect(attrs){var r=svgEl('rect');r.setAttribute('x',-900);r.setAttribute('y',-560);r.setAttribute('width',2800);r.setAttribute('height',MAP_H+1120);for(var k in attrs)r.setAttribute(k,attrs[k]);svg.appendChild(r);return r;}
-  bigRect({fill:'url(#boardNightG)','class':'bg-paper'});
   // (The old procedural street-grid substrate is gone; mapart.js will draw
   // the real illustrated base city here.)
-  // districts & parks
-  var deco=svgEl('g');deco.setAttribute('style','pointer-events:none');deco.setAttribute('class','map-deco');svg.appendChild(deco);
-  var dh='';
-  var tints=[[360,455,110,58,'#EDE2C6'],[630,600,104,54,'#E9E8D6'],[765,352,100,52,'#EDE2C6'],[810,175,92,50,'#E9E8D6'],[585,44,88,40,'#EDE2C6'],[450,224,70,40,'#E9E8D6']];
-  tints.forEach(function(t){dh+='<ellipse cx="'+t[0]+'" cy="'+t[1]+'" rx="'+t[2]+'" ry="'+t[3]+'" fill="'+t[4]+'" opacity="0.38"/>';});
-  var parks=[[180,405,64,40,-8,"ASHGROVE PARK"],[140,56,78,30,-4,"NORTHFIELD COMMON"],[900,672,60,38,6,"EASTMARSH GREEN"]];
-  var treeOff=[[-30,-10],[-12,9],[10,-14],[27,6],[-2,-22],[18,17],[-36,13],[36,-6]];
-  parks.forEach(function(p){
-    dh+='<g transform="translate('+p[0]+','+p[1]+') rotate('+p[4]+')">'+
-      '<ellipse rx="'+p[2]+'" ry="'+p[3]+'" fill="#CFE3B8" opacity="0.6"/>'+
-      '<ellipse rx="'+(p[2]-10)+'" ry="'+(p[3]-8)+'" fill="#D9EAC6" opacity="0.5"/>';
-    treeOff.forEach(function(o){
-      var tx=r1(o[0]*p[2]/64),ty=r1(o[1]*p[3]/40);
-      dh+='<circle cx="'+tx+'" cy="'+ty+'" r="3" fill="#A9C48F"/><circle cx="'+tx+'" cy="'+ty+'" r="1.1" fill="#8FB07A"/>';
-    });
-    dh+='<text class="parklabel" y="4" text-anchor="middle" font-size="10.5" letter-spacing="2.5">'+p[5]+'</text></g>';
-  });
-  var dlabels=[[360,459,'OLD QUAY',15],[630,604,'IRONVALE',14],[765,356,'THE EXCHANGE',14],[810,179,'NORTHGATE',13],[585,48,'HOLLOWBROOK',12],[450,228,'LANTERN ROW',11]];
-  dlabels.forEach(function(l){dh+='<text class="maplabel" x="'+l[0]+'" y="'+l[1]+'" text-anchor="middle" font-size="'+l[3]+'" letter-spacing="4">'+l[2]+'</text>';});
-  deco.innerHTML=dh;
-  // The river along the ferry line — the ferry stops are chained into a path
-  // by walking the f-type edges from one end, so the water always follows
-  // whatever ferry line the map data defines (no hardcoded station ids).
-  var fAdj={};
-  PAIRS.forEach(function(p){
-    if(p.types.indexOf('f')<0)return;
-    (fAdj[p.a]=fAdj[p.a]||[]).push(p.b);
-    (fAdj[p.b]=fAdj[p.b]||[]).push(p.a);
-  });
-  var fIds=Object.keys(fAdj).map(Number);
-  var head=fIds.filter(function(s){return fAdj[s].length===1;})[0]||fIds[0];
-  var chain=[head],prev=null;
-  while(chain.length<fIds.length){
-    var nxt=fAdj[chain[chain.length-1]].filter(function(s){return s!==prev;})[0];
-    if(nxt===undefined)break;
-    prev=chain[chain.length-1];chain.push(nxt);
-  }
-  var FP=chain.map(function(s){return POS[s];});
-  var L=FP.length;
-  var pre={x:FP[0].x+(FP[0].x-FP[1].x)*0.9,y:FP[0].y+(FP[0].y-FP[1].y)*0.9};
-  var post={x:FP[L-1].x+(FP[L-1].x-FP[L-2].x)*0.75,y:FP[L-1].y+(FP[L-1].y-FP[L-2].y)*0.75};
-  var rp=catmullPath([pre].concat(FP,[post]));
-  var river=svgEl('g');river.setAttribute('style','pointer-events:none');river.setAttribute('class','map-river');
-  river.innerHTML=
-    '<path class="r-bank" d="'+rp+'" fill="none" stroke="#C6B78E" stroke-width="31" stroke-linecap="round" opacity="0.8"/>'+
-    '<path class="r-fill" d="'+rp+'" fill="none" stroke="#A6C6DB" stroke-width="26" stroke-linecap="round"/>'+
-    '<path class="r-hi" d="'+rp+'" fill="none" stroke="#BFD9E8" stroke-width="17" stroke-linecap="round" opacity="0.75"/>'+
-    '<path class="r-dash" d="'+rp+'" fill="none" stroke="#7FA9C4" stroke-width="1.4" stroke-dasharray="12 16" opacity="0.55"/>'+
-    '<path id="thamesPath" d="'+rp+'" fill="none"/>'+
-    '<text class="riverlabel"><textPath href="#thamesPath" startOffset="57%">GRAYWATER  RIVER</textPath></text>';
-  svg.appendChild(river);
-  // Bridges across the river (Atlas/Aerial modes) — sampled off the real river
-  // path so they sit square across the water. Hidden by default (.r-bridge).
-  (function(){
-    var tp=$('#thamesPath');
-    if(!tp||!tp.getTotalLength)return;
-    var TL=tp.getTotalLength(),bh='';
-    [0.30,0.44,0.57,0.70,0.83].forEach(function(f){
-      var pA=tp.getPointAtLength(TL*f),pB=tp.getPointAtLength(Math.min(TL,TL*f+2));
-      var a=Math.atan2(pB.y-pA.y,pB.x-pA.x)*180/Math.PI;
-      bh+='<g class="r-bridge" transform="translate('+r1(pA.x)+','+r1(pA.y)+') rotate('+r1(a+90)+')"><rect x="-19" y="-3.4" width="38" height="6.8" rx="1.4"/></g>';
-    });
-    river.insertAdjacentHTML('beforeend',bh);
-  })();
+  // (districts, parks and their labels are drawn by mapart.js)
+  // The water, land and all base geography come from mapart.js:
+  buildGraywaterBase(svg,defs);
   // frame, compass, cartouche
   var orn=svgEl('g');orn.setAttribute('style','pointer-events:none');orn.setAttribute('class','map-orn');
   orn.innerHTML=
