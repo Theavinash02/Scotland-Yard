@@ -23,11 +23,15 @@ test('configured ads show at lobby-return, respect the cap and the entitlement',
   await page.route(/pagead2\.googlesyndication\.com/, (r) => r.abort());
   await bootToLobby(page);
 
-  // configure web ads, finish a game, return to lobby -> break appears
+  // configure web ads, finish a game, return to lobby -> break appears.
+  // gamesFinished must clear the grace count (a real finished game bumps it
+  // via the historyRecord wrapper); set it so the precondition is explicit.
   await page.evaluate(() => {
     MONETIZATION.enabled = true;
     MONETIZATION.web.client = 'ca-pub-TEST';
     MONETIZATION.web.slot = '123';
+    ADS.gamesFinished = 5;
+    ADS.lastShown = 0;
     window.G = { winner: 'dets', seats: [], log: [] };
     leaveToLobby();
   });
