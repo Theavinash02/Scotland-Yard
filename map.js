@@ -104,7 +104,7 @@ function buildMap(){
     '<g transform="translate(225,675)" opacity="0.95">'+
       '<rect x="-126" y="-23" width="252" height="46" rx="6" fill="#F8F4E6" stroke="#8A7B54" stroke-width="1.5"/>'+
       '<rect x="-120" y="-17" width="240" height="34" rx="4" fill="none" stroke="#8A7B54" stroke-width="0.6"/>'+
-      '<text class="carto" y="-2" text-anchor="middle" font-size="15" letter-spacing="6">GRAYWATER</text>'+
+      '<text class="carto" y="-2" text-anchor="middle" font-size="15" letter-spacing="6">'+((typeof MAPDATA!=='undefined'&&MAPDATA.name)?MAPDATA.name.toUpperCase():'GRAYWATER')+'</text>'+
       '<text class="carto" y="13" text-anchor="middle" font-size="7.5" letter-spacing="3" opacity="0.8">A CHASE IN 199 STATIONS</text></g>';
   svg.appendChild(orn);
   // functional layers

@@ -22,7 +22,8 @@ const W = 1000, H = 761, N = 199;
 const TAXI_MAX = 68, TAXI_CAP = 4;
 const BUS_COUNT = 46, BUS_MIN = 80, BUS_MAX = 250, BUS_CAP = 4;
 const METRO_COUNT = 15, METRO_EXTRA = 3;
-const DET_TICKETS = { t: 10, b: 8, u: 3 };
+const DET_TICKETS = { t: 10, b: 9, u: 3 };
+const DBL_BONUS = -1; // one sprint on New York (see GRAPH-DESIGN.md)
 
 let _s = SEED >>> 0;
 function rnd() {
@@ -354,7 +355,7 @@ function generate() {
   // render metadata (canvas space)
   const sampleRiver = (center) => {
     const pts = [];
-    for (let u = -0.1; u <= 1.1; u += 0.04) {
+    for (let u = -0.32; u <= 1.32; u += 0.04) {
       const band = riverBand(center, u);
       const c = uv(u, (band.lo + band.hi) / 2);
       pts.push([Math.round(c.x * 10) / 10, Math.round(c.y * 10) / 10]);
@@ -420,6 +421,7 @@ function write(g) {
     '  mrxStarts:[' + g.mrxStarts.join(',') + '],\n' +
     '  detStarts:[' + g.detStarts.join(',') + '],\n' +
     '  det:{t:' + DET_TICKETS.t + ',b:' + DET_TICKETS.b + ',u:' + DET_TICKETS.u + '},\n' +
+    '  dblBonus:' + DBL_BONUS + ',\n' +
     '  geo:' + JSON.stringify(g.geo) + '\n' +
     '};\n' +
     "DEFAULT_MAP='newyork';\n";

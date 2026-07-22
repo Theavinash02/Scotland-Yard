@@ -68,31 +68,60 @@ function maRiverPoints(){
   out.push(ctrl[ctrl.length-1]);
   return out;
 }
-var MA_RIVER=null; // cached sampled centerline (with widths), built once
-function maRiver(){
-  if(MA_RIVER)return MA_RIVER;
+var MA_RIVERS=null; // cached rivers: [{pts(sampled, with widths+normals), name}]
+function maSampleLine(raw){
+  // Catmull-Rom resample of a control polyline [[x,y],...] with tangents
+  var ctrl=raw.map(function(p){return {x:p[0],y:p[1]};});
+  var out=[],SEG=4;
+  for(var i=0;i<ctrl.length-1;i++){
+    var p0=ctrl[Math.max(0,i-1)],p1=ctrl[i],p2=ctrl[i+1],p3=ctrl[Math.min(ctrl.length-1,i+2)];
+    for(var k=0;k<SEG;k++){
+      var t=k/SEG,t2=t*t,t3=t2*t;
+      out.push({
+        x:0.5*((2*p1.x)+(-p0.x+p2.x)*t+(2*p0.x-5*p1.x+4*p2.x-p3.x)*t2+(-p0.x+3*p1.x-3*p2.x+p3.x)*t3),
+        y:0.5*((2*p1.y)+(-p0.y+p2.y)*t+(2*p0.y-5*p1.y+4*p2.y-p3.y)*t2+(-p0.y+3*p1.y-3*p2.y+p3.y)*t3)
+      });
+    }
+  }
+  out.push(ctrl[ctrl.length-1]);
+  return out;
+}
+function maAddNormals(pts){
+  var n=pts.length;
+  for(var j=0;j<n;j++){
+    var A2=pts[Math.max(0,j-1)],B2=pts[Math.min(n-1,j+1)];
+    var dx=B2.x-A2.x,dy=B2.y-A2.y,L=Math.hypot(dx,dy)||1;
+    pts[j].nx=-dy/L;pts[j].ny=dx/L;
+  }
+  return pts;
+}
+function maRivers(){
+  if(MA_RIVERS)return MA_RIVERS;
+  var geo=MAPDATA.geo;
+  if(geo&&geo.rivers){
+    MA_RIVERS=geo.rivers.map(function(r){
+      var pts=maAddNormals(maSampleLine(r.pts));
+      pts.forEach(function(p){p.w=r.w/2;});
+      return {pts:pts,name:r.name};
+    });
+    return MA_RIVERS;
+  }
+  // fallback: one river derived from the ferry chain (Graywater)
   var pts=maRiverPoints();
-  if(!pts)return null;
+  if(!pts)return (MA_RIVERS=[]);
   var rr=maRng(MA_SEED);
-  // width profile: a working river that swells into a harbor basin downstream
   var n=pts.length;
   for(var i=0;i<n;i++){
     var t=i/(n-1);
-    var swell=t>0.8?(t-0.8)/0.2:0;                    // harbor at the far end
-    var lagoon=Math.exp(-Math.pow((t-0.47)/0.07,2));  // gentle mid bulge
+    var swell=t>0.8?(t-0.8)/0.2:0;
+    var lagoon=Math.exp(-Math.pow((t-0.47)/0.07,2));
     pts[i].w=24+Math.sin(t*23)*3+rr()*3+swell*46+lagoon*12;
   }
-  // tangents -> left/right banks
-  for(var j=0;j<n;j++){
-    var A=pts[Math.max(0,j-1)],B=pts[Math.min(n-1,j+1)];
-    var dx=B.x-A.x,dy=B.y-A.y,L=Math.hypot(dx,dy)||1;
-    pts[j].nx=-dy/L;pts[j].ny=dx/L;
-  }
-  MA_RIVER=pts;
-  return pts;
+  maAddNormals(pts);
+  MA_RIVERS=[{pts:pts,name:'THE  GRAYWATER'}];
+  return MA_RIVERS;
 }
-function maWaterPath(){
-  var pts=maRiver();if(!pts)return '';
+function maWaterPathOf(pts){
   var left=[],right=[];
   pts.forEach(function(p){
     left.push(maR1(p.x+p.nx*p.w)+' '+maR1(p.y+p.ny*p.w));
@@ -100,22 +129,29 @@ function maWaterPath(){
   });
   return 'M '+left.join(' L ')+' L '+right.reverse().join(' L ')+' Z';
 }
-function maCenterPath(){
-  var pts=maRiver();if(!pts)return '';
+function maCenterPathOf(pts){
   return 'M '+pts.map(function(p){return maR1(p.x)+' '+maR1(p.y);}).join(' L ');
 }
-/* distance from a point to the river centerline (coarse) — used by later
-   layers to keep streets/blocks/parks out of the water */
+/* distance from a point to the nearest river surface (coarse) */
 function maWaterDist(x,y){
-  var pts=maRiver();if(!pts)return 1e9;
-  var best=1e9;
-  for(var i=0;i<pts.length;i+=2){
-    var d=Math.hypot(pts[i].x-x,pts[i].y-y)-pts[i].w;
-    if(d<best)best=d;
-  }
+  var rs=maRivers(),best=1e9;
+  rs.forEach(function(r){
+    for(var i=0;i<r.pts.length;i+=2){
+      var d=Math.hypot(r.pts[i].x-x,r.pts[i].y-y)-r.pts[i].w;
+      if(d<best)best=d;
+    }
+  });
   return best;
 }
-
+/* point-in-polygon for the geo park */
+function maInPoly(poly,x,y){
+  var inside=false;
+  for(var i=0,j=poly.length-1;i<poly.length;j=i++){
+    var xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];
+    if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))inside=true;
+  }
+  return inside;
+}
 /* ---- layer 1+2: land base and the water body ---- */
 function maBuildLand(g){
   var rr=maRng(MA_SEED+1);
@@ -131,32 +167,35 @@ function maBuildLand(g){
   g.insertAdjacentHTML('beforeend','<g class="ma-land">'+h+'</g>');
 }
 function maBuildWater(g){
-  var wp=maWaterPath();if(!wp)return;
-  var cp=maCenterPath();
+  var rs=maRivers();if(!rs.length)return;
   var rr=maRng(MA_SEED+2);
   var h='';
-  // glow bleeding onto the land, then the basin itself, then depth + shore
-  h+='<path d="'+wp+'" fill="none" stroke="#153B52" stroke-width="26" stroke-linejoin="round" opacity="0.35"/>';
-  h+='<path d="'+wp+'" fill="url(#waterG)" stroke="none"/>';
-  h+='<path d="'+wp+'" fill="none" stroke="#0A2233" stroke-width="7" stroke-linejoin="round" opacity="0.9"/>';
-  h+='<path d="'+wp+'" fill="none" stroke="#3E8FA8" stroke-width="1.6" stroke-linejoin="round" opacity="0.8"/>';
-  // sparse ripples: short strokes following the flow
-  var pts=maRiver(),n=pts.length;
-  for(var i=0;i<34;i++){
-    var j=2+Math.floor(rr()*(n-5));
-    var p=pts[j],off=(rr()*2-1)*p.w*0.62;
-    var x0=p.x+p.nx*off,y0=p.y+p.ny*off;
-    var q=pts[Math.min(n-1,j+2)];
-    var dx=q.x-p.x,dy=q.y-p.y,L=Math.hypot(dx,dy)||1;
-    var len=5+rr()*10;
-    h+='<path d="M '+maR1(x0)+' '+maR1(y0)+' q '+maR1(dx/L*len*0.5)+' '+maR1(dy/L*len*0.5-1.2)+' '+maR1(dx/L*len)+' '+maR1(dy/L*len)+'" fill="none" stroke="#5FB6CC" stroke-width="0.9" stroke-linecap="round" opacity="'+maR1(0.14+rr()*0.2)+'"/>';
-  }
-  // shipping lane along the ferry line + the water name
-  h+='<path id="thamesPath" d="'+cp+'" fill="none" stroke="#4FD8E6" stroke-width="1.1" stroke-dasharray="10 14" opacity="0.32"/>';
-  h+='<text class="riverlabel"><textPath href="#thamesPath" startOffset="26%">THE  GRAYWATER</textPath></text>';
+  rs.forEach(function(r,ri){
+    var wp=maWaterPathOf(r.pts),cp=maCenterPathOf(r.pts);
+    h+='<path d="'+wp+'" fill="none" stroke="#153B52" stroke-width="26" stroke-linejoin="round" opacity="0.35"/>';
+    h+='<path d="'+wp+'" fill="url(#waterG)" stroke="none"/>';
+    h+='<path d="'+wp+'" fill="none" stroke="#0A2233" stroke-width="7" stroke-linejoin="round" opacity="0.9"/>';
+    h+='<path d="'+wp+'" fill="none" stroke="#3E8FA8" stroke-width="1.6" stroke-linejoin="round" opacity="0.8"/>';
+    var n=r.pts.length;
+    for(var i=0;i<22;i++){
+      var j=2+Math.floor(rr()*(n-5));
+      var p=r.pts[j],off=(rr()*2-1)*p.w*0.62;
+      var x0=p.x+p.nx*off,y0=p.y+p.ny*off;
+      var q=r.pts[Math.min(n-1,j+2)];
+      var dx=q.x-p.x,dy=q.y-p.y,L=Math.hypot(dx,dy)||1;
+      var len=5+rr()*10;
+      h+='<path d="M '+maR1(x0)+' '+maR1(y0)+' q '+maR1(dx/L*len*0.5)+' '+maR1(dy/L*len*0.5-1.2)+' '+maR1(dx/L*len)+' '+maR1(dy/L*len)+'" fill="none" stroke="#5FB6CC" stroke-width="0.9" stroke-linecap="round" opacity="'+maR1(0.14+rr()*0.2)+'"/>';
+    }
+    h+='<path id="riverPath'+ri+'" d="'+cp+'" fill="none"/>';
+    h+='<text class="riverlabel"><textPath href="#riverPath'+ri+'" startOffset="'+(ri%2?'62%':'26%')+'">'+r.name+'</textPath></text>';
+  });
+  // ferry lanes: one dashed line per ferry edge (works for chains AND stars)
+  PAIRS.forEach(function(p){
+    if(p.types.indexOf('f')<0)return;
+    h+='<path d="M '+maR1(POS[p.a].x)+' '+maR1(POS[p.a].y)+' L '+maR1(POS[p.b].x)+' '+maR1(POS[p.b].y)+'" fill="none" stroke="#4FD8E6" stroke-width="1.1" stroke-dasharray="10 14" opacity="0.32"/>';
+  });
   g.insertAdjacentHTML('beforeend','<g class="ma-water" style="pointer-events:none">'+h+'</g>');
 }
-
 function maDefs(){
   return '<radialGradient id="landBlobA" cx="50%" cy="50%" r="50%">'+
       '<stop offset="0%" stop-color="#122036" stop-opacity="0.9"/><stop offset="100%" stop-color="#122036" stop-opacity="0"/></radialGradient>'+
@@ -201,13 +240,19 @@ function maSmoothClosed(pts){
   }
   return d+' Z';
 }
+function maDistrictAnchors(){
+  var geo=MAPDATA.geo;
+  if(geo&&geo.districts)return geo.districts.map(function(d){return {name:d.name,x:d.at[0],y:d.at[1]};});
+  return MA_DISTRICTS;
+}
 function maBuildDistricts(g){
+  var ANCH=maDistrictAnchors();
   var tints=['#16283E','#14293A','#182741','#13293C','#172A3D','#122438'];
   var h='',labels='';
-  var clusters=MA_DISTRICTS.map(function(){return [];});
+  var clusters=ANCH.map(function(){return [];});
   for(var i=1;i<=199;i++){
     var best=0,bd=1e9;
-    MA_DISTRICTS.forEach(function(d,k){
+    ANCH.forEach(function(d,k){
       var dd=Math.hypot(POS[i].x-d.x,POS[i].y-d.y);
       if(dd<bd){bd=dd;best=k;}
     });
@@ -225,7 +270,7 @@ function maBuildDistricts(g){
     h+='<path d="'+d+'" fill="'+tints[k%tints.length]+'" opacity="0.5"/>';
     h+='<path d="'+d+'" fill="none" stroke="#2C4260" stroke-width="5" opacity="0.16"/>';
     h+='<path d="'+d+'" fill="none" stroke="#5C82B0" stroke-width="0.8" stroke-dasharray="2 7" opacity="0.35"/>';
-    labels+='<text class="maplabel" x="'+maR1(MA_DISTRICTS[k].x)+'" y="'+maR1(MA_DISTRICTS[k].y)+'" text-anchor="middle" font-size="14" letter-spacing="5">'+MA_DISTRICTS[k].name+'</text>';
+    labels+='<text class="maplabel" x="'+maR1(ANCH[k].x)+'" y="'+maR1(ANCH[k].y)+'" text-anchor="middle" font-size="'+(ANCH.length>8?11:14)+'" letter-spacing="4">'+ANCH[k].name+'</text>';
   });
   g.insertAdjacentHTML('beforeend','<g class="ma-districts">'+h+labels+'</g>');
 }
@@ -251,38 +296,64 @@ function maParkSpots(count){
   });
   return out;
 }
-var MA_PARK_NAMES=['ASHGROVE PARK','NORTHFIELD COMMON','EASTMARSH GREEN','WIDOW\'S GARDEN','FOUNDRY FIELDS'];
-var MA_PARKS=null;
+var MA_PARK_NAMES=['ASHGROVE PARK','NORTHFIELD COMMON','EASTMARSH GREEN',"WIDOW'S GARDEN",'FOUNDRY FIELDS'];
+var MA_PARK_NAMES_GEO=['RIVERSIDE GREEN','TOMPKINS FIELD','BATTERY GARDENS'];
 function maBuildParks(g){
   var rr=maRng(MA_SEED+3);
-  MA_PARKS=maParkSpots(5);
+  var geo=MAPDATA.geo;
   var h='';
-  MA_PARKS.forEach(function(sp,i){
-    var R=Math.min(58,sp.d-14);
-    if(R<26)return;
+  if(geo&&geo.park){
+    // the big park: smoothed polygon + trees + a meadow path + label
+    var poly=geo.park.poly.map(function(p){return {x:p[0],y:p[1]};});
+    var cx=0,cy=0;poly.forEach(function(p){cx+=p.x;cy+=p.y;});cx/=poly.length;cy/=poly.length;
+    var soft=[];
+    poly.forEach(function(p,i){
+      var q=poly[(i+1)%poly.length];
+      for(var t=0;t<1;t+=0.34){
+        var x=p.x+(q.x-p.x)*t,y=p.y+(q.y-p.y)*t;
+        soft.push({x:x+(rr()*2-1)*5,y:y+(rr()*2-1)*5});
+      }
+    });
+    var d=maSmoothClosed(soft);
+    h+='<path d="'+d+'" fill="#12301F" opacity="0.9"/>';
+    h+='<path d="'+d+'" fill="none" stroke="#1E4A30" stroke-width="3" opacity="0.85"/>';
+    h+='<path d="'+d+'" fill="none" stroke="#2E6B45" stroke-width="0.9" opacity="0.5"/>';
+    for(var t2=0;t2<30;t2++){
+      var px=cx+(rr()*2-1)*(Math.abs(poly[1].x-poly[0].x)/2-10);
+      var py=cy+(rr()*2-1)*(Math.abs(poly[2].y-poly[1].y)/2-8);
+      if(!maInPoly(geo.park.poly,px,py))continue;
+      h+='<circle cx="'+maR1(px)+'" cy="'+maR1(py)+'" r="'+maR1(2+rr()*1.8)+'" fill="#1C4A2E" opacity="0.9"/>';
+    }
+    var nm=geo.park.name,bw=nm.length*6+18;
+    h+='<g transform="translate('+maR1(cx)+','+maR1(cy)+')">'+
+      '<rect x="'+maR1(-bw/2)+'" y="-9" width="'+maR1(bw)+'" height="17" rx="3" fill="#0B1524" opacity="0.78" stroke="#2E6B45" stroke-width="0.8"/>'+
+      '<text class="parklabel" y="4" text-anchor="middle" font-size="10" letter-spacing="2.4">'+nm+'</text></g>';
+  }
+  // smaller computed parks in the biggest station gaps
+  var names=geo?MA_PARK_NAMES_GEO:MA_PARK_NAMES;
+  var spots=maParkSpots(geo?3:5);
+  spots.forEach(function(sp,i){
+    if(geo&&geo.park&&maInPoly(geo.park.poly,sp.x,sp.y))return;
+    var R=Math.min(geo?44:58,sp.d-14);
+    if(R<24)return;
     var pts=[];
     for(var a=0;a<8;a++){
       var ang=a/8*Math.PI*2;
       var rad=R*(0.72+rr()*0.4);
       pts.push({x:sp.x+Math.cos(ang)*rad*1.25,y:sp.y+Math.sin(ang)*rad*0.85});
     }
-    var d=maSmoothClosed(pts);
-    h+='<path d="'+d+'" fill="#12301F" opacity="0.85"/>';
-    h+='<path d="'+d+'" fill="none" stroke="#1E4A30" stroke-width="2.4" opacity="0.8"/>';
-    h+='<path d="'+d+'" fill="none" stroke="#2E6B45" stroke-width="0.8" opacity="0.5"/>';
-    // tree stipples
-    for(var t=0;t<14;t++){
+    var d2=maSmoothClosed(pts);
+    h+='<path d="'+d2+'" fill="#12301F" opacity="0.85"/>';
+    h+='<path d="'+d2+'" fill="none" stroke="#1E4A30" stroke-width="2.4" opacity="0.8"/>';
+    for(var t3=0;t3<12;t3++){
       var ang2=rr()*Math.PI*2,rad2=rr()*R*0.62;
       var tx=maR1(sp.x+Math.cos(ang2)*rad2*1.2),ty=maR1(sp.y+Math.sin(ang2)*rad2*0.8);
-      h+='<circle cx="'+tx+'" cy="'+ty+'" r="'+maR1(2+rr()*1.6)+'" fill="#1C4A2E" opacity="0.9"/>'+
-         '<circle cx="'+tx+'" cy="'+(ty-0.8)+'" r="'+maR1(0.9)+'" fill="#39795083"/>';
+      h+='<circle cx="'+tx+'" cy="'+ty+'" r="'+maR1(2+rr()*1.6)+'" fill="#1C4A2E" opacity="0.9"/>';
     }
-    // boxed label like a printed map
-    var nm=MA_PARK_NAMES[i%MA_PARK_NAMES.length];
-    var bw=nm.length*5.4+14;
+    var nm2=names[i%names.length],bw2=nm2.length*5.4+14;
     h+='<g transform="translate('+maR1(sp.x)+','+maR1(sp.y)+')">'+
-      '<rect x="'+maR1(-bw/2)+'" y="-7" width="'+maR1(bw)+'" height="13" rx="2.5" fill="#0B1524" opacity="0.78" stroke="#2E6B45" stroke-width="0.7"/>'+
-      '<text class="parklabel" y="3" text-anchor="middle" font-size="8" letter-spacing="1.6">'+nm+'</text></g>';
+      '<rect x="'+maR1(-bw2/2)+'" y="-7" width="'+maR1(bw2)+'" height="13" rx="2.5" fill="#0B1524" opacity="0.78" stroke="#2E6B45" stroke-width="0.7"/>'+
+      '<text class="parklabel" y="3" text-anchor="middle" font-size="8" letter-spacing="1.6">'+nm2+'</text></g>';
   });
   g.insertAdjacentHTML('beforeend','<g class="ma-parks">'+h+'</g>');
 }
@@ -327,6 +398,7 @@ function maBuildStreets(g){
       var ang=rr()*Math.PI*2,len=18+rr()*26;
       var ex=POS[i].x+Math.cos(ang)*len,ey=POS[i].y+Math.sin(ang)*len;
       if(maWaterDist(ex,ey)<8)continue;
+      if(MAPDATA.geo&&MAPDATA.geo.park&&maInPoly(MAPDATA.geo.park.poly,ex,ey))continue;
       h+='<path d="'+maJitterPath(POS[i].x,POS[i].y,ex,ey,rr,5)+'" class="ma-st ma-st-stub"/>';
     }
   }
@@ -374,6 +446,7 @@ function maBuildBlocks(g){
     for(var gx=44;gx<=956;gx+=27){
       var x=gx+(rr()*2-1)*8,y=gy+(rr()*2-1)*8;
       if(maWaterDist(x,y)<10)continue;
+      if(MAPDATA.geo&&MAPDATA.geo.park&&maInPoly(MAPDATA.geo.park.poly,x,y))continue;
       var dSt=1e9,ang=0;
       for(var i=1;i<=199;i++){
         var dd=Math.hypot(POS[i].x-x,POS[i].y-y);
@@ -403,8 +476,32 @@ function maLandmarkBox(x,y,nm,stroke){
     '<text class="lmlabel" y="3.2" text-anchor="middle" font-size="8" letter-spacing="1.4">'+nm+'</text></g>';
 }
 function maBuildLandmarks(g){
-  var h='',pts=maRiver();
-  // Graywater Bridge — the widest road crossing of the river
+  var geo=MAPDATA.geo,h='';
+  if(geo){
+    (geo.bridges||[]).forEach(function(b){
+      h+='<g transform="translate('+b[0]+','+b[1]+') rotate('+b[2]+')">'+
+        '<rect x="-30" y="-4.6" width="60" height="9.2" rx="2" fill="#2B3B52" stroke="#101B2C" stroke-width="0.8"/>'+
+        '<path d="M -26 -4.6 Q -13 -16 0 -4.6 Q 13 -16 26 -4.6" fill="none" stroke="#5B7AA8" stroke-width="1.4"/>'+
+        '<path d="M -13 -4.6 L -13 -11 M 13 -4.6 L 13 -11" stroke="#5B7AA8" stroke-width="1.6"/>'+
+        '</g>';
+    });
+    (geo.landmarks||[]).forEach(function(l){
+      if(l.name==='HARBOR LIGHT'){
+        var lx=Math.min(966,Math.max(34,l.at[0])),ly=Math.min(MAP_H-40,Math.max(40,l.at[1]));
+        h+='<g transform="translate('+lx+','+ly+')">'+
+          '<path d="M -3.2 8 L -1.8 -4 L 1.8 -4 L 3.2 8 Z" fill="#22344C" stroke="#101B2C" stroke-width="0.8"/>'+
+          '<rect x="-2.4" y="-7.4" width="4.8" height="3.6" rx="1" fill="#0E1A2B" stroke="#101B2C" stroke-width="0.7"/>'+
+          '<circle cy="-5.6" r="1.3" fill="#FFE9A6"/>'+
+          '<path d="M 2 -5.6 L 15 -9 L 15 -2.2 Z" fill="#FFE9A6" opacity="0.18"/>'+
+          maLandmarkBox(0,17,l.name,'#8A7B54')+'</g>';
+      }else{
+        h+=maLandmarkBox(l.at[0],l.at[1],l.name,l.name.indexOf('BRIDGE')>=0?'#3E6E8E':'#8A7B54');
+      }
+    });
+    g.insertAdjacentHTML('beforeend','<g class="ma-landmarks" style="pointer-events:none">'+h+'</g>');
+    return;
+  }
+  var rs=maRivers(),pts=rs.length?rs[0].pts:null;
   var bridge=null;
   PAIRS.forEach(function(p){
     if(p.types.indexOf('f')>=0)return;
@@ -412,7 +509,6 @@ function maBuildLandmarks(g){
     if(maWaterDist(mx,my)<0&&(!bridge||p.types.length>bridge.types.length))bridge={types:p.types,x:mx,y:my};
   });
   if(bridge)h+=maLandmarkBox(bridge.x,bridge.y+26,'GRAYWATER BRIDGE','#3E6E8E');
-  // The Beacon — a small lighthouse at the harbor mouth (downstream end)
   if(pts){
     var e=pts[pts.length-4];
     var bx=maR1(Math.min(966,Math.max(34,e.x))),by=maR1(Math.min(MAP_H-40,Math.max(40,e.y-e.w-16)));
@@ -422,17 +518,15 @@ function maBuildLandmarks(g){
       '<rect x="-2.4" y="-7.4" width="4.8" height="3.6" rx="1" fill="#0E1A2B" stroke="#101B2C" stroke-width="0.7"/>'+
       '<circle cy="-5.6" r="1.3" fill="#FFE9A6"/>'+
       '<path d="M 2 -5.6 L 15 -9 L 15 -2.2 Z" fill="#FFE9A6" opacity="0.18"/>'+
-      maLandmarkBox(0,17,'THE BEACON','#8A7B54').slice(0)+
+      maLandmarkBox(0,17,'THE BEACON','#8A7B54')+
       '</g>';
   }
-  // Grand Terminal — the busiest metro interchange
   var best=0,bd=-1;
   for(var i=1;i<=199;i++){
     var u=0;NBRS[i].forEach(function(e2){if(e2.t==='u')u++;});
     if(u>bd){bd=u;best=i;}
   }
   if(bd>0)h+=maLandmarkBox(POS[best].x,POS[best].y-17,'GRAND TERMINAL','#FF5A6A');
-  // Old Market Hall — a busy bus hub away from the terminal
   var mBest=0,mScore=-1;
   for(var j=1;j<=199;j++){
     var b2=0;NBRS[j].forEach(function(e3){if(e3.t==='b')b2++;});
