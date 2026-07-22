@@ -166,6 +166,127 @@ function maDefs(){
       '<stop offset="0%" stop-color="#0D2C42"/><stop offset="55%" stop-color="#0E3450"/><stop offset="100%" stop-color="#123E5C"/></linearGradient>';
 }
 
+/* ---- layer 3: districts — station clusters around six anchors ---- */
+var MA_DISTRICTS=[
+  {name:'HOLLOWBROOK',x:585,y:60},
+  {name:'NORTHGATE',x:810,y:185},
+  {name:'LANTERN ROW',x:450,y:230},
+  {name:'THE EXCHANGE',x:765,y:420},
+  {name:'OLD QUAY',x:360,y:470},
+  {name:'IRONVALE',x:630,y:625}
+];
+function maConvexHull(pts){
+  pts=pts.slice().sort(function(a,b){return a.x-b.x||a.y-b.y;});
+  var cross=function(o,a,b){return (a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);};
+  var lo=[],up=[];
+  pts.forEach(function(p){
+    while(lo.length>=2&&cross(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();
+    lo.push(p);
+  });
+  pts.slice().reverse().forEach(function(p){
+    while(up.length>=2&&cross(up[up.length-2],up[up.length-1],p)<=0)up.pop();
+    up.push(p);
+  });
+  lo.pop();up.pop();
+  return lo.concat(up);
+}
+function maSmoothClosed(pts){
+  var d='';
+  for(var i=0;i<pts.length;i++){
+    var p1=pts[i],p2=pts[(i+1)%pts.length];
+    var mx=(p1.x+p2.x)/2,my=(p1.y+p2.y)/2;
+    d+=(i===0?'M '+maR1(mx)+' '+maR1(my):'')+' Q '+maR1(p2.x)+' '+maR1(p2.y)+' ';
+    var p3=pts[(i+2)%pts.length];
+    d+=maR1((p2.x+p3.x)/2)+' '+maR1((p2.y+p3.y)/2);
+  }
+  return d+' Z';
+}
+function maBuildDistricts(g){
+  var tints=['#16283E','#14293A','#182741','#13293C','#172A3D','#122438'];
+  var h='',labels='';
+  var clusters=MA_DISTRICTS.map(function(){return [];});
+  for(var i=1;i<=199;i++){
+    var best=0,bd=1e9;
+    MA_DISTRICTS.forEach(function(d,k){
+      var dd=Math.hypot(POS[i].x-d.x,POS[i].y-d.y);
+      if(dd<bd){bd=dd;best=k;}
+    });
+    clusters[best].push({x:POS[i].x,y:POS[i].y});
+  }
+  clusters.forEach(function(c,k){
+    if(c.length<3)return;
+    var cx=0,cy=0;c.forEach(function(p){cx+=p.x;cy+=p.y;});cx/=c.length;cy/=c.length;
+    var hull=maConvexHull(c).map(function(p){
+      var dx=p.x-cx,dy=p.y-cy,L=Math.hypot(dx,dy)||1;
+      var grow=Math.min(34,18+L*0.06);
+      return {x:p.x+dx/L*grow,y:p.y+dy/L*grow};
+    });
+    var d=maSmoothClosed(hull);
+    h+='<path d="'+d+'" fill="'+tints[k%tints.length]+'" opacity="0.5"/>';
+    h+='<path d="'+d+'" fill="none" stroke="#2C4260" stroke-width="5" opacity="0.16"/>';
+    h+='<path d="'+d+'" fill="none" stroke="#5C82B0" stroke-width="0.8" stroke-dasharray="2 7" opacity="0.35"/>';
+    labels+='<text class="maplabel" x="'+maR1(MA_DISTRICTS[k].x)+'" y="'+maR1(MA_DISTRICTS[k].y)+'" text-anchor="middle" font-size="14" letter-spacing="5">'+MA_DISTRICTS[k].name+'</text>';
+  });
+  g.insertAdjacentHTML('beforeend','<g class="ma-districts">'+h+labels+'</g>');
+}
+
+/* ---- layer 4: parks — organic green polygons in station gaps ---- */
+function maParkSpots(count){
+  // largest on-land gaps between stations, well inside the frame
+  var spots=[];
+  for(var gy=70;gy<=MAP_H-70;gy+=24){
+    for(var gx=70;gx<=930;gx+=24){
+      if(maWaterDist(gx,gy)<30)continue;
+      var d=1e9;
+      for(var i=1;i<=199;i++){var dd=Math.hypot(POS[i].x-gx,POS[i].y-gy);if(dd<d)d=dd;}
+      spots.push({x:gx,y:gy,d:d});
+    }
+  }
+  spots.sort(function(a,b){return b.d-a.d;});
+  var out=[];
+  spots.forEach(function(sp){
+    if(out.length>=count)return;
+    if(out.some(function(o){return Math.hypot(o.x-sp.x,o.y-sp.y)<170;}))return;
+    out.push(sp);
+  });
+  return out;
+}
+var MA_PARK_NAMES=['ASHGROVE PARK','NORTHFIELD COMMON','EASTMARSH GREEN','WIDOW\'S GARDEN','FOUNDRY FIELDS'];
+var MA_PARKS=null;
+function maBuildParks(g){
+  var rr=maRng(MA_SEED+3);
+  MA_PARKS=maParkSpots(5);
+  var h='';
+  MA_PARKS.forEach(function(sp,i){
+    var R=Math.min(58,sp.d-14);
+    if(R<26)return;
+    var pts=[];
+    for(var a=0;a<8;a++){
+      var ang=a/8*Math.PI*2;
+      var rad=R*(0.72+rr()*0.4);
+      pts.push({x:sp.x+Math.cos(ang)*rad*1.25,y:sp.y+Math.sin(ang)*rad*0.85});
+    }
+    var d=maSmoothClosed(pts);
+    h+='<path d="'+d+'" fill="#12301F" opacity="0.85"/>';
+    h+='<path d="'+d+'" fill="none" stroke="#1E4A30" stroke-width="2.4" opacity="0.8"/>';
+    h+='<path d="'+d+'" fill="none" stroke="#2E6B45" stroke-width="0.8" opacity="0.5"/>';
+    // tree stipples
+    for(var t=0;t<14;t++){
+      var ang2=rr()*Math.PI*2,rad2=rr()*R*0.62;
+      var tx=maR1(sp.x+Math.cos(ang2)*rad2*1.2),ty=maR1(sp.y+Math.sin(ang2)*rad2*0.8);
+      h+='<circle cx="'+tx+'" cy="'+ty+'" r="'+maR1(2+rr()*1.6)+'" fill="#1C4A2E" opacity="0.9"/>'+
+         '<circle cx="'+tx+'" cy="'+(ty-0.8)+'" r="'+maR1(0.9)+'" fill="#39795083"/>';
+    }
+    // boxed label like a printed map
+    var nm=MA_PARK_NAMES[i%MA_PARK_NAMES.length];
+    var bw=nm.length*5.4+14;
+    h+='<g transform="translate('+maR1(sp.x)+','+maR1(sp.y)+')">'+
+      '<rect x="'+maR1(-bw/2)+'" y="-7" width="'+maR1(bw)+'" height="13" rx="2.5" fill="#0B1524" opacity="0.78" stroke="#2E6B45" stroke-width="0.7"/>'+
+      '<text class="parklabel" y="3" text-anchor="middle" font-size="8" letter-spacing="1.6">'+nm+'</text></g>';
+  });
+  g.insertAdjacentHTML('beforeend','<g class="ma-parks">'+h+'</g>');
+}
+
 /* ---- entry point: called once from buildMap() ---- */
 function buildGraywaterBase(svg,defs){
   defs.insertAdjacentHTML('beforeend',maDefs());
@@ -174,6 +295,8 @@ function buildGraywaterBase(svg,defs){
   base.setAttribute('style','pointer-events:none');
   svg.appendChild(base);
   maBuildLand(base);
+  maBuildDistricts(base);
+  maBuildParks(base);
   maBuildWater(base);
   return base;
 }
