@@ -1,16 +1,38 @@
 {
+  "id": "/?source=pwa",
   "name": "Shadow Line — Hunt the Phantom Across New York",
   "short_name": "Shadow Line",
-  "description": "One fugitive. Up to five agents. 24 rounds across 199 stations.",
-  "start_url": "./index.html",
+  "description": "A hidden-movement chase game: one Phantom slips through an illustrated night-time New York while up to five Agents have 24 rounds to run them down.",
+  "start_url": "./index.html?source=pwa",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["fullscreen", "standalone", "minimal-ui"],
   "background_color": "#0F1722",
   "theme_color": "#0F1722",
   "orientation": "landscape",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["games", "strategy", "board"],
+  "prefer_related_applications": false,
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshots/ingame-desktop.png",
+      "sizes": "1440x810",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Chasing the Phantom across the illustrated New York board"
+    },
+    {
+      "src": "screenshots/ingame-mobile.png",
+      "sizes": "844x390",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "The New York board on a phone in landscape"
+    }
   ]
 }

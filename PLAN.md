@@ -111,7 +111,7 @@ limitation in-app.
   path (Stripe or Play web billing) stubbed behind the same entitlement.
 - All IDs live in `monetization-config.js` with test/placeholder values.
 
-### Phase 6 — PWA + Capacitor + store prep
+### Phase 6 — PWA + Capacitor + store prep — CODE DONE (manual store steps remain)
 - Audit PWA (manifest, icons, splash, offline) for the new brand.
 - Add Capacitor project (`android/`, `ios/`) with package IDs like
   `com.<publisher>.shadowline`; wire AdMob/Billing plugins; optional Vite build

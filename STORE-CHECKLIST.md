@@ -68,23 +68,21 @@ mid-turn, and always suppressed by the no-ads entitlement.
    `Purchases.purchaseProduct({productIdentifier})` (see §5); the web build
    shows a dialog directing the user to buy in the app and sign in to sync.
 
-## 5. Native apps with Capacitor (🔧 — Phase 6, not yet in the repo)
+## 5. Native apps with Capacitor (🟢 scaffolded / 🔧 setup — see `native/README.md`)
 
-The web app is a self-contained static site (no build step), so wrapping it is
-straightforward. This is the one remaining **code** milestone (tracked as
-Phase 6 in `PLAN.md`); the steps will be:
+The code side is **done**: `capacitor.config.json` (webDir=`www`, splash +
+AdMob plugin config), `tools/build-www.js` (copies only runtime files into a
+lean `www/`), `native-init.js` (on-device boot — inert on web), and the
+`cap:*` npm scripts are all in the repo. `ads.js` already calls the AdMob and
+`Purchases` plugin shapes. What's left is the manual, machine-side setup,
+written up step-by-step in **`native/README.md`**:
 
-1. `npm i @capacitor/core @capacitor/cli && npx cap init "Shadow Line" com.YOURNAME.shadowline`
-2. Set `webDir` to the repo root (or a `dist/` if a bundler is added).
-3. `npx cap add android && npx cap add ios`.
-4. Add plugins: **@capacitor-community/admob** (ads) and a billing plugin
-   (e.g. **@capgo/capacitor-purchases** or RevenueCat) exposing the
-   `Purchases.purchaseProduct` shape `ads.js` already calls.
-5. Put the AdMob app ids in `android/app/src/main/AndroidManifest.xml` and
-   iOS `Info.plist` (`GADApplicationIdentifier`).
-6. App icons/splash: run the icon generator (`tools/icons/make-icons.js`) output
-   through `@capacitor/assets`.
-7. `npx cap sync`, then build/sign in Android Studio / Xcode.
+1. `npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/ios @capacitor/splash-screen @capacitor/status-bar @capacitor-community/admob` + a billing plugin (e.g. `@capgo/capacitor-purchases`). (Kept out of `package.json` so CI stays lean.)
+2. Set your real `appId` in `capacitor.config.json` (placeholder `com.example.shadowline`).
+3. `npm run build:www && npx cap add android && npx cap add ios`.
+4. AdMob **app id** into `AndroidManifest.xml` / `Info.plist` (distinct from the ad-unit ids in `monetization-config.js`).
+5. Icons/splash via `npx @capacitor/assets generate` (source `icons/icon-512.png`).
+6. `npm run cap:android` / `npm run cap:ios`, then build/sign in Android Studio / Xcode.
 
 ## 6. Signing & store listings (🔧💳)
 

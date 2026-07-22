@@ -3,7 +3,7 @@
 Companion to `PLAN.md` (the phased roadmap). This file is updated after every
 commit so any session/model can resume with zero context loss.
 
-_Last updated: 2026-07-22 (session 3), branch `claude/work-hhvy7e`. PRs #50–#55 merged. Phase 5 (monetization) done on top._
+_Last updated: 2026-07-22 (session 3), branch `claude/work-hhvy7e`. PRs #50–#56 merged (Phases 0–5). Phase 6 code scaffolding done on top._
 
 ## What's done
 
@@ -93,6 +93,15 @@ _Last updated: 2026-07-22 (session 3), branch `claude/work-hhvy7e`. PRs #50–#5
   configured. `test/ui/ads.spec.js` covers dormant/break/cap/entitlement/
   purchase (suite now 34). Also added `STORE-CHECKLIST.md` (every manual
   publishing step) and `privacy-policy.html` (stub).
+- **Phase 6 — PWA + Capacitor scaffolding: CODE DONE** (manual store steps
+  remain, all in STORE-CHECKLIST.md / native/README.md). Enriched
+  manifest.json (id, screenshots, categories, display_override). Added
+  capacitor.config.json (webDir=www, splash+AdMob), tools/build-www.js
+  (lean native bundle — runtime files only), native-init.js (splash hide,
+  AdMob init, status bar; INERT on web/CI via Capacitor.isNativePlatform),
+  and cap:* npm scripts. Native plugin packages are deliberately NOT in
+  package.json (CI runs npm install) — installed during native setup per
+  native/README.md. www/ is gitignored.
 
 ## Verified
 
@@ -101,10 +110,11 @@ _Last updated: 2026-07-22 (session 3), branch `claude/work-hhvy7e`. PRs #50–#5
 
 ## What's NOT done yet (in phase order — see PLAN.md for detail)
 
-1. Phase 6 (next, final) — PWA audit (manifest/icons/splash already original),
-   add the Capacitor project (`android/`/`ios/`, `com.<publisher>.shadowline`),
-   install the AdMob + billing plugins `ads.js` already calls, and work through
-   `STORE-CHECKLIST.md`. This is the one remaining code milestone.
+1. Nothing left in code. Remaining work is MANUAL and needs the owner's
+   accounts/machine: fill firebase-config.js + monetization-config.js with
+   real IDs, run the native setup in native/README.md (install plugins,
+   `cap add android/ios`, signing), and complete STORE-CHECKLIST.md
+   (developer accounts, store listings, privacy-policy hosting).
 4. Optional polish backlog: night-board river prominence, more landmark art,
    iterate the map seed if a nicer layout is wanted, live-network smoke test
    of the new rejoin/takeover flows with two real browsers.

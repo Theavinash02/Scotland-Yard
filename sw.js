@@ -1,5 +1,5 @@
 // Bump this on every deploy so old caches get cleared out.
-var CACHE_VERSION = 'sy-v15';
+var CACHE_VERSION = 'sy-v16';
 var CORE_ASSETS = [
   './',
   './index.html',
@@ -20,6 +20,7 @@ var CORE_ASSETS = [
   './ui.js',
   './cloud.js',
   './ads.js',
+  './native-init.js',
   './tutorial.js',
   './manifest.json',
   './icons/icon-192.png',
