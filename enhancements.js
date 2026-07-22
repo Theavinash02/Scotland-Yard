@@ -12,12 +12,10 @@
    same plain game object: persisted settings (volume / motion / bot speed /
    contrast), a screen-reader live region + keyboard-accessible move list, a
    "next reveal" HUD, an AI-powered move hint, and an end-of-game debrief. */
-// Selectable map "board styles". Night is the default lit chase board; Day is
-// the original untouched parchment; the rest are realism-oriented modes drawn
-// from a shared procedural detail substrate (roads/blocks/city-lights/grid).
-var BOARD_MODES=['night','day','aerial','atlas','tabletop','blueprint'];
-var BOARD_LABELS={night:'Night — neon chase board',day:'Day — vintage parchment',aerial:'Aerial — city from above at night',atlas:'Atlas — printed street map',tabletop:'Tabletop — physical board on a table',blueprint:'Blueprint — tactical recon'};
-var SETTINGS={volume:1,reduceMotion:false,botSpeed:'normal',highContrast:false,theme:'dark',music:false,board:'night'};
+// One illustrated Graywater night board (mapart.js). The old selectable
+// board-mode system is gone; a stored SETTINGS.board from older saves is
+// simply ignored.
+var SETTINGS={volume:1,reduceMotion:false,botSpeed:'normal',highContrast:false,theme:'dark',music:false};
 function loadSettings(){
   try{
     var s=JSON.parse(localStorage.getItem('sy_settings')||'{}');
@@ -26,7 +24,6 @@ function loadSettings(){
     if(s.botSpeed==='slow'||s.botSpeed==='normal'||s.botSpeed==='fast')SETTINGS.botSpeed=s.botSpeed;
     if(typeof s.highContrast==='boolean')SETTINGS.highContrast=s.highContrast;
     if(s.theme==='dark'||s.theme==='light')SETTINGS.theme=s.theme;
-    if(BOARD_MODES.indexOf(s.board)>=0)SETTINGS.board=s.board;
     if(typeof s.music==='boolean')SETTINGS.music=s.music;
   }catch(e){}
   applySettings();
@@ -36,11 +33,6 @@ function applySettings(){
   document.body.classList.toggle('reduce-motion',SETTINGS.reduceMotion);
   document.body.classList.toggle('hc',SETTINGS.highContrast);
   document.body.classList.toggle('theme-light',SETTINGS.theme==='light');
-  // One board-<mode> class at a time drives the map styling (styles.css). Day
-  // adds board-day but has no overrides, so it renders the original parchment.
-  BOARD_MODES.forEach(function(m){document.body.classList.toggle('board-'+m,SETTINGS.board===m);});
-  // Family class so the dark modes (night/aerial/blueprint) share one base.
-  document.body.classList.toggle('board-dark',['night','aerial','blueprint'].indexOf(SETTINGS.board)>=0);
   if(typeof musicUpdate==='function')musicUpdate();
 }
 function masterVol(){return SETTINGS.volume;}
@@ -164,10 +156,7 @@ function showSettings(){
   var volPct=Math.round(SETTINGS.volume*100);
   var seg=function(v,label){return '<button data-speed="'+v+'" class="'+(SETTINGS.botSpeed===v?'on':'')+'">'+label+'</button>';};
   var thseg=function(v,label){return '<button data-theme="'+v+'" class="'+(SETTINGS.theme===v?'on':'')+'">'+label+'</button>';};
-  var bdopts=BOARD_MODES.map(function(v){return '<option value="'+v+'"'+(SETTINGS.board===v?' selected':'')+'>'+BOARD_LABELS[v]+'</option>';}).join('');
   showModal('<h2>Settings</h2>'+
-    '<div class="setrow"><div><div class="setlbl">Board style</div><div class="setsub">How the map itself is drawn — from the neon chase board to a night city, a printed atlas, a tabletop or a recon blueprint.</div></div>'+
-      '<select id="setBoard" style="max-width:150px">'+bdopts+'</select></div>'+
     '<div class="setrow"><div><div class="setlbl">Theme</div><div class="setsub">Night operations or a daytime parchment look.</div></div>'+
       '<div class="setseg" id="setTheme">'+thseg('dark','Dark')+thseg('light','Light')+'</div></div>'+
     '<div class="setrow"><div><div class="setlbl">Sound volume</div><div class="setsub">Affects all game sound effects.</div></div>'+
@@ -185,7 +174,6 @@ function showSettings(){
     b.onclick=function(){SETTINGS[key]=b.dataset[key];saveSettings();applySettings();
       Array.prototype.forEach.call($(id).querySelectorAll('button'),function(x){x.classList.toggle('on',x===b);});
       if(after)after();};});};
-  $('#setBoard').onchange=function(){SETTINGS.board=this.value;saveSettings();applySettings();};
   segWire('#setTheme','theme');
   // Bot speed writes SETTINGS.botSpeed (not a generic key), so wire it explicitly.
   Array.prototype.forEach.call($('#setSpeed').querySelectorAll('button'),function(b){

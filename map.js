@@ -85,41 +85,9 @@ function buildMap(){
   // viewport even when fillView() frames the map to a much wider aspect ratio —
   // no flat "empty" margin ever shows outside the board on wide phone screens.
   function bigRect(attrs){var r=svgEl('rect');r.setAttribute('x',-900);r.setAttribute('y',-560);r.setAttribute('width',2800);r.setAttribute('height',MAP_H+1120);for(var k in attrs)r.setAttribute(k,attrs[k]);svg.appendChild(r);return r;}
-  bigRect({fill:'url(#paperG)','class':'bg-paper'});
-  bigRect({fill:'url(#grain)',opacity:'0.12',style:'mix-blend-mode:multiply;pointer-events:none','class':'bg-grain'});
-  // Shared realism substrate: a procedural street mesh + tiled block/light/grid
-  // layers, all hidden by default (.d-layer) and revealed per board mode in CSS.
-  // Sits below the districts/river/game lines so it reads as ground, never
-  // competing with the playable network on top.
-  (function(){
-    function rr(seed){var x=Math.sin(seed*127.1+311.7)*43758.5453;return x-Math.floor(x);}
-    var ang=0.16,cy=MAP_H/2;
-    function rot(x,y){return {x:500+(x-500)*Math.cos(ang)-(y-cy)*Math.sin(ang), y:cy+(x-500)*Math.sin(ang)+(y-cy)*Math.cos(ang)};}
-    var rh='';
-    // near-vertical streets
-    for(var gx=-80;gx<=1080;gx+=50){
-      var pv=[];for(var gy=-60;gy<=MAP_H+60;gy+=MAP_H/4){pv.push(rot(gx+(rr(gx*3+gy)-0.5)*24,gy));}
-      rh+='<path d="'+catmullPath(pv)+'"/>';
-    }
-    // near-horizontal streets
-    for(var gy2=-60;gy2<=MAP_H+60;gy2+=48){
-      var ph=[];for(var gx2=-80;gx2<=1080;gx2+=250){ph.push(rot(gx2,gy2+(rr(gx2+gy2*3)-0.5)*24));}
-      rh+='<path d="'+catmullPath(ph)+'"/>';
-    }
-    // a few diagonal arterials to break up the grid
-    var arts='';
-    for(var a=0;a<7;a++){
-      var sx=rr(a*11)*1000,ex=rr(a*11+5)*1000;
-      arts+='<path class="road-art" d="'+catmullPath([rot(sx,-40),rot((sx+ex)/2+(rr(a)-0.5)*280,cy+(rr(a+2)-0.5)*220),rot(ex,MAP_H+40)])+'"/>';
-    }
-    var detail=svgEl('g');detail.setAttribute('id','L-detail');detail.setAttribute('style','pointer-events:none');
-    detail.innerHTML=
-      '<rect class="d-layer d-grid" x="-400" y="-400" width="1800" height="'+(MAP_H+800)+'" fill="url(#bpGrid)"/>'+
-      '<rect class="d-layer d-blocks" x="-400" y="-400" width="1800" height="'+(MAP_H+800)+'" fill="url(#blocksPat)"/>'+
-      '<rect class="d-layer d-lights" x="0" y="0" width="1000" height="'+MAP_H+'" filter="url(#cityLights)"/>'+
-      '<g class="d-layer d-roads">'+arts+rh+'</g>';
-    svg.appendChild(detail);
-  })();
+  bigRect({fill:'url(#boardNightG)','class':'bg-paper'});
+  // (The old procedural street-grid substrate is gone; mapart.js will draw
+  // the real illustrated base city here.)
   // districts & parks
   var deco=svgEl('g');deco.setAttribute('style','pointer-events:none');deco.setAttribute('class','map-deco');svg.appendChild(deco);
   var dh='';
@@ -203,7 +171,7 @@ function buildMap(){
   svg.appendChild(orn);
   // functional layers
   ['edges','ps','hl','stations'].forEach(function(n){var g=svgEl('g');g.setAttribute('id','L-'+n);svg.appendChild(g);LAYER[n]=g;});
-  bigRect({fill:'url(#vigG)',style:'pointer-events:none'});
+  bigRect({fill:'url(#vigNightG)',style:'pointer-events:none','class':'bg-vig'});
   ['pieces','fx'].forEach(function(n){var g=svgEl('g');g.setAttribute('id','L-'+n);g.setAttribute('style','pointer-events:none');svg.appendChild(g);LAYER[n]=g;});
   // transport lines, gently curved with weight variation
   // Each type also gets a distinct stroke pattern (not just color) so the
