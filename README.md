@@ -99,6 +99,10 @@ The hard agents measurably out-perform the previous logic (about +4–5 percenta
   - **Room history:** everyone connected to a room sees the same list of that room's recent results. This is visible to anyone with the room code — same trust model as the rest of online play, not private.
   - **Resume:** if your tab refreshes mid-game, the app remembers your room/identity and tries to reconnect — this only works if the host (or, for the host itself, its connection) is still reachable, since there's no server to fall back on.
 
+## ☁️ Optional account sync (Firebase)
+
+Everything works signed-out and offline; nothing requires an account. But if you supply a Firebase project config in `firebase-config.js` (documented placeholders ship in the repo — the layer is fully dormant until you do), the lobby gains **Sign in with Google**: your display name, win/loss history, achievements (derived from history), and the remove-ads entitlement then sync across every device you sign in on. Histories merge local-first — two devices converge without losing games — and per-move replay logs deliberately stay device-local. The SDK is fetched lazily from the CDN only when configured, so offline/PWA/CI use is never blocked.
+
 ## 💾 Persistence, history & replay
 
 - **Mid-game resume:** local, solo-vs-bots, and online games all persist to your browser's local storage after every move. Reload the page and you'll be offered "Resume game?" instead of losing progress. Hot-seat privacy is preserved — the Phantom's position never leaks on a resume.
@@ -139,6 +143,8 @@ The app is split into plain `<script>`-tag modules (no bundler, loaded in this o
 | `persistence.js` | Mid-game save/resume (one local save slot, for both local and online games). |
 | `tutorial.js` | The driver.js-powered interactive first-time tutorial. |
 | `sound.js` | Runtime Web-Audio sound effects (no audio files). |
+| `firebase-config.js` | Owner-supplied Firebase config (documented placeholders; cloud layer dormant until filled). |
+| `cloud.js` | Optional Google sign-in + Firestore cross-device sync of name/history/entitlements. |
 | `enhancements.js` | Player-facing polish: settings, keyboard/screen-reader move list, reveal HUD, hints, undo, proximity readout, ambient music, belief heatmap, achievements, and the end-game debrief. |
 | `ui.js` | Core game/UI state, rendering, move flow, lobby/hot-seat/online-room flow, and boot. |
 | `manifest.json`, `sw.js` | PWA scaffolding — install metadata and the offline service worker. |
@@ -152,7 +158,7 @@ The app is split into plain `<script>`-tag modules (no bundler, loaded in this o
 - **Online rooms are peer-to-peer with no backend.** The host's browser tab is the room — if it closes and doesn't come back, the room is gone for everyone still in it. Resume can reconnect a dropped tab, but only while the other side is still reachable.
 - **Anyone with the room code can join, spectate, or read that room's shared history** — there's no server-side authority. Treat online rooms as "good enough for friends," not cheat-proof.
 - **The Phantom's non-shadow ticket supply is treated as unlimited** in this digital version, rather than being recycled from tickets agents spend (the tabletop mechanic). In practice the physical version almost never runs the Phantom out of taxi/bus/metro tickets either, so this shouldn't change how a game plays out, but it's a deliberate simplification worth knowing about.
-- **Persistence/history/replay are per-device, local-storage only** — nothing syncs across devices or browsers, and clearing site data clears them.
+- **Persistence and replay logs are per-device, local-storage only** — clearing site data clears them. History syncs across devices only when the optional Firebase account layer is configured and you sign in.
 - Accessibility support covers the core move loop — a keyboard/screen-reader move list, live turn/result announcements, labeled controls, a reduce-motion switch, and a high-contrast board — but is not a full audit. Panning/zooming the SVG map is still pointer/touch only (you can move via the accessible list without it), and the tutorial/replay flows haven't been screen-reader tested.
 
 ## 🧪 Testing so far

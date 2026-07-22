@@ -1,9 +1,10 @@
 // Bump this on every deploy so old caches get cleared out.
-var CACHE_VERSION = 'sy-v10';
+var CACHE_VERSION = 'sy-v11';
 var CORE_ASSETS = [
   './',
   './index.html',
   './styles.css',
+  './firebase-config.js',
   './engine.js',
   './bots.js',
   './map.js',
@@ -13,6 +14,7 @@ var CORE_ASSETS = [
   './sound.js',
   './enhancements.js',
   './ui.js',
+  './cloud.js',
   './tutorial.js',
   './manifest.json',
   './icons/icon-192.png',
