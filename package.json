@@ -1,14 +1,19 @@
 {
   "name": "shadow-line",
   "version": "1.0.0",
-  "description": "Shadow Line — an original hidden-movement chase game: one hidden Phantom vs. a team of Agents across the city of Graywater.",
+  "description": "Shadow Line \u2014 an original hidden-movement chase game: one hidden Phantom vs. a team of Agents across the city of Graywater.",
   "license": "MIT",
   "private": true,
   "scripts": {
     "test": "node test/simulate.js",
     "test:sim": "node test/simulate.js",
     "test:ui": "playwright test",
-    "test:all": "node test/simulate.js && playwright test"
+    "test:all": "node test/simulate.js && playwright test",
+    "build:www": "node tools/build-www.js",
+    "cap:copy": "node tools/build-www.js && npx cap copy",
+    "cap:sync": "node tools/build-www.js && npx cap sync",
+    "cap:android": "node tools/build-www.js && npx cap sync android && npx cap open android",
+    "cap:ios": "node tools/build-www.js && npx cap sync ios && npx cap open ios"
   },
   "devDependencies": {
     "@playwright/test": "1.56.0"
