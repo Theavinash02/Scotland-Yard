@@ -1,3 +1,4 @@
+var MAPDATA=resolveActiveMap();
 const POS_RAW=MAPDATA.pos;
 const EDG_RAW=MAPDATA.edges;
 // ============ CORE START ============
@@ -48,7 +49,7 @@ function newGame(seats,variant){
   var nd=seats.length-1,cfg=resolveVariant(variant);
   return {mv:0,seats:seats,nd:nd,
     variant:cfg.key,maxRound:cfg.rounds,reveals:cfg.reveals.slice(),
-    mrx:{st:rnd(MRX_STARTS),black:nd+(cfg.blackBonus||0),dbl:cfg.dbl},
+    mrx:{st:rnd(MRX_STARTS),black:nd+(cfg.blackBonus||0)+(MAPDATA.blackBonus||0),dbl:Math.max(0,cfg.dbl+(MAPDATA.dblBonus||0))},
     dets:sample(DET_STARTS,nd).map(function(st){return{st:st,t:MAPDATA.det.t,b:MAPDATA.det.b,u:MAPDATA.det.u};}),
     log:[],turn:-1,dblPending:0,winner:null,reason:'',rev:null,lastMove:null};
 }

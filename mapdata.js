@@ -19,22 +19,19 @@ MAPS.graywater={
   geo:null
 };
 var DEFAULT_MAP='graywater';
-var ACTIVE_MAP=(function(){
-  try{
-    if(typeof SIM_MAP!=='undefined'&&MAPS[SIM_MAP])return SIM_MAP;
-  }catch(e){}
+function resolveActiveMap(){
+  try{ if(typeof SIM_MAP!=='undefined'&&MAPS[SIM_MAP])return MAPS[SIM_MAP]; }catch(e){}
   try{
     if(typeof location!=='undefined'){
       var q=new URLSearchParams(location.search).get('map');
-      if(q&&MAPS[q])return q;
+      if(q&&MAPS[q])return MAPS[q];
     }
   }catch(e){}
   try{
     if(typeof localStorage!=='undefined'){
       var s=localStorage.getItem('sy_map');
-      if(s&&MAPS[s])return s;
+      if(s&&MAPS[s])return MAPS[s];
     }
   }catch(e){}
-  return DEFAULT_MAP;
-})();
-var MAPDATA=MAPS[ACTIVE_MAP];
+  return MAPS[DEFAULT_MAP];
+}

@@ -1,11 +1,12 @@
 // Bump this on every deploy so old caches get cleared out.
-var CACHE_VERSION = 'sy-v13';
+var CACHE_VERSION = 'sy-v14';
 var CORE_ASSETS = [
   './',
   './index.html',
   './styles.css',
   './firebase-config.js',
   './mapdata.js',
+  './mapdata-ny.js',
   './engine.js',
   './bots.js',
   './map.js',

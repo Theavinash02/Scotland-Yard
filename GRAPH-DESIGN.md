@@ -101,7 +101,34 @@ Targets (measured at **normal Phantom vs normal Agents** and **hard vs hard**,
 - no degenerate endings: instant losses (< round 3) under 2%, "Phantom
   cornered with no legal move" rare, average game length past round 15;
 - difficulty ladders stay monotonic.
-Final numbers get recorded in this file after tuning.
+### Final tuned result (recorded after the Part B loop)
+
+Graph: metro 15 hubs / 18 edges, bus 46 stations (10/9-cap avenue-aligned),
+365 taxi edges, 5 ferry edges, 3 East River bridges; regions 152 Manhattan /
+12 Jersey / 19 Brooklyn / 16 Queens. Tuning: Agents **10 taxi / 9 bus / 3
+metro**; Phantom shadow tickets = agent count; **1 sprint** on New York
+(map-level `dblBonus:-1` — the long island rewards contact-breaking sprints
+far more than Graywater, so expert Phantoms were untouchable with two).
+Rounds/reveals unchanged (24; 3/8/13/18/24).
+
+Measured (800 games/cell, heuristic bots):
+
+| Config | Phantom win | avg rounds | early loss | cornered |
+|---|---|---|---|---|
+| normal/normal 3 agents | 60.1% | 17.4 | 1.3% | 0.5% |
+| hard/hard 3 agents | 72.5% | 20.0 | 0.0% | 0.5% |
+| normal/normal 4 agents | **41.5%** | 15.3 | 1.0% | 0.5% |
+| hard/hard 4 agents | **51.8%** | 17.9 | 0.0% | 1.3% |
+| normal/normal 5 agents | 33.4% | 14.0 | 1.1% | 1.3% |
+| hard/hard 5 agents | 40.9% | 16.8 | 0.0% | 2.1% |
+
+The headline configs (4 agents) sit squarely in the 40–55% band at both skill
+tiers; degenerate endings are negligible; the production-bot difficulty
+ladders stay monotonic (see `node test/simulate.js --map=newyork`). The one
+soft spot — hard-vs-hard with only 3 agents at ~72% — mirrors the classic
+game's known 3-hunter imbalance and sits at the edge of the "roughly 70%"
+ceiling; the lobby defaults to 4+ agents, so it's accepted and documented
+rather than over-corrected at the expense of the headline band.
 
 ## Rendering (Part C) — extend `mapart.js`, don't rewrite it
 
