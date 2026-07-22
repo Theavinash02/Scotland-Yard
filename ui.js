@@ -454,7 +454,7 @@ function onGameOver(){
 // NET.chat log (NOT NET.room), delivered over the same connections as
 // everything else, host-authoritative like seats/moves.
 var MYID=getStableClientId();
-var NET={code:null,isHost:false,v:0,busy:false,room:null,peer:null,conns:[],hostConn:null,joinTimer:null,chat:[],localChat:[],spectating:false};
+var NET={code:null,isHost:false,v:0,busy:false,room:null,peer:null,conns:[],hostConn:null,joinTimer:null,chat:[],localChat:[],spectating:false,leaving:false};
 var PEER_PREFIX='syd-'; // namespace our ids on the public PeerJS broker
 function hasNet(){
   try{ return typeof Peer!=='undefined' && typeof RTCPeerConnection!=='undefined'; }
@@ -631,9 +631,9 @@ function resumeAsHost(obj,retries){
     resumeFailed(code);
   });
 }
-function resumeAsClient(obj){
+function resumeAsClient(obj,onFail,onOpen){
   var code=obj.code,peer,done=false;
-  function fail(){ if(done)return; done=true; try{peer&&peer.destroy();}catch(e){} resumeFailed(code); }
+  function fail(){ if(done)return; done=true; try{peer&&peer.destroy();}catch(e){} if(onFail)onFail();else resumeFailed(code); }
   try{ peer=new Peer(); }catch(e){ fail(); return; }
   var giveUp=setTimeout(fail,9000);
   peer.on('open',function(){
@@ -643,19 +643,49 @@ function resumeAsClient(obj){
       NET.peer=peer; NET.code=code; NET.isHost=false; NET.hostConn=conn; NET.v=obj.room.v||0;
       NET.chat=[]; NET.localChat=[]; NET.room=obj.room;
       conn.on('data',function(msg){ clientHandleData(msg); });
-      conn.on('close',function(){
-        toast('Disconnected from host.');
-        NET.localChat.push({text:'You have been disconnected from the host.',ts:Date.now()});
-        renderChat();
-      });
+      conn.on('close',function(){ clientLostHost(); });
       conn.send({t:'hello',pid:MYID,name:obj.name||myName()}); // re-announce so the host re-attributes this conn to our (stable) pid
       $('#roomBadge').textContent='ROOM '+code; $('#roomBadge').hidden=false;
       updateChatVisibility();
       adoptRoom(NET.room); // show the last-known state immediately; the host's reply reconciles it
+      if(onOpen)onOpen();
     });
     conn.on('error',fail);
   });
   peer.on('error',fail);
+}
+/* ---- client: unexpected loss of the host connection ----
+   Mid-game the host is often just refreshing its tab (resumeAsHost re-claims
+   the same room id within seconds), so instead of giving up we quietly retry
+   the join a few times before asking the player what to do. Outside a game
+   (lobby, or the game already over) a toast is enough. */
+function clientLostHost(){
+  if(NET.leaving||!NET.code)return; // deliberate exit — close events are expected
+  NET.localChat.push({text:'Connection to the host was lost.',ts:Date.now()});
+  renderChat();
+  var inGame=NET.room&&NET.room.phase==='playing'&&NET.room.game&&!NET.room.game.winner;
+  if(!inGame){ toast('Disconnected from host.'); return; }
+  attemptRejoin(1);
+}
+function attemptRejoin(n){
+  if(NET.leaving||!NET.code)return;
+  var snapshot={code:NET.code,room:NET.room,name:myName()};
+  toast('Connection lost — trying to rejoin ('+n+'/4)…');
+  tearDownPeer();
+  resumeAsClient(snapshot,function(){
+    if(NET.leaving)return;
+    if(n<4){ setTimeout(function(){attemptRejoin(n+1);},2500); return; }
+    showModal('<h2>Connection lost</h2>'+
+      '<p class="muted">Rejoining didn\'t work. The room lives in the host\'s browser tab — if the host comes back, you can try again.</p>'+
+      '<button class="btn big" id="rejoinBtn">Try again</button>'+
+      '<button class="btn ghost" id="rejoinLeave" style="margin-top:8px">Back to lobby</button>');
+    $('#rejoinBtn').onclick=function(){hideModal();attemptRejoin(1);};
+    $('#rejoinLeave').onclick=function(){hideModal();clearActiveGame();leaveToLobby();};
+  },function(){
+    toast('Reconnected to the room.');
+    NET.localChat.push({text:'Reconnected to the host.',ts:Date.now()});
+    renderChat();
+  });
 }
 /* ------- local lobby seats ------- */
 var localSeats=[
@@ -724,11 +754,12 @@ function enterGame(){
   requestAnimationFrame(function(){fillView();if(window.syncSideToggle)syncSideToggle();});
 }
 function leaveToLobby(){
+  NET.leaving=true; // the teardown below fires 'close' events; don't treat them as a lost host
   if(typeof musicStop==='function')musicStop();
   if(UI.botTimer){clearTimeout(UI.botTimer);UI.botTimer=null;}
   if(NET.code&&!NET.isHost)sendHost({t:'leave',pid:MYID}); // free my seats on the host
   tearDownPeer();
-  NET.code=null;NET.isHost=false;NET.v=0;NET.room=null;NET.busy=false;NET.localChat=[];NET.spectating=false;
+  NET.code=null;NET.isHost=false;NET.v=0;NET.room=null;NET.busy=false;NET.localChat=[];NET.spectating=false;NET.leaving=false;
   G=null;UI.undoStack=[];UI.hint=null;
   $('#roomBadge').hidden=true;
   $('#screen-game').hidden=true;
@@ -902,11 +933,7 @@ function joinRoomFlow(){
       if(NET.joinTimer){clearTimeout(NET.joinTimer);NET.joinTimer=null;}
       NET.peer=peer; NET.code=code; NET.isHost=false; NET.hostConn=conn; NET.v=0; NET.chat=[]; NET.localChat=[]; NET.spectating=false;
       conn.on('data',function(msg){ clientHandleData(msg); });
-      conn.on('close',function(){
-        toast('Disconnected from host.');
-        NET.localChat.push({text:'You have been disconnected from the host.',ts:Date.now()});
-        renderChat();
-      });
+      conn.on('close',function(){ clientLostHost(); });
       conn.send({t:'hello',pid:MYID,name:myName()}); // lets the host attribute this conn to my pid (used for disconnect cleanup) and announce the join in chat
       $('#joinRoom').disabled=false; setJoinStatus('');
       $('#joinLobby').hidden=false;
