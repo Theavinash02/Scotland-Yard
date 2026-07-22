@@ -169,6 +169,11 @@ function showSettings(){
       '<label class="switch"><input id="setMotion" type="checkbox"'+(SETTINGS.reduceMotion?' checked':'')+'><span class="track"></span></label></div>'+
     '<div class="setrow"><div><div class="setlbl">High-contrast board</div><div class="setsub">Bolder station numbers and routes.</div></div>'+
       '<label class="switch"><input id="setContrast" type="checkbox"'+(SETTINGS.highContrast?' checked':'')+'><span class="track"></span></label></div>'+
+    // "Remove ads" only appears when monetization is live and ads aren't
+    // already gone on this account — otherwise the free build shows nothing.
+    ((typeof adsConfigured==='function'&&adsConfigured()&&!(typeof adsRemoved==='function'&&adsRemoved()))?
+      '<div class="setrow"><div><div class="setlbl">Remove ads</div><div class="setsub">A one-time purchase, synced to your account across devices.</div></div>'+
+        '<button id="setRemoveAds" class="btn">Remove ads</button></div>':'')+
     '<button class="btn" id="mSetDone" style="margin-top:14px">Done</button>');
   var segWire=function(id,key,after){Array.prototype.forEach.call($(id).querySelectorAll('button'),function(b){
     b.onclick=function(){SETTINGS[key]=b.dataset[key];saveSettings();applySettings();
@@ -185,6 +190,7 @@ function showSettings(){
   $('#setMusic').onchange=function(){SETTINGS.music=this.checked;saveSettings();applySettings();};
   $('#setMotion').onchange=function(){SETTINGS.reduceMotion=this.checked;applySettings();saveSettings();};
   $('#setContrast').onchange=function(){SETTINGS.highContrast=this.checked;applySettings();saveSettings();};
+  if($('#setRemoveAds'))$('#setRemoveAds').onclick=function(){sfx('click');hideModal();if(typeof purchaseRemoveAds==='function')purchaseRemoveAds();};
   $('#mSetDone').onclick=hideModal;
 }
 // Extra end-of-game stats appended to the game-over modal (see onGameOver).

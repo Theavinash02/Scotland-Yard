@@ -102,7 +102,7 @@ limitation in-app.
   `entitlements.noAds` flag keyed to the account.
 - Config in `firebase-config.js` with documented placeholder values.
 
-### Phase 5 — Monetization
+### Phase 5 — Monetization — DONE
 - Ad slots at natural breaks only (post-game debrief, lobby return): AdSense (or
   a web game ad network) on web, AdMob via Capacitor plugin on native.
 - `ads.js` gate: every ad call checks the Firestore-backed (and locally cached)
